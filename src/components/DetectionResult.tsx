@@ -111,6 +111,12 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
                   {d.method === "text" && (
                     <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">OCR</span>
                   )}
+                  {d.method === "template" && (
+                    <span className="text-xs font-medium text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">Template</span>
+                  )}
+                  {d.method === "sift" && (
+                    <span className="text-xs font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">SIFT</span>
+                  )}
                   <span className="text-slate-500">{(d.score * 100).toFixed(1)}%</span>
                   <span className={`ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-full ${
                     d.confidence === "HIGH"
@@ -135,7 +141,7 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
                     <div className="grid grid-cols-2 gap-4 pt-3">
                       {/* Score breakdown */}
                       <div className="space-y-2">
-                        {d.method !== "text" && (
+                        {d.method === "visual" && (
                           <>
                             <ScoreBar label="DINOv2" value={d.dino_score} color="#6366f1" />
                             <ScoreBar label="CLIP" value={d.clip_score} color="#8b5cf6" />
@@ -144,7 +150,13 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
                         {d.method === "text" && (
                           <ScoreBar label="Text similarity" value={d.score} color="#6366f1" />
                         )}
-                        <ScoreBar label={d.method === "text" ? "Final" : "Combined"} value={d.score} color={COLORS[d.confidence] || "#999"} />
+                        {d.method === "template" && (
+                          <ScoreBar label="Template correlation" value={d.score} color="#06b6d4" />
+                        )}
+                        {d.method === "sift" && (
+                          <ScoreBar label="Feature match ratio" value={d.score} color="#14b8a6" />
+                        )}
+                        <ScoreBar label="Final" value={d.score} color={COLORS[d.confidence] || "#999"} />
                       </div>
 
                       {/* Bbox info */}
@@ -228,13 +240,25 @@ function draw(
 
     const color = isSelected ? (COLORS[d.confidence] || "#ccc") : (COLORS_DIM[d.confidence] || "rgba(200,200,200,0.2)");
 
-    const isText = d.method === "text";
+    const METHOD_COLORS: Record<string, string> = {
+      text: "#6366f1",
+      template: "#06b6d4",
+      sift: "#14b8a6",
+    };
+    const METHOD_LABELS: Record<string, string> = {
+      text: "TXT",
+      template: "TPL",
+      sift: "SIFT",
+    };
+
+    const methodColor = d.method ? METHOD_COLORS[d.method] : undefined;
+    const methodLabel = d.method ? METHOD_LABELS[d.method] : undefined;
+    const isNonVisual = d.method && d.method !== "visual";
 
     ctx.strokeStyle = color;
     ctx.lineWidth = isSelected ? 3 : 1;
 
-    if (isText && isSelected) {
-      // Dashed line for text detections
+    if (isNonVisual && isSelected) {
       ctx.setLineDash([6, 4]);
     } else {
       ctx.setLineDash([]);
@@ -244,12 +268,12 @@ function draw(
     ctx.setLineDash([]);
 
     if (isSelected) {
-      const prefix = isText ? "TXT " : "";
+      const prefix = methodLabel ? `${methodLabel} ` : "";
       const label = `${prefix}${d.ip} ${(d.score * 100).toFixed(1)}%`;
       ctx.font = "bold 14px sans-serif";
       const metrics = ctx.measureText(label);
       const labelH = 20;
-      ctx.fillStyle = isText ? "#6366f1" : color;
+      ctx.fillStyle = methodColor || color;
       ctx.fillRect(x, y - labelH, metrics.width + 8, labelH);
 
       ctx.fillStyle = "#fff";

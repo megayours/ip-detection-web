@@ -134,7 +134,7 @@ export interface Detection {
   clip_score: number;
   bbox: [number, number, number, number]; // x, y, w, h
   confidence: string;
-  method?: "visual" | "text";
+  method?: "visual" | "text" | "template" | "sift";
   text_found?: string;
 }
 
