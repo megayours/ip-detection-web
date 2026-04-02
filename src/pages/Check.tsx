@@ -4,9 +4,11 @@ import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
 import DetectionResult from "../components/DetectionResult";
 
+const ALL_TRADEMARKS = "__all__";
+
 export default function Check() {
   const [trademarks, setTrademarks] = useState<Trademark[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(ALL_TRADEMARKS);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -17,10 +19,7 @@ export default function Check() {
   const detections: Detection[] = useMemo(() => job?.result?.detections ?? [], [job]);
 
   useEffect(() => {
-    listPublicTrademarks().then(({ trademarks }) => {
-      setTrademarks(trademarks);
-      if (trademarks.length > 0) setSelectedId(trademarks[0].id);
-    });
+    listPublicTrademarks().then(({ trademarks }) => setTrademarks(trademarks));
   }, []);
 
   function handleFile(files: File[]) {
@@ -33,11 +32,12 @@ export default function Check() {
   }
 
   async function handleSubmit() {
-    if (!file || !selectedId) return;
+    if (!file) return;
     setSubmitting(true);
     setError("");
     try {
-      const { job_id } = await submitDetection(selectedId, file);
+      const tmId = selectedId === ALL_TRADEMARKS ? undefined : selectedId;
+      const { job_id } = await submitDetection(file, tmId);
       setJobId(job_id);
     } catch (e: any) {
       setError(e.message);
@@ -54,13 +54,16 @@ export default function Check() {
   }
 
   const isProcessing = job && job.status !== "completed" && job.status !== "failed";
+  const selectedLabel = selectedId === ALL_TRADEMARKS
+    ? `all ${trademarks.length} trademarks`
+    : trademarks.find((t) => t.id === selectedId)?.name ?? "selected trademark";
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
       <div>
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Scan Image</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Upload an image and select a registered trademark to check for visual IP proximity.
+          Upload an image to check for visual IP proximity against registered trademarks.
         </p>
       </div>
 
@@ -77,6 +80,9 @@ export default function Check() {
             onChange={(e) => setSelectedId(e.target.value)}
             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white transition-all"
           >
+            <option value={ALL_TRADEMARKS}>
+              All Trademarks ({trademarks.length})
+            </option>
             {trademarks.map((tm) => (
               <option key={tm.id} value={tm.id}>
                 {tm.name} ({tm.image_count} references)
@@ -113,7 +119,7 @@ export default function Check() {
           {isProcessing && (
             <div className="bg-blue-50 border border-blue-100 text-blue-700 text-sm rounded-xl px-5 py-4 flex items-center gap-3">
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              Analyzing image... This may take a moment.
+              Scanning against {selectedLabel}...
             </div>
           )}
 
@@ -125,7 +131,7 @@ export default function Check() {
 
           {job?.status === "completed" && detections.length === 0 && (
             <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm rounded-xl px-5 py-4">
-              No IP proximity detected. Image appears clear.
+              No IP proximity detected against {selectedLabel}. Image appears clear.
             </div>
           )}
 
@@ -139,7 +145,7 @@ export default function Check() {
           {(!job || job.status === "completed" || job.status === "failed") && (
             <button
               onClick={handleSubmit}
-              disabled={submitting || !selectedId}
+              disabled={submitting || trademarks.length === 0}
               className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
             >
               {submitting ? "Submitting..." : job ? "Scan Again" : "Scan Image"}

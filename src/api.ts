@@ -145,10 +145,10 @@ export interface Job {
   error: string | null;
 }
 
-export async function submitDetection(trademarkId: string, file: File) {
+export async function submitDetection(file: File, trademarkId?: string) {
   const form = new FormData();
   form.append("image", file);
-  form.append("trademark_id", trademarkId);
+  if (trademarkId) form.append("trademark_id", trademarkId);
 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
