@@ -2,15 +2,15 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import type { Detection } from "../api";
 
 const COLORS: Record<string, string> = {
-  HIGH: "#00c800",
-  MEDIUM: "#ffa500",
-  LOW: "#c80000",
+  HIGH: "#10b981",
+  MEDIUM: "#f59e0b",
+  LOW: "#ef4444",
 };
 
 const COLORS_DIM: Record<string, string> = {
-  HIGH: "rgba(0,200,0,0.2)",
-  MEDIUM: "rgba(255,165,0,0.2)",
-  LOW: "rgba(200,0,0,0.2)",
+  HIGH: "rgba(16,185,129,0.2)",
+  MEDIUM: "rgba(245,158,11,0.2)",
+  LOW: "rgba(239,68,68,0.2)",
 };
 
 interface Props {
@@ -67,17 +67,17 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
 
   return (
     <div className="space-y-4">
-      <canvas ref={canvasRef} className="max-w-full h-auto rounded border border-gray-200" />
+      <canvas ref={canvasRef} className="max-w-full h-auto rounded-xl border border-slate-200" />
 
       {detections.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-400">
+          <div className="flex items-center justify-between text-xs text-slate-400">
             <span>{selected.size} of {detections.length} selected</span>
-            <div className="flex gap-2">
-              <button onClick={() => setSelected(new Set(detections.map((_, i) => i)))} className="hover:text-gray-600">
+            <div className="flex gap-3">
+              <button onClick={() => setSelected(new Set(detections.map((_, i) => i)))} className="hover:text-slate-600 transition-colors">
                 Select all
               </button>
-              <button onClick={() => setSelected(new Set())} className="hover:text-gray-600">
+              <button onClick={() => setSelected(new Set())} className="hover:text-slate-600 transition-colors">
                 Clear
               </button>
             </div>
@@ -92,29 +92,29 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
               <div
                 key={i}
                 onClick={() => toggle(i)}
-                className={`rounded-lg border transition-all cursor-pointer ${
+                className={`rounded-xl border transition-all cursor-pointer ${
                   isSelected
-                    ? "border-gray-300 bg-white shadow-sm"
-                    : "border-gray-100 bg-gray-50 opacity-60"
+                    ? "border-slate-200 bg-white shadow-sm"
+                    : "border-slate-100 bg-slate-50/50 opacity-60"
                 }`}
               >
                 {/* Summary row */}
-                <div className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                <div className="flex items-center gap-3 px-4 py-3 text-sm">
                   <span
-                    className={`w-3 h-3 rounded-sm shrink-0 border-2 ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}
+                    className={`w-3 h-3 rounded shrink-0 border-2 transition-colors ${isSelected ? "border-rose-500 bg-rose-500" : "border-slate-300"}`}
                   />
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: COLORS[d.confidence] || "#ccc" }}
                   />
-                  <span className="font-medium text-gray-900">{d.ip}</span>
-                  <span className="text-gray-500">{(d.score * 100).toFixed(1)}%</span>
-                  <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded ${
+                  <span className="font-semibold text-slate-900">{d.ip}</span>
+                  <span className="text-slate-500">{(d.score * 100).toFixed(1)}%</span>
+                  <span className={`ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-full ${
                     d.confidence === "HIGH"
-                      ? "bg-green-100 text-green-700"
+                      ? "bg-emerald-50 text-emerald-600"
                       : d.confidence === "MEDIUM"
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-red-100 text-red-700"
+                        ? "bg-amber-50 text-amber-600"
+                        : "bg-red-50 text-red-600"
                   }`}>
                     {d.confidence}
                   </span>
@@ -122,7 +122,7 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
 
                 {/* Expanded detail */}
                 {isSelected && (
-                  <div className="px-3 pb-3 pt-0 space-y-3 border-t border-gray-100">
+                  <div className="px-3 pb-3 pt-0 space-y-3 border-t border-slate-100">
                     <div className="grid grid-cols-2 gap-4 pt-3">
                       {/* Score breakdown */}
                       <div className="space-y-2">
@@ -132,8 +132,8 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
                       </div>
 
                       {/* Bbox info */}
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <p className="font-medium text-gray-700">Region</p>
+                      <div className="text-xs text-slate-500 space-y-1">
+                        <p className="font-medium text-slate-700">Region</p>
                         <p>Position: ({x}, {y})</p>
                         <p>Size: {w} x {h} px</p>
                         <p>Area: {areaPct.toFixed(1)}% of image</p>
@@ -157,10 +157,10 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
   return (
     <div className="space-y-0.5">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-500">{label}</span>
-        <span className="font-medium text-gray-700">{(value * 100).toFixed(1)}%</span>
+        <span className="text-slate-500">{label}</span>
+        <span className="font-medium text-slate-700">{(value * 100).toFixed(1)}%</span>
       </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${value * 100}%`, backgroundColor: color }} />
       </div>
     </div>
@@ -190,8 +190,8 @@ function CropPreview({ imageUrl, bbox }: { imageUrl: string; bbox: [number, numb
 
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-1 font-medium">Matched region</p>
-      <canvas ref={canvasRef} className="rounded border border-gray-200 max-w-[200px]" />
+      <p className="text-xs text-slate-500 mb-1 font-medium">Matched region</p>
+      <canvas ref={canvasRef} className="rounded border border-slate-200 max-w-[200px]" />
     </div>
   );
 }

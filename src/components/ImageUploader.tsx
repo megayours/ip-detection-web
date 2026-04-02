@@ -31,8 +31,8 @@ export default function ImageUploader({ onUpload, uploading, accept = "image/*",
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
-      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-        dragOver ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400"
+      className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+        dragOver ? "border-rose-400 bg-rose-50/50" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
       } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
     >
       <input
@@ -43,7 +43,11 @@ export default function ImageUploader({ onUpload, uploading, accept = "image/*",
         onChange={handleChange}
         className="hidden"
       />
-      <p className="text-gray-500 text-sm">{uploading ? "Uploading..." : label}</p>
+      <div className="space-y-2">
+        <div className="text-slate-300 text-3xl">&#x2191;</div>
+        <p className="text-sm text-slate-500 font-medium">{uploading ? "Uploading..." : label}</p>
+        <p className="text-xs text-slate-400">PNG, JPG, WebP up to 50MB</p>
+      </div>
     </div>
   );
 }

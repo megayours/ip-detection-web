@@ -40,33 +40,44 @@ export default function Login() {
   }
 
   return (
-    <div className="max-w-sm mx-auto py-16 space-y-6">
-      <h1 className="text-2xl font-bold text-center text-gray-900">Sign In</h1>
-      <p className="text-sm text-gray-500 text-center">
-        Use a passkey to sign in or create a new account.
-      </p>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-          {error}
+    <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-lg font-black">M</span>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Authenticate with a passkey — no passwords, no email.
+          </p>
         </div>
-      )}
 
-      <div className="space-y-3">
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          Sign in with Passkey
-        </button>
-        <button
-          onClick={handleRegister}
-          disabled={loading}
-          className="w-full px-4 py-2.5 bg-white text-gray-700 rounded-lg text-sm font-medium border border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-        >
-          Create Account
-        </button>
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full px-4 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+          >
+            Sign in with Passkey
+          </button>
+          <button
+            onClick={handleRegister}
+            disabled={loading}
+            className="w-full px-4 py-3 bg-white text-slate-700 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-all"
+          >
+            Create Account
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-slate-400">
+          Passkeys are phishing-resistant and never leave your device.
+        </p>
       </div>
     </div>
   );

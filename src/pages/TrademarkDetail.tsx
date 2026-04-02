@@ -34,11 +34,8 @@ export default function TrademarkDetail() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, [id]);
+  useEffect(() => { load(); }, [id]);
 
-  // Reload when index job completes
   useEffect(() => {
     if (indexJob?.status === "completed" || indexJob?.status === "failed") {
       load();
@@ -73,60 +70,70 @@ export default function TrademarkDetail() {
     navigate("/trademarks");
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
-  if (!trademark) return <p className="text-red-600">Trademark not found</p>;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-16 flex justify-center">
+        <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!trademark) return <p className="text-red-600 p-8">Trademark not found</p>;
 
   const pendingImages = images.filter((i) => i.status === "pending");
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{trademark.name}</h1>
-          {trademark.description && <p className="text-gray-500 mt-1">{trademark.description}</p>}
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{trademark.name}</h1>
+          {trademark.description && <p className="mt-1 text-sm text-slate-500">{trademark.description}</p>}
+          <div className="mt-3 flex items-center gap-3 text-sm">
+            <span className="text-slate-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
+            {trademark.centroid_dino ? (
+              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">Indexed</span>
+            ) : pendingImages.length > 0 ? (
+              <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full">
+                {pendingImages.length} pending
+              </span>
+            ) : (
+              <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-0.5 rounded-full">No images</span>
+            )}
+          </div>
         </div>
         <button
           onClick={handleDelete}
-          className="px-4 py-2 text-red-600 border border-red-200 rounded-lg text-sm hover:bg-red-50 transition-colors"
+          className="px-4 py-2 text-sm text-red-500 border border-red-100 rounded-xl hover:bg-red-50 transition-all"
         >
           Delete
         </button>
       </div>
 
-      {/* Status */}
-      <div className="flex items-center gap-4 text-sm">
-        <span className="text-gray-500">{images.length} image{images.length !== 1 ? "s" : ""}</span>
-        {trademark.centroid_dino ? (
-          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">Indexed</span>
-        ) : pendingImages.length > 0 ? (
-          <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-medium">
-            {pendingImages.length} pending indexing
-          </span>
-        ) : (
-          <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-xs font-medium">No images</span>
-        )}
-      </div>
-
       {/* Index job status */}
       {indexJob && indexJob.status !== "completed" && (
-        <div className={`rounded-lg px-4 py-3 text-sm ${
+        <div className={`rounded-xl px-5 py-4 text-sm ${
           indexJob.status === "failed"
-            ? "bg-red-50 text-red-700 border border-red-200"
-            : "bg-blue-50 text-blue-700 border border-blue-200"
+            ? "bg-red-50 text-red-700 border border-red-100"
+            : "bg-blue-50 text-blue-700 border border-blue-100"
         }`}>
           {indexJob.status === "failed"
             ? `Indexing failed: ${indexJob.error}`
-            : `Indexing in progress (${indexJob.status})...`}
+            : (
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                Indexing reference images...
+              </div>
+            )}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
           {error}
         </div>
       )}
 
-      {/* Upload area */}
+      {/* Upload */}
       <ImageUploader
         onUpload={handleUpload}
         uploading={uploading}
@@ -137,24 +144,24 @@ export default function TrademarkDetail() {
       {images.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {images.map((img) => (
-            <div key={img.id} className="relative group bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div key={img.id} className="relative group rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
               <img src={img.url} alt="" className="w-full aspect-square object-cover" />
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
-                  className="bg-white/90 text-red-600 rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-50 border border-gray-200"
+                  className="bg-white/90 text-red-500 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold hover:bg-red-50 border border-slate-200 shadow-sm"
                   title="Delete image"
                 >
                   x
                 </button>
               </div>
-              <div className="absolute bottom-0 inset-x-0 bg-white/80 px-2 py-1 text-xs">
+              <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs font-medium">
                 {img.status === "indexed" ? (
-                  <span className="text-green-600">Indexed</span>
+                  <span className="text-emerald-600">Indexed</span>
                 ) : img.status === "failed" ? (
-                  <span className="text-red-600">Failed</span>
+                  <span className="text-red-500">Failed</span>
                 ) : (
-                  <span className="text-gray-400">Pending</span>
+                  <span className="text-slate-400">Pending</span>
                 )}
               </div>
             </div>

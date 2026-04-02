@@ -1,41 +1,52 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Nav() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const linkClass = (path: string) =>
+    `text-sm font-medium transition-colors ${
+      pathname === path
+        ? "text-slate-900"
+        : "text-slate-400 hover:text-slate-700"
+    }`;
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 py-3">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <Link to="/" className="text-lg font-semibold text-gray-900">
-            IP Detection
+    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center">
+              <span className="text-white text-xs font-black">M</span>
+            </div>
+            <span className="text-sm font-bold tracking-tight text-slate-900">MegaYours</span>
           </Link>
           {user && (
-            <>
-              <Link to="/trademarks" className="text-sm text-gray-600 hover:text-gray-900">
-                My Trademarks
+            <div className="flex items-center gap-6">
+              <Link to="/trademarks" className={linkClass("/trademarks")}>
+                Registry
               </Link>
-              <Link to="/check" className="text-sm text-gray-600 hover:text-gray-900">
-                Check Image
+              <Link to="/check" className={linkClass("/check")}>
+                Scan
               </Link>
-            </>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-4">
           {user ? (
             <button
-              onClick={() => {
-                logout();
-                navigate("/");
-              }}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              onClick={() => { logout(); navigate("/"); }}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
             >
               Sign out
             </button>
           ) : (
-            <Link to="/login" className="text-sm text-blue-600 hover:text-blue-800">
+            <Link
+              to="/login"
+              className="text-sm font-medium text-rose-600 hover:text-rose-700 transition-colors"
+            >
               Sign in
             </Link>
           )}

@@ -56,26 +56,30 @@ export default function Check() {
   const isProcessing = job && job.status !== "completed" && job.status !== "failed";
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Check Image</h1>
-      <p className="text-gray-500 text-sm">
-        Upload an image and select a trademark to check for visual similarity.
-      </p>
+    <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Scan Image</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Upload an image and select a registered trademark to check for visual IP proximity.
+        </p>
+      </div>
 
       {/* Trademark selector */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Trademark to check against</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">Check against</label>
         {trademarks.length === 0 ? (
-          <p className="text-sm text-gray-400">No indexed trademarks available yet.</p>
+          <div className="text-sm text-slate-400 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+            No indexed trademarks available yet. Register and index IP first.
+          </div>
         ) : (
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white transition-all"
           >
             {trademarks.map((tm) => (
               <option key={tm.id} value={tm.id}>
-                {tm.name} ({tm.image_count} images)
+                {tm.name} ({tm.image_count} references)
               </option>
             ))}
           </select>
@@ -87,57 +91,58 @@ export default function Check() {
         <ImageUploader
           onUpload={handleFile}
           multiple={false}
-          label="Drop an image to check, or click to browse"
+          label="Drop an image to scan, or click to browse"
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">{file.name}</span>
-            <button onClick={handleReset} className="text-sm text-gray-500 hover:text-gray-700">
+            <span className="text-sm text-slate-600 font-medium">{file.name}</span>
+            <button onClick={handleReset} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
               Clear
             </button>
           </div>
 
-          {/* Show results or preview */}
+          {/* Results or preview */}
           {job?.status === "completed" && previewUrl ? (
             <DetectionResult imageUrl={previewUrl} detections={detections} />
           ) : previewUrl ? (
-            <img src={previewUrl} alt="Preview" className="max-w-full h-auto rounded border border-gray-200" />
+            <img src={previewUrl} alt="Preview" className="max-w-full h-auto rounded-xl border border-slate-200" />
           ) : null}
 
-          {/* Status messages */}
+          {/* Processing state */}
           {isProcessing && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-lg px-4 py-3">
-              Processing ({job.status})... This may take a moment.
+            <div className="bg-blue-50 border border-blue-100 text-blue-700 text-sm rounded-xl px-5 py-4 flex items-center gap-3">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              Analyzing image... This may take a moment.
             </div>
           )}
 
           {job?.status === "failed" && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-              Detection failed: {job.error}
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
+              Scan failed: {job.error}
             </div>
           )}
 
           {job?.status === "completed" && detections.length === 0 && (
-            <div className="bg-gray-50 border border-gray-200 text-gray-600 text-sm rounded-lg px-4 py-3">
-              No matches found for this trademark.
+            <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm rounded-xl px-5 py-4">
+              No IP proximity detected. Image appears clear.
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
               {error}
             </div>
           )}
 
-          {/* Submit button */}
+          {/* Submit */}
           {(!job || job.status === "completed" || job.status === "failed") && (
             <button
               onClick={handleSubmit}
               disabled={submitting || !selectedId}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
             >
-              {submitting ? "Submitting..." : job ? "Run Again" : "Check Image"}
+              {submitting ? "Submitting..." : job ? "Scan Again" : "Scan Image"}
             </button>
           )}
         </div>
