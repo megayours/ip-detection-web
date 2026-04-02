@@ -134,6 +134,8 @@ export interface Detection {
   clip_score: number;
   bbox: [number, number, number, number]; // x, y, w, h
   confidence: string;
+  method?: "visual" | "text";
+  text_found?: string;
 }
 
 export interface Job {
