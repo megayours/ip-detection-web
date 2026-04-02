@@ -103,7 +103,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                Semantic Detection,<br />Not Pixel Matching
+                Multi-Stage Detection,<br />Not Pixel Matching
               </h2>
               <p className="mt-4 text-slate-500 leading-relaxed">
                 Traditional tools rely on perceptual hashing — they check if two images are pixel-identical.
