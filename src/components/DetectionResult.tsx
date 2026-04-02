@@ -7,11 +7,20 @@ const COLORS: Record<string, string> = {
   LOW: "#ef4444",
 };
 
-const COLORS_DIM: Record<string, string> = {
-  HIGH: "rgba(16,185,129,0.2)",
-  MEDIUM: "rgba(245,158,11,0.2)",
-  LOW: "rgba(239,68,68,0.2)",
+const METHOD_LABELS: Record<string, string> = {
+  visual: "Visual",
+  text: "OCR",
+  template: "Template",
+  sift: "SIFT",
 };
+
+interface IPGroup {
+  name: string;
+  bestScore: number;
+  confidence: string;
+  detections: Detection[];
+  methods: string[];
+}
 
 interface Props {
   imageUrl: string;
@@ -21,34 +30,45 @@ interface Props {
 export default function DetectionResult({ imageUrl, detections }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const [selected, setSelected] = useState<Set<number>>(() => new Set(detections.map((_, i) => i)));
+  const [expandedIP, setExpandedIP] = useState<string | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  // Reset selection when detections change
-  useEffect(() => {
-    setSelected(new Set(detections.map((_, i) => i)));
+  // Group detections by IP
+  const groups: IPGroup[] = useMemo(() => {
+    const map = new Map<string, Detection[]>();
+    for (const d of detections) {
+      const list = map.get(d.ip) || [];
+      list.push(d);
+      map.set(d.ip, list);
+    }
+    return Array.from(map.entries()).map(([name, dets]) => {
+      const sorted = [...dets].sort((a, b) => b.score - a.score);
+      const best = sorted[0];
+      const methods = [...new Set(sorted.map(d => d.method || "visual"))];
+      return { name, bestScore: best.score, confidence: best.confidence, detections: sorted, methods };
+    }).sort((a, b) => b.bestScore - a.bestScore);
   }, [detections]);
 
-  function toggle(idx: number) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
-  }
+  // Which detections to draw on canvas: best per IP, or all for expanded IP
+  const visibleDetections = useMemo(() => {
+    if (expandedIP) {
+      return groups.find(g => g.name === expandedIP)?.detections || [];
+    }
+    // Best detection per IP
+    return groups.map(g => g.detections[0]);
+  }, [groups, expandedIP]);
 
-  // Draw canvas whenever selection or image changes
+  // Draw canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       imgRef.current = img;
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      draw(canvas, img, detections, selected);
+      draw(canvas, img, visibleDetections, expandedIdx);
     };
     img.src = imageUrl;
   }, [imageUrl]);
@@ -56,120 +76,94 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !imgRef.current) return;
-    draw(canvas, imgRef.current, detections, selected);
-  }, [selected, detections]);
-
-  // Compute image area for percentage calc
-  const imageArea = useMemo(() => {
-    if (!imgRef.current) return 0;
-    return imgRef.current.naturalWidth * imgRef.current.naturalHeight;
-  }, [imgRef.current]);
+    draw(canvas, imgRef.current, visibleDetections, expandedIdx);
+  }, [visibleDetections, expandedIdx]);
 
   return (
     <div className="space-y-4">
       <canvas ref={canvasRef} className="max-w-full h-auto rounded-xl border border-slate-200" />
 
-      {detections.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>{selected.size} of {detections.length} selected</span>
-            <div className="flex gap-3">
-              <button onClick={() => setSelected(new Set(detections.map((_, i) => i)))} className="hover:text-slate-600 transition-colors">
-                Select all
-              </button>
-              <button onClick={() => setSelected(new Set())} className="hover:text-slate-600 transition-colors">
-                Clear
-              </button>
-            </div>
-          </div>
+      {groups.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs text-slate-400">{groups.length} trademark{groups.length !== 1 ? "s" : ""} detected</p>
 
-          {detections.map((d, i) => {
-            const isSelected = selected.has(i);
-            const [x, y, w, h] = d.bbox;
-            const areaPct = imageArea > 0 ? ((w * h) / imageArea * 100) : 0;
+          {groups.map((group) => {
+            const isExpanded = expandedIP === group.name;
 
             return (
-              <div
-                key={i}
-                onClick={() => toggle(i)}
-                className={`rounded-xl border transition-all cursor-pointer ${
-                  isSelected
-                    ? "border-slate-200 bg-white shadow-sm"
-                    : "border-slate-100 bg-slate-50/50 opacity-60"
-                }`}
-              >
-                {/* Summary row */}
-                <div className="flex items-center gap-3 px-4 py-3 text-sm">
-                  <span
-                    className={`w-3 h-3 rounded shrink-0 border-2 transition-colors ${isSelected ? "border-rose-500 bg-rose-500" : "border-slate-300"}`}
-                  />
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: COLORS[d.confidence] || "#ccc" }}
-                  />
-                  <span className="font-semibold text-slate-900">{d.ip}</span>
-                  {d.method === "text" && (
-                    <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">OCR</span>
-                  )}
-                  {d.method === "template" && (
-                    <span className="text-xs font-medium text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">Template</span>
-                  )}
-                  {d.method === "sift" && (
-                    <span className="text-xs font-medium text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">SIFT</span>
-                  )}
-                  <span className="text-slate-500">{(d.score * 100).toFixed(1)}%</span>
-                  <span className={`ml-auto text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                    d.confidence === "HIGH"
-                      ? "bg-emerald-50 text-emerald-600"
-                      : d.confidence === "MEDIUM"
-                        ? "bg-amber-50 text-amber-600"
-                        : "bg-red-50 text-red-600"
-                  }`}>
-                    {d.confidence}
-                  </span>
-                </div>
+              <div key={group.name} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                {/* IP Summary */}
+                <button
+                  onClick={() => { setExpandedIP(isExpanded ? null : group.name); setExpandedIdx(null); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-left hover:bg-slate-50/50 transition-colors"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[group.confidence] || "#ccc" }} />
+                  <span className="font-semibold text-slate-900">{group.name}</span>
+                  <span className="text-slate-500 text-lg font-bold">{(group.bestScore * 100).toFixed(0)}%</span>
+                  <div className="flex gap-1.5 ml-1">
+                    {group.methods.map(m => (
+                      <span key={m} className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                        {METHOD_LABELS[m] || m}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs text-slate-400">{group.detections.length} hit{group.detections.length !== 1 ? "s" : ""}</span>
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                      group.confidence === "HIGH" ? "bg-emerald-50 text-emerald-600"
+                      : group.confidence === "MEDIUM" ? "bg-amber-50 text-amber-600"
+                      : "bg-red-50 text-red-600"
+                    }`}>
+                      {group.confidence}
+                    </span>
+                    <svg className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </button>
 
-                {/* Expanded detail */}
-                {isSelected && (
-                  <div className="px-3 pb-3 pt-0 space-y-3 border-t border-slate-100">
-                    {d.text_found && (
-                      <div className="pt-3">
-                        <span className="text-xs text-slate-400 uppercase tracking-wider">Text found</span>
-                        <p className="mt-1 text-sm font-mono font-semibold text-slate-800">"{d.text_found}"</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4 pt-3">
-                      {/* Score breakdown */}
-                      <div className="space-y-2">
-                        {d.method === "visual" && (
-                          <>
-                            <ScoreBar label="DINOv2" value={d.dino_score} color="#6366f1" />
-                            <ScoreBar label="CLIP" value={d.clip_score} color="#8b5cf6" />
-                          </>
-                        )}
-                        {d.method === "text" && (
-                          <ScoreBar label="Text similarity" value={d.score} color="#6366f1" />
-                        )}
-                        {d.method === "template" && (
-                          <ScoreBar label="Template correlation" value={d.score} color="#06b6d4" />
-                        )}
-                        {d.method === "sift" && (
-                          <ScoreBar label="Feature match ratio" value={d.score} color="#14b8a6" />
-                        )}
-                        <ScoreBar label="Final" value={d.score} color={COLORS[d.confidence] || "#999"} />
-                      </div>
+                {/* Expanded: individual detections */}
+                {isExpanded && (
+                  <div className="border-t border-slate-100">
+                    {group.detections.map((d, i) => {
+                      const isDetailOpen = expandedIdx === i;
+                      const [x, y, w, h] = d.bbox;
 
-                      {/* Bbox info */}
-                      <div className="text-xs text-slate-500 space-y-1">
-                        <p className="font-medium text-slate-700">Region</p>
-                        <p>Position: ({x}, {y})</p>
-                        <p>Size: {w} x {h} px</p>
-                        <p>Area: {areaPct.toFixed(1)}% of image</p>
-                      </div>
-                    </div>
+                      return (
+                        <div key={i} className="border-b border-slate-50 last:border-b-0">
+                          <button
+                            onClick={() => setExpandedIdx(isDetailOpen ? null : i)}
+                            onMouseEnter={() => setExpandedIdx(i)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left hover:bg-slate-50/30 transition-colors"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[d.confidence] || "#ccc" }} />
+                            <span className="text-slate-600 font-medium">{(d.score * 100).toFixed(1)}%</span>
+                            <span className="text-slate-400">
+                              {METHOD_LABELS[d.method || "visual"]}
+                            </span>
+                            {d.text_found && <span className="text-slate-400 font-mono">"{d.text_found}"</span>}
+                            <span className="ml-auto text-slate-300">{w}x{h} at ({x},{y})</span>
+                          </button>
 
-                    {/* Crop preview */}
-                    <CropPreview imageUrl={imageUrl} bbox={d.bbox} />
+                          {isDetailOpen && (
+                            <div className="px-4 pb-3 space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  {d.method === "visual" && (
+                                    <>
+                                      <ScoreBar label="DINOv2" value={d.dino_score} color="#6366f1" />
+                                      <ScoreBar label="CLIP" value={d.clip_score} color="#8b5cf6" />
+                                    </>
+                                  )}
+                                  {d.method === "text" && <ScoreBar label="Text similarity" value={d.score} color="#6366f1" />}
+                                  {d.method === "template" && <ScoreBar label="Correlation" value={d.score} color="#06b6d4" />}
+                                  <ScoreBar label="Final" value={d.score} color={COLORS[d.confidence] || "#999"} />
+                                </div>
+                                <CropPreview imageUrl={imageUrl} bbox={d.bbox} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -201,12 +195,11 @@ function CropPreview({ imageUrl, bbox }: { imageUrl: string; bbox: [number, numb
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       const [x, y, w, h] = bbox;
-      const maxW = 200;
+      const maxW = 160;
       const scale = Math.min(maxW / w, maxW / h, 1);
       canvas.width = Math.round(w * scale);
       canvas.height = Math.round(h * scale);
@@ -216,19 +209,14 @@ function CropPreview({ imageUrl, bbox }: { imageUrl: string; bbox: [number, numb
     img.src = imageUrl;
   }, [imageUrl, bbox]);
 
-  return (
-    <div>
-      <p className="text-xs text-slate-500 mb-1 font-medium">Matched region</p>
-      <canvas ref={canvasRef} className="rounded border border-slate-200 max-w-[200px]" />
-    </div>
-  );
+  return <canvas ref={canvasRef} className="rounded border border-slate-200 max-w-[160px]" />;
 }
 
 function draw(
   canvas: HTMLCanvasElement,
   img: HTMLImageElement,
   detections: Detection[],
-  selected: Set<number>,
+  highlightIdx: number | null,
 ) {
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0);
@@ -236,48 +224,31 @@ function draw(
   for (let i = 0; i < detections.length; i++) {
     const d = detections[i];
     const [x, y, w, h] = d.bbox;
-    const isSelected = selected.has(i);
+    const isHighlighted = highlightIdx === null || highlightIdx === i;
 
-    const color = isSelected ? (COLORS[d.confidence] || "#ccc") : (COLORS_DIM[d.confidence] || "rgba(200,200,200,0.2)");
-
-    const METHOD_COLORS: Record<string, string> = {
-      text: "#6366f1",
-      template: "#06b6d4",
-      sift: "#14b8a6",
-    };
-    const METHOD_LABELS: Record<string, string> = {
-      text: "TXT",
-      template: "TPL",
-      sift: "SIFT",
-    };
-
-    const methodColor = d.method ? METHOD_COLORS[d.method] : undefined;
-    const methodLabel = d.method ? METHOD_LABELS[d.method] : undefined;
+    const color = COLORS[d.confidence] || "#ccc";
     const isNonVisual = d.method && d.method !== "visual";
 
+    ctx.globalAlpha = isHighlighted ? 1 : 0.25;
     ctx.strokeStyle = color;
-    ctx.lineWidth = isSelected ? 3 : 1;
+    ctx.lineWidth = isHighlighted ? 3 : 1;
 
-    if (isNonVisual && isSelected) {
-      ctx.setLineDash([6, 4]);
-    } else {
-      ctx.setLineDash([]);
-    }
+    if (isNonVisual) ctx.setLineDash([6, 4]);
+    else ctx.setLineDash([]);
 
     ctx.strokeRect(x, y, w, h);
     ctx.setLineDash([]);
 
-    if (isSelected) {
-      const prefix = methodLabel ? `${methodLabel} ` : "";
-      const label = `${prefix}${d.ip} ${(d.score * 100).toFixed(1)}%`;
+    if (isHighlighted) {
+      const label = `${d.ip} ${(d.score * 100).toFixed(0)}%`;
       ctx.font = "bold 14px sans-serif";
       const metrics = ctx.measureText(label);
       const labelH = 20;
-      ctx.fillStyle = methodColor || color;
+      ctx.fillStyle = color;
       ctx.fillRect(x, y - labelH, metrics.width + 8, labelH);
-
       ctx.fillStyle = "#fff";
       ctx.fillText(label, x + 4, y - 5);
     }
   }
+  ctx.globalAlpha = 1;
 }
