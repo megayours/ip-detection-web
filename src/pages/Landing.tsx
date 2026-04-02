@@ -8,7 +8,6 @@ export default function Landing() {
     <div>
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        {/* Decorative blurs */}
         <div className="absolute -top-32 -right-32 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
 
@@ -76,24 +75,24 @@ export default function Landing() {
           How the <span className="text-rose-500">Technology</span> Works
         </h2>
         <p className="mt-3 text-slate-500 max-w-2xl">
-          A dual-model AI engine that detects IP at the semantic level — not just pixel-matching.
+          A proprietary multi-stage pipeline that detects IP at the semantic level — not just pixel-matching.
         </p>
 
         <div className="mt-12 grid md:grid-cols-3 gap-6">
           <Card
             step="01"
             title="Register IP"
-            description="Upload reference images of your trademark. The engine extracts neural embeddings that capture visual structure and semantic identity."
+            description="Upload reference images of your trademark. Our pipeline extracts a unique visual fingerprint that captures both structure and meaning."
           />
           <Card
             step="02"
-            title="Index & Score"
-            description="DINOv2 captures shape and pose. CLIP captures meaning. Together they compute centroid embeddings that define your IP's unique visual signature."
+            title="Index & Analyze"
+            description="Multiple detection algorithms work in concert — machine vision, template analysis, and text recognition — to build a comprehensive IP signature."
           />
           <Card
             step="03"
             title="Detect & Report"
-            description="Upload any image. A multi-scale sliding window scans for matches. Results include bounding boxes, confidence scores, and a breakdown by model."
+            description="Upload any image and get a proximity score in seconds. Results include matched regions, confidence levels, and a breakdown by detection method."
           />
         </div>
       </section>
@@ -112,34 +111,43 @@ export default function Landing() {
                 but shares no pixels with the original, hash-based tools see nothing.
               </p>
               <p className="mt-3 text-slate-500 leading-relaxed">
-                MegaYours sees the IP. Our dual-model approach combines structural analysis (DINOv2) with
-                semantic understanding (CLIP) to catch both visual derivatives and conceptual reproductions.
+                MegaYours sees the IP. Our multi-stage pipeline combines structural analysis with
+                semantic understanding, template matching, and optical character recognition to catch
+                visual derivatives, logo placements, and text-based marks across any context.
               </p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-              <ModelRow
-                name="DINOv2"
-                weight="70%"
-                description="Visual structure — shapes, poses, spatial composition"
-                color="from-indigo-500 to-violet-500"
+              <PipelineRow
+                icon="eye"
+                title="Structural Analysis"
+                description="Visual structure — shapes, poses, spatial composition, character anatomy"
               />
-              <ModelRow
-                name="CLIP"
-                weight="30%"
-                description="Semantic meaning — concept identity, brand association"
-                color="from-violet-500 to-purple-500"
+              <PipelineRow
+                icon="brain"
+                title="Semantic Understanding"
+                description="Concept identity — brand association, character recognition, style analysis"
+              />
+              <PipelineRow
+                icon="scan"
+                title="Template Matching"
+                description="Direct visual comparison — logo detection across scales and orientations"
+              />
+              <PipelineRow
+                icon="type"
+                title="Text Recognition"
+                description="Optical character recognition — word marks, brand names, typographic IP"
               />
               <div className="pt-4 border-t border-slate-100">
                 <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Confidence Levels</div>
                 <div className="flex gap-3 text-xs font-medium">
                   <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> HIGH &ge; 0.75
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> HIGH
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" /> MEDIUM &ge; 0.60
+                    <span className="w-2 h-2 rounded-full bg-amber-500" /> MEDIUM
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-red-500" /> LOW &lt; 0.60
+                    <span className="w-2 h-2 rounded-full bg-red-500" /> LOW
                   </span>
                 </div>
               </div>
@@ -192,14 +200,23 @@ function Card({ step, title, description }: { step: string; title: string; descr
   );
 }
 
-function ModelRow({ name, weight, description, color }: { name: string; weight: string; description: string; color: string }) {
+const ICONS: Record<string, string> = {
+  eye: "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+  brain: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+  scan: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
+  type: "M4 6h16M4 12h8m-8 6h16",
+};
+
+function PipelineRow({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (
     <div className="flex items-start gap-4">
-      <div className={`shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center`}>
-        <span className="text-white text-xs font-bold">{weight}</span>
+      <div className="shrink-0 w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+        <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[icon]} />
+        </svg>
       </div>
       <div>
-        <div className="font-semibold text-slate-900 text-sm">{name}</div>
+        <div className="font-semibold text-slate-900 text-sm">{title}</div>
         <div className="text-xs text-slate-500">{description}</div>
       </div>
     </div>

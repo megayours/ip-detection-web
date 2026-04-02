@@ -149,8 +149,8 @@ export default function DetectionResult({ imageUrl, detections }: Props) {
                                 <div className="space-y-2">
                                   {d.method === "visual" && (
                                     <>
-                                      <ScoreBar label="DINOv2" value={d.dino_score} color="#6366f1" />
-                                      <ScoreBar label="CLIP" value={d.clip_score} color="#8b5cf6" />
+                                      <ScoreBar label="Structural" value={d.dino_score} color="#6366f1" />
+                                      <ScoreBar label="Semantic" value={d.clip_score} color="#8b5cf6" />
                                     </>
                                   )}
                                   {d.method === "text" && <ScoreBar label="Text similarity" value={d.score} color="#6366f1" />}
