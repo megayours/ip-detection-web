@@ -130,8 +130,8 @@ export function deleteTrademarkImage(trademarkId: string, imageId: string) {
 export interface Detection {
   ip: string;
   score: number;
-  dino_score: number;
-  clip_score: number;
+  semantic_score: number;
+  structural_score: number;
   bbox: [number, number, number, number]; // x, y, w, h
   confidence: string;
   method?: "visual" | "text" | "template" | "sift";
