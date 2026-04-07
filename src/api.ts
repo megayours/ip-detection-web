@@ -203,7 +203,8 @@ export type PrimitiveName =
   | "palette"
   | "ocr_contains"
   | "pose_class"
-  | "manual_check";
+  | "manual_check"
+  | "canonical_proximity";
 
 export type RuleSeverity = "fail" | "fail_hard" | "note";
 

@@ -23,12 +23,13 @@ interface PrimitiveOption {
 }
 
 const ALL_PRIMITIVES: PrimitiveOption[] = [
-  { value: "identity_match", label: "Identity must be present", description: "Detection gating — fail if the IP isn't present" },
-  { value: "pose_class",     label: "Required pose",            description: "Pose classifier against tagged reference exemplars", bestFor: "character" },
-  { value: "palette",        label: "Brand color palette",      description: "Cropped region's dominant colors must match allowed palette" },
-  { value: "ocr_contains",   label: "Word mark in image",       description: "OCR must find a required string" },
-  { value: "style_fidelity", label: "Style fidelity",           description: "Cosine similarity to canonical reference centroid" },
-  { value: "manual_check",   label: "Manual review (placeholder)", description: "Surface a guideline that has no auto-primitive yet" },
+  { value: "identity_match",      label: "Identity must be present",  description: "Detection gating — fail if the IP isn't present" },
+  { value: "canonical_proximity", label: "Canonical proximity",       description: "Auto-calibrated novelty detection. Top-k mean similarity to canonical refs vs threshold derived from the reference set itself. Catches off-canon parodies that style_fidelity is too coarse to detect." },
+  { value: "pose_class",          label: "Required pose",             description: "Pose classifier against tagged reference exemplars", bestFor: "character" },
+  { value: "palette",             label: "Brand color palette",       description: "Cropped region's dominant colors must match allowed palette" },
+  { value: "ocr_contains",        label: "Word mark in image",        description: "OCR must find a required string" },
+  { value: "style_fidelity",      label: "Style fidelity (centroid)", description: "Cosine similarity to canonical centroid. Coarser than canonical_proximity — kept for backward compat." },
+  { value: "manual_check",        label: "Manual review (placeholder)", description: "Surface a guideline that has no auto-primitive yet" },
 ];
 
 function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Record<string, unknown>; on_fail: RuleSeverity; name: string } {
@@ -72,6 +73,12 @@ function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Reco
         name: "Manual review needed",
         config: { label: "guideline", needs_primitive: "to_be_built" },
         on_fail: "note",
+      };
+    case "canonical_proximity":
+      return {
+        name: "Canonical proximity",
+        config: { k: 3, calibration_percentile: "p10" },
+        on_fail: "fail",
       };
   }
 }
@@ -433,6 +440,35 @@ function PrimitiveConfigEditor({
           />
           <p className="text-xs text-slate-400">
             Manual checks always surface in the report card with severity = note. Use them to record guidelines no auto-primitive supports yet.
+          </p>
+        </div>
+      );
+
+    case "canonical_proximity":
+      return (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField
+              label="k (nearest neighbours)"
+              value={(cfg.k as number) ?? 3}
+              onChange={(v) => onChange({ ...cfg, k: Math.max(1, Math.round(v)) })}
+              step={1}
+            />
+            <SelectField
+              label="Calibration percentile"
+              value={(cfg.calibration_percentile as string) ?? "p10"}
+              onChange={(v) => onChange({ ...cfg, calibration_percentile: v })}
+              options={["min", "p05", "p10", "p25", "p50"]}
+            />
+          </div>
+          <NumberField
+            label="Min proximity (override — leave 0 to use auto-calibrated)"
+            value={(cfg.min_proximity as number) ?? 0}
+            onChange={(v) => onChange({ ...cfg, min_proximity: v > 0 ? v : undefined })}
+            step={0.01}
+          />
+          <p className="text-xs text-slate-400">
+            Computes the submission's mean cosine similarity to its <strong>k nearest canonical references</strong> (not the centroid). Threshold is auto-calibrated from the canonical set's own pairwise distances at the selected percentile — looser brands get looser thresholds, tighter brands get tighter, automatically. Stricter percentiles (lower number = stricter) catch more outliers but risk rejecting genuine variants. <strong>p10</strong> is a sensible default. Set <em>Min proximity</em> manually only if you want to override calibration.
           </p>
         </div>
       );
