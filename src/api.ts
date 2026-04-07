@@ -59,10 +59,13 @@ export function getMe() {
 
 // --- Trademarks ---
 
+export type IpType = "character" | "mark";
+
 export interface Trademark {
   id: string;
   name: string;
   description: string | null;
+  ip_type: IpType;
   image_count: number;
   indexed_count: number;
   centroid_dino: number[] | null;
@@ -76,6 +79,7 @@ export interface TrademarkImage {
   storage_path: string;
   url: string;
   status: string;
+  pose_label: string | null;
   created_at: string;
 }
 
@@ -87,11 +91,21 @@ export function listPublicTrademarks() {
   return request<{ trademarks: Trademark[] }>("/api/trademarks/public");
 }
 
-export function createTrademark(name: string, description?: string) {
+export function createTrademark(name: string, description?: string, ipType: IpType = "mark") {
   return request<{ trademark: Trademark }>("/api/trademarks", {
     method: "POST",
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ name, description, ip_type: ipType }),
   });
+}
+
+export function setImagePoseLabel(trademarkId: string, imageId: string, poseLabel: string | null) {
+  return request<{ ok: boolean; pose_label: string | null }>(
+    `/api/trademarks/${trademarkId}/images/${imageId}/pose`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ pose_label: poseLabel }),
+    }
+  );
 }
 
 export function getTrademark(id: string) {
@@ -169,4 +183,150 @@ export async function submitDetection(file: File, trademarkId?: string) {
 
 export function getJob(id: string) {
   return request<Job>(`/api/jobs/${id}`);
+}
+
+// --- Rule graphs ---
+
+export type PrimitiveName =
+  | "identity_match"
+  | "style_fidelity"
+  | "palette"
+  | "ocr_contains"
+  | "pose_class"
+  | "manual_check";
+
+export type RuleSeverity = "fail" | "fail_hard" | "note";
+
+export interface Rule {
+  id?: string;
+  name: string;
+  description?: string;
+  primitive: PrimitiveName;
+  config: Record<string, unknown>;
+  on_fail: RuleSeverity;
+}
+
+export interface RuleGraphContent {
+  schema_version: 1;
+  ip_type: IpType;
+  rules: Rule[];
+}
+
+export interface RuleGraphResponse {
+  trademark_id: string;
+  version: string;
+  content: RuleGraphContent;
+  created_at: string;
+}
+
+export function getRuleGraph(trademarkId: string) {
+  return request<{ rule_graph: RuleGraphResponse | null }>(`/api/rule-graphs/${trademarkId}`);
+}
+
+export function putRuleGraph(trademarkId: string, content: RuleGraphContent, version?: string) {
+  return request<{ rule_graph: RuleGraphResponse }>(`/api/rule-graphs/${trademarkId}`, {
+    method: "PUT",
+    body: JSON.stringify({ content, version }),
+  });
+}
+
+// --- Submissions (licensee pre-flight checks) ---
+
+export type Verdict = "pass" | "pass_w_note" | "fail" | "fail_hard";
+
+export interface RuleResult {
+  rule_id: string;
+  rule_name: string;
+  primitive: PrimitiveName;
+  state: "pass" | "fail" | "uncertain";
+  observed: Record<string, unknown>;
+  evidence?: Record<string, unknown>;
+  on_fail: RuleSeverity;
+}
+
+export interface PrimitiveResultsBlob {
+  rule_results: RuleResult[];
+  verdict: Verdict;
+}
+
+export interface Submission {
+  id: string;
+  verdict: Verdict | null;
+  review_requested: boolean;
+  created_at: string;
+  evaluated_at: string | null;
+  submitter_email: string | null;
+  submitter_note: string | null;
+  image_url: string;
+  primitive_results: PrimitiveResultsBlob | null;
+}
+
+export interface SubmissionResponse {
+  submission: Submission;
+  trademark: { id: string; name: string; ip_type: IpType } | null;
+  job: { id: string; status: string; error: string | null } | null;
+}
+
+export async function createSubmission(
+  trademarkId: string,
+  file: File,
+  submitterEmail?: string,
+  submitterNote?: string
+) {
+  const form = new FormData();
+  form.append("image", file);
+  form.append("trademark_id", trademarkId);
+  if (submitterEmail) form.append("submitter_email", submitterEmail);
+  if (submitterNote) form.append("submitter_note", submitterNote);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API}/api/submissions`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ submission_id: string; job_id: string; status: string }>;
+}
+
+export function getSubmission(id: string) {
+  return request<SubmissionResponse>(`/api/submissions/${id}`);
+}
+
+export function requestSubmissionReview(id: string) {
+  return request<{ ok: boolean }>(`/api/submissions/${id}/request-review`, {
+    method: "POST",
+  });
+}
+
+// --- Review queue ---
+
+export interface ReviewQueueItem {
+  id: string;
+  trademark: { id: string; name: string; ip_type: IpType } | null;
+  verdict: Verdict | null;
+  submitter_email: string | null;
+  submitter_note: string | null;
+  created_at: string;
+  evaluated_at: string | null;
+  image_url: string;
+  primitive_results: PrimitiveResultsBlob | null;
+}
+
+export function listReviewQueue() {
+  return request<{ submissions: ReviewQueueItem[] }>(`/api/reviews/queue`);
+}
+
+export type ReviewAction = "override_to_pass" | "uphold_fail" | "note";
+
+export function postReview(submissionId: string, action: ReviewAction, note?: string) {
+  return request<{ review: { id: string } }>(`/api/reviews/${submissionId}`, {
+    method: "POST",
+    body: JSON.stringify({ action, note }),
+  });
 }

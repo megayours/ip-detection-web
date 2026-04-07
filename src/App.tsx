@@ -6,6 +6,8 @@ import Login from "./pages/Login";
 import Trademarks from "./pages/Trademarks";
 import TrademarkDetail from "./pages/TrademarkDetail";
 import Check from "./pages/Check";
+import TestSubmission from "./pages/TestSubmission";
+import ReviewQueue from "./pages/ReviewQueue";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +40,14 @@ export default function App() {
         <Route
           path="/check"
           element={<ProtectedRoute><Check /></ProtectedRoute>}
+        />
+        <Route
+          path="/test"
+          element={<ProtectedRoute><TestSubmission /></ProtectedRoute>}
+        />
+        <Route
+          path="/reviews"
+          element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>}
         />
       </Routes>
     </div>

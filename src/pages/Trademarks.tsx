@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { listTrademarks, createTrademark, type Trademark } from "../api";
+import { listTrademarks, createTrademark, type Trademark, type IpType } from "../api";
 
 export default function Trademarks() {
   const [trademarks, setTrademarks] = useState<Trademark[]>([]);
@@ -8,6 +8,7 @@ export default function Trademarks() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [ipType, setIpType] = useState<IpType>("mark");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,9 +29,10 @@ export default function Trademarks() {
     setCreating(true);
     setError("");
     try {
-      await createTrademark(name.trim(), description.trim() || undefined);
+      await createTrademark(name.trim(), description.trim() || undefined, ipType);
       setName("");
       setDescription("");
+      setIpType("mark");
       setShowCreate(false);
       load();
     } catch (e: any) {
@@ -88,6 +90,47 @@ export default function Trademarks() {
               className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">IP type</label>
+            <div className="grid grid-cols-2 gap-3">
+              <label
+                className={`cursor-pointer rounded-xl border px-4 py-3 transition-all ${
+                  ipType === "mark"
+                    ? "border-rose-500 bg-rose-50/50 ring-2 ring-rose-500/20"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="ip_type"
+                  value="mark"
+                  checked={ipType === "mark"}
+                  onChange={() => setIpType("mark")}
+                  className="sr-only"
+                />
+                <div className="text-sm font-semibold text-slate-900">Mark</div>
+                <div className="text-xs text-slate-500 mt-0.5">Logo, symbol, packaging, vehicle</div>
+              </label>
+              <label
+                className={`cursor-pointer rounded-xl border px-4 py-3 transition-all ${
+                  ipType === "character"
+                    ? "border-rose-500 bg-rose-50/50 ring-2 ring-rose-500/20"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="ip_type"
+                  value="character"
+                  checked={ipType === "character"}
+                  onChange={() => setIpType("character")}
+                  className="sr-only"
+                />
+                <div className="text-sm font-semibold text-slate-900">Character</div>
+                <div className="text-xs text-slate-500 mt-0.5">Cartoon, mascot — unlocks pose rules</div>
+              </label>
+            </div>
+          </div>
           <button
             type="submit"
             disabled={creating || !name.trim()}
@@ -116,7 +159,12 @@ export default function Trademarks() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-slate-900 group-hover:text-rose-600 transition-colors">{tm.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 group-hover:text-rose-600 transition-colors">{tm.name}</h3>
+                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {tm.ip_type}
+                    </span>
+                  </div>
                   {tm.description && <p className="text-sm text-slate-500 mt-1">{tm.description}</p>}
                 </div>
                 <div className="text-right text-sm space-y-1">

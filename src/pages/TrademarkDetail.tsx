@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   getTrademark,
   deleteTrademark,
   uploadTrademarkImages,
   deleteTrademarkImage,
+  setImagePoseLabel,
   type Trademark,
   type TrademarkImage,
 } from "../api";
 import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
+import RuleEditor from "../components/RuleEditor";
 
 export default function TrademarkDetail() {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +66,12 @@ export default function TrademarkDetail() {
     load();
   }
 
+  async function handlePoseLabel(imageId: string, poseLabel: string | null) {
+    if (!id) return;
+    await setImagePoseLabel(id, imageId, poseLabel);
+    load();
+  }
+
   async function handleDelete() {
     if (!id || !confirm("Delete this trademark and all its images?")) return;
     await deleteTrademark(id);
@@ -88,7 +96,10 @@ export default function TrademarkDetail() {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">{trademark.name}</h1>
           {trademark.description && <p className="mt-1 text-sm text-slate-500">{trademark.description}</p>}
-          <div className="mt-3 flex items-center gap-3 text-sm">
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+              {trademark.ip_type}
+            </span>
             <span className="text-slate-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
             {trademark.centroid_dino ? (
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">Indexed</span>
@@ -101,12 +112,20 @@ export default function TrademarkDetail() {
             )}
           </div>
         </div>
-        <button
-          onClick={handleDelete}
-          className="px-4 py-2 text-sm text-red-500 border border-red-100 rounded-xl hover:bg-red-50 transition-all"
-        >
-          Delete
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/test?trademark=${trademark.id}`}
+            className="px-4 py-2 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all"
+          >
+            Test mockup
+          </Link>
+          <button
+            onClick={handleDelete}
+            className="px-4 py-2 text-sm text-red-500 border border-red-100 rounded-xl hover:bg-red-50 transition-all"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       {/* Index job status */}
@@ -155,17 +174,34 @@ export default function TrademarkDetail() {
                   x
                 </button>
               </div>
-              <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs font-medium">
-                {img.status === "indexed" ? (
-                  <span className="text-emerald-600">Indexed</span>
-                ) : img.status === "failed" ? (
-                  <span className="text-red-500">Failed</span>
-                ) : (
-                  <span className="text-slate-400">Pending</span>
+              <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs font-medium space-y-1">
+                <div>
+                  {img.status === "indexed" ? (
+                    <span className="text-emerald-600">Indexed</span>
+                  ) : img.status === "failed" ? (
+                    <span className="text-red-500">Failed</span>
+                  ) : (
+                    <span className="text-slate-400">Pending</span>
+                  )}
+                </div>
+                {trademark.ip_type === "character" && img.status === "indexed" && (
+                  <input
+                    value={img.pose_label ?? ""}
+                    onChange={(e) => handlePoseLabel(img.id, e.target.value || null)}
+                    placeholder="pose label…"
+                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:border-rose-400"
+                  />
                 )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Rules section — only when there's something to attach rules to */}
+      {trademark.centroid_dino && (
+        <div className="pt-6 border-t border-slate-100">
+          <RuleEditor trademarkId={trademark.id} ipType={trademark.ip_type} />
         </div>
       )}
     </div>
