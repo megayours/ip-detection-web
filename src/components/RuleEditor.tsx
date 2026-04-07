@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   getRuleGraph,
   putRuleGraph,
+  updateTrademark,
   type IpType,
   type Rule,
   type RuleGraphContent,
@@ -12,6 +13,8 @@ import {
 interface Props {
   trademarkId: string;
   ipType: IpType;
+  initialGuidelines?: string | null;
+  onGuidelinesSaved?: (guidelines: string | null) => void;
 }
 
 interface PrimitiveOption {
@@ -80,10 +83,18 @@ function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Reco
         config: { k: 3, calibration_percentile: "p10" },
         on_fail: "fail",
       };
+    case "vlm_check":
+      // Not exposed in the advanced picker — use the top-level guidelines textarea
+      // instead. Stub here keeps the switch exhaustive.
+      return {
+        name: "Free-text guidelines (VLM)",
+        config: { guidelines: "", min_confidence: 0.7 },
+        on_fail: "fail",
+      };
   }
 }
 
-export default function RuleEditor({ trademarkId, ipType }: Props) {
+export default function RuleEditor({ trademarkId, ipType, initialGuidelines, onGuidelinesSaved }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,6 +102,16 @@ export default function RuleEditor({ trademarkId, ipType }: Props) {
   const [error, setError] = useState("");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Free-text guidelines (the simple path — sent to Gemini per submission).
+  const [guidelines, setGuidelines] = useState<string>(initialGuidelines ?? "");
+  const [savingGuidelines, setSavingGuidelines] = useState(false);
+  const [guidelinesSavedAt, setGuidelinesSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGuidelines(initialGuidelines ?? "");
+  }, [initialGuidelines]);
 
   useEffect(() => {
     getRuleGraph(trademarkId)
@@ -103,6 +124,23 @@ export default function RuleEditor({ trademarkId, ipType }: Props) {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [trademarkId]);
+
+  async function saveGuidelines() {
+    setSavingGuidelines(true);
+    setError("");
+    try {
+      const trimmed = guidelines.trim();
+      const { trademark } = await updateTrademark(trademarkId, {
+        guidelines: trimmed || null,
+      });
+      setGuidelinesSavedAt(new Date().toISOString());
+      onGuidelinesSaved?.(trademark.guidelines);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSavingGuidelines(false);
+    }
+  }
 
   function addRule(primitive: PrimitiveName) {
     const d = defaultConfig(primitive, ipType);
@@ -147,24 +185,14 @@ export default function RuleEditor({ trademarkId, ipType }: Props) {
   const primitives = ALL_PRIMITIVES;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">Rules &amp; guidelines</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {version ? <>Current version <code className="text-rose-600">{version}</code></> : "No rule graph yet — add your first rule"}
-            {savedAt && <> · saved just now</>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={save}
-            disabled={saving || rules.length === 0}
-            className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
-          >
-            {saving ? "Saving…" : version ? "Publish new version" : "Publish v0.1.0"}
-          </button>
-        </div>
+    <div className="space-y-6">
+      {/* Always-on baseline summary */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+        <h2 className="text-lg font-bold text-slate-900">Rules &amp; guidelines</h2>
+        <p className="text-xs text-slate-500 mt-1">
+          Identity, style fidelity and canonical proximity are checked automatically on every submission.
+          Use the box below for anything else — anatomy, costume, scene rules — described in plain English.
+        </p>
       </div>
 
       {error && (
@@ -173,61 +201,120 @@ export default function RuleEditor({ trademarkId, ipType }: Props) {
         </div>
       )}
 
-      {rules.length === 0 ? (
-        <div className="text-center py-10 text-sm text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
-          No rules yet. Add one below.
+      {/* Free-text guidelines (the simple path) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-semibold text-slate-900">Additional guidelines (optional)</label>
+          {guidelinesSavedAt && <span className="text-xs text-slate-400">saved just now</span>}
         </div>
-      ) : (
-        <ul className="space-y-3">
-          {rules.map((rule, idx) => (
-            <RuleCard
-              key={idx}
-              rule={rule}
-              onChange={(patch) => updateRule(idx, patch)}
-              onRemove={() => removeRule(idx)}
-            />
-          ))}
-        </ul>
-      )}
-
-      {showAdd ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pick a primitive</div>
-          {primitives.map((p) => {
-            const mismatch = p.bestFor && p.bestFor !== ipType;
-            return (
-              <button
-                key={p.value}
-                onClick={() => addRule(p.value)}
-                className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-semibold text-slate-900">{p.label}</div>
-                  {mismatch && (
-                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                      best for {p.bestFor} IPs
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
-              </button>
-            );
-          })}
+        <textarea
+          value={guidelines}
+          onChange={(e) => setGuidelines(e.target.value)}
+          rows={6}
+          placeholder="e.g. Hands must have 3 thick fingers and 1 thumb (4 digits total). No nails or visible joints. Bow tie always present and red. Eyes are simple black ovals."
+          className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white resize-y"
+        />
+        <p className="text-xs text-slate-400">
+          Sent to a vision-language model alongside each submission. Leave empty to skip.
+        </p>
+        <div className="flex justify-end">
           <button
-            onClick={() => setShowAdd(false)}
-            className="w-full px-4 py-2 text-xs text-slate-400 hover:text-slate-600"
+            onClick={saveGuidelines}
+            disabled={savingGuidelines}
+            className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
           >
-            Cancel
+            {savingGuidelines ? "Saving…" : "Save guidelines"}
           </button>
         </div>
-      ) : (
+      </div>
+
+      {/* Advanced — old structured rule-graph editor, hidden by default */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <button
-          onClick={() => setShowAdd(true)}
-          className="w-full px-4 py-3 rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50/40 transition-all"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50/50 transition-all"
         >
-          + Add rule
+          <div className="text-left">
+            <div className="text-sm font-semibold text-slate-900">Advanced rules</div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              Add structured primitives — palette, OCR, pose, custom thresholds.
+              {version && <> Current version <code className="text-rose-600">{version}</code>.</>}
+            </div>
+          </div>
+          <span className="text-slate-400 text-sm">{showAdvanced ? "▾" : "▸"}</span>
         </button>
-      )}
+
+        {showAdvanced && (
+          <div className="border-t border-slate-100 p-5 space-y-4">
+            <div className="flex items-center justify-end">
+              <button
+                onClick={save}
+                disabled={saving || rules.length === 0}
+                className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+              >
+                {saving ? "Saving…" : version ? "Publish new version" : "Publish v0.1.0"}
+              </button>
+              {savedAt && <span className="text-xs text-slate-400 ml-2">saved just now</span>}
+            </div>
+
+            {rules.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
+                No advanced rules yet. Add one below.
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {rules.map((rule, idx) => (
+                  <RuleCard
+                    key={idx}
+                    rule={rule}
+                    onChange={(patch) => updateRule(idx, patch)}
+                    onRemove={() => removeRule(idx)}
+                  />
+                ))}
+              </ul>
+            )}
+
+            {showAdd ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pick a primitive</div>
+                {primitives.map((p) => {
+                  const mismatch = p.bestFor && p.bestFor !== ipType;
+                  return (
+                    <button
+                      key={p.value}
+                      onClick={() => addRule(p.value)}
+                      className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold text-slate-900">{p.label}</div>
+                        {mismatch && (
+                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                            best for {p.bestFor} IPs
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setShowAdd(false)}
+                  className="w-full px-4 py-2 text-xs text-slate-400 hover:text-slate-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="w-full px-4 py-3 rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50/40 transition-all"
+              >
+                + Add rule
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

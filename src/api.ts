@@ -61,6 +61,12 @@ export function getMe() {
 
 export type IpType = "character" | "mark";
 
+export interface BaselineConfig {
+  identity_match?: { min_score?: number; min_confidence?: "LOW" | "MEDIUM" | "HIGH" };
+  style_fidelity?: { min_similarity?: number; warn_below?: number };
+  canonical_proximity?: { k?: number; min_proximity?: number; calibration_percentile?: string };
+}
+
 export interface Trademark {
   id: string;
   name: string;
@@ -70,6 +76,8 @@ export interface Trademark {
   indexed_count: number;
   centroid_dino: number[] | null;
   centroid_clip: number[] | null;
+  guidelines: string | null;
+  baseline_config: BaselineConfig | null;
   created_at: string;
 }
 
@@ -91,10 +99,15 @@ export function listPublicTrademarks() {
   return request<{ trademarks: Trademark[] }>("/api/trademarks/public");
 }
 
-export function createTrademark(name: string, description?: string, ipType: IpType = "mark") {
+export function createTrademark(
+  name: string,
+  description?: string,
+  ipType: IpType = "mark",
+  guidelines?: string,
+) {
   return request<{ trademark: Trademark }>("/api/trademarks", {
     method: "POST",
-    body: JSON.stringify({ name, description, ip_type: ipType }),
+    body: JSON.stringify({ name, description, ip_type: ipType, guidelines }),
   });
 }
 
@@ -118,7 +131,13 @@ export function deleteTrademark(id: string) {
 
 export function updateTrademark(
   id: string,
-  patch: { name?: string; description?: string; ip_type?: IpType }
+  patch: {
+    name?: string;
+    description?: string;
+    ip_type?: IpType;
+    guidelines?: string | null;
+    baseline_config?: BaselineConfig | null;
+  }
 ) {
   return request<{ trademark: Trademark }>(`/api/trademarks/${id}`, {
     method: "PATCH",
@@ -204,7 +223,8 @@ export type PrimitiveName =
   | "ocr_contains"
   | "pose_class"
   | "manual_check"
-  | "canonical_proximity";
+  | "canonical_proximity"
+  | "vlm_check";
 
 export type RuleSeverity = "fail" | "fail_hard" | "note";
 

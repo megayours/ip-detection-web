@@ -215,7 +215,12 @@ export default function TrademarkDetail() {
       {/* Rules section — only when there's something to attach rules to */}
       {trademark.centroid_dino && (
         <div className="pt-6 border-t border-slate-100">
-          <RuleEditor trademarkId={trademark.id} ipType={trademark.ip_type} />
+          <RuleEditor
+            trademarkId={trademark.id}
+            ipType={trademark.ip_type}
+            initialGuidelines={trademark.guidelines}
+            onGuidelinesSaved={(g) => setTrademark({ ...trademark, guidelines: g })}
+          />
         </div>
       )}
     </div>

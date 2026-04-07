@@ -9,6 +9,7 @@ export default function Trademarks() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [ipType, setIpType] = useState<IpType>("mark");
+  const [guidelines, setGuidelines] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,10 +30,16 @@ export default function Trademarks() {
     setCreating(true);
     setError("");
     try {
-      await createTrademark(name.trim(), description.trim() || undefined, ipType);
+      await createTrademark(
+        name.trim(),
+        description.trim() || undefined,
+        ipType,
+        guidelines.trim() || undefined,
+      );
       setName("");
       setDescription("");
       setIpType("mark");
+      setGuidelines("");
       setShowCreate(false);
       load();
     } catch (e: any) {
@@ -130,6 +137,19 @@ export default function Trademarks() {
                 <div className="text-xs text-slate-500 mt-0.5">Cartoon, mascot — unlocks pose rules</div>
               </label>
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Guidelines (optional)</label>
+            <textarea
+              value={guidelines}
+              onChange={(e) => setGuidelines(e.target.value)}
+              rows={5}
+              placeholder="Plain English rules a vision-language model will check on every submission. e.g. Hands must have 3 thick fingers and 1 thumb. Bow tie always present and red. No nails or visible joints."
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-y"
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Identity, style and canonical proximity are checked automatically — only put what's not covered there.
+            </p>
           </div>
           <button
             type="submit"
