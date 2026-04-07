@@ -30,8 +30,14 @@ export default function Landing() {
             {user ? (
               <>
                 <Link
-                  to="/check"
+                  to="/test"
                   className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg text-sm font-semibold hover:from-rose-600 hover:to-rose-700 transition-all shadow-lg shadow-rose-500/25"
+                >
+                  Get Brand Approval
+                </Link>
+                <Link
+                  to="/check"
+                  className="px-6 py-3 bg-white/10 text-white rounded-lg text-sm font-semibold hover:bg-white/15 transition-all border border-white/10"
                 >
                   Scan an Image
                 </Link>
@@ -156,6 +162,79 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Licensee approval — NEW */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-y border-emerald-100">
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl" />
+        <div className="relative max-w-6xl mx-auto px-6 py-20">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-block bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-4">
+                New · Licensee Self-Service
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                Get instant brand approval — <span className="text-emerald-600">before</span> you submit.
+              </h2>
+              <p className="mt-4 text-slate-600 leading-relaxed">
+                Licensees, partners and creators can upload their designs and get an automated
+                pre-flight check against the brand's guidelines in seconds. A passing result earns
+                an approval certificate they can attach to the work — turning the back-and-forth
+                of brand review into a one-click confirmation.
+              </p>
+              <ul className="mt-6 space-y-3 text-sm text-slate-700">
+                <Bullet>Upload a mockup, get a verdict in seconds</Bullet>
+                <Bullet>Plain-English guideline checks — no spec interpretation</Bullet>
+                <Bullet>Approval certificate on every passing submission</Bullet>
+                <Bullet>Failed? See exactly which guideline didn't match, and why</Bullet>
+              </ul>
+              <div className="mt-8">
+                <Link
+                  to={user ? "/test" : "/login"}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                >
+                  {user ? "Test a design now" : "Try it free"}
+                  <span>→</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Mock approval certificate */}
+            <div className="relative">
+              <div className="bg-white border-2 border-dashed border-emerald-300 rounded-2xl p-8 shadow-xl shadow-emerald-100/50 rotate-1">
+                <div className="flex items-start gap-5">
+                  <div className="shrink-0 w-28 h-28 rounded-full border-4 border-emerald-600 text-emerald-700 flex items-center justify-center rotate-[-8deg]">
+                    <div className="text-center leading-tight">
+                      <div className="text-[10px] font-bold uppercase tracking-widest">Brand</div>
+                      <div className="text-sm font-black uppercase">Approved</div>
+                      <div className="text-[9px] mt-0.5 opacity-70">2026</div>
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
+                      Approval Certificate
+                    </div>
+                    <div className="mt-1 text-base font-black text-slate-900">
+                      Cleared against brand guidelines
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Spring 2026 collection · Donald Duck mockup #142
+                    </div>
+                    <div className="mt-4 space-y-1.5">
+                      <CheckRow label="IP Recognition" />
+                      <CheckRow label="Visual Style Match" />
+                      <CheckRow label="Reference Likeness" />
+                      <CheckRow label="Brand Guideline Review" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="absolute -bottom-3 -right-3 bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                Verdict in &lt; 10s
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="max-w-6xl mx-auto px-6 py-20 text-center">
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">
@@ -206,6 +285,28 @@ const ICONS: Record<string, string> = {
   scan: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
   type: "M4 6h16M4 12h8m-8 6h16",
 };
+
+function Bullet({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">
+        ✓
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
+function CheckRow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs text-slate-700">
+      <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black">
+        ✓
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
 
 function PipelineRow({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (

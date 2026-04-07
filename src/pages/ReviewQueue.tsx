@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { listReviewQueue, postReview, type ReviewQueueItem, type Verdict } from "../api";
+import { ruleDisplayName } from "../lib/labels";
 
 const VERDICT_BADGE: Record<Verdict | "pending", { label: string; bg: string; color: string }> = {
-  pass:         { label: "PASS",            bg: "#c6f6d5", color: "#0a3a1e" },
-  pass_w_note:  { label: "PASS w/ NOTE",    bg: "#fff3bf", color: "#5b3a00" },
-  fail:         { label: "FAIL",            bg: "#fed7d7", color: "#5a0d12" },
-  fail_hard:    { label: "FAIL (no review)", bg: "#9b1c1c", color: "#ffffff" },
-  pending:      { label: "PENDING",          bg: "#bee3f8", color: "#1a365d" },
+  pass:         { label: "Approved",          bg: "#c6f6d5", color: "#0a3a1e" },
+  pass_w_note:  { label: "Approved w/ notes", bg: "#fff3bf", color: "#5b3a00" },
+  fail:         { label: "Not approved",      bg: "#fed7d7", color: "#5a0d12" },
+  fail_hard:    { label: "Rejected",          bg: "#9b1c1c", color: "#ffffff" },
+  pending:      { label: "Reviewing",         bg: "#bee3f8", color: "#1a365d" },
 };
 
 export default function ReviewQueue() {
@@ -76,7 +77,7 @@ export default function ReviewQueue() {
             const badge = VERDICT_BADGE[(item.verdict ?? "pending") as Verdict | "pending"];
             const failedRules = (item.primitive_results?.rule_results ?? [])
               .filter((rr) => rr.state === "fail")
-              .map((rr) => rr.rule_name || rr.primitive);
+              .map((rr) => ruleDisplayName(rr));
             return (
               <li
                 key={item.id}
@@ -113,7 +114,7 @@ export default function ReviewQueue() {
                   )}
                   {failedRules.length > 0 && (
                     <div className="text-xs text-red-600 font-semibold">
-                      failed: {failedRules.join(", ")}
+                      Did not pass: {failedRules.join(", ")}
                     </div>
                   )}
                 </div>

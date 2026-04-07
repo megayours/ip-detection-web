@@ -11,13 +11,14 @@ import {
   type RuleResult,
 } from "../api";
 import ImageUploader from "../components/ImageUploader";
+import { ruleDisplayName, severityCopy, vlmViolations, observedFacts } from "../lib/labels";
 
 const VERDICT_BADGE: Record<Verdict | "pending", { label: string; bg: string; color: string }> = {
-  pass:         { label: "PASS",            bg: "#c6f6d5", color: "#0a3a1e" },
-  pass_w_note:  { label: "PASS w/ NOTE",    bg: "#fff3bf", color: "#5b3a00" },
-  fail:         { label: "FAIL",            bg: "#fed7d7", color: "#5a0d12" },
-  fail_hard:    { label: "FAIL (no review)", bg: "#9b1c1c", color: "#ffffff" },
-  pending:      { label: "PENDING",          bg: "#bee3f8", color: "#1a365d" },
+  pass:         { label: "Approved",          bg: "#c6f6d5", color: "#0a3a1e" },
+  pass_w_note:  { label: "Approved w/ notes", bg: "#fff3bf", color: "#5b3a00" },
+  fail:         { label: "Not approved",      bg: "#fed7d7", color: "#5a0d12" },
+  fail_hard:    { label: "Rejected",          bg: "#9b1c1c", color: "#ffffff" },
+  pending:      { label: "Reviewing",         bg: "#bee3f8", color: "#1a365d" },
 };
 
 export default function TestSubmission() {
@@ -136,10 +137,10 @@ export default function TestSubmission() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Test mockup</h1>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Test against brand guidelines</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Upload a licensee mockup and check it against a trademark's brand guidelines (rule graph).
-          Different from <code>Scan</code> — this evaluates against rules, not just identity.
+          Upload your design and get an instant approval check against the registered IP guidelines.
+          A passing result earns an approval certificate you can attach to your submission.
         </p>
       </div>
 
@@ -209,7 +210,11 @@ export default function TestSubmission() {
 
           {/* Verdict */}
           {verdict && (
-            <VerdictBlock verdict={verdict} ruleResults={ruleResults} />
+            <VerdictBlock
+              verdict={verdict}
+              ruleResults={ruleResults}
+              trademarkName={selectedTm?.name}
+            />
           )}
 
           {/* Processing */}
@@ -255,7 +260,7 @@ export default function TestSubmission() {
               disabled={submitting || !selectedId || trademarks.length === 0}
               className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
             >
-              {submitting ? "Submitting…" : submissionId ? "Re-test" : "Test against rules"}
+              {submitting ? "Submitting…" : submissionId ? "Re-test" : "Check approval"}
             </button>
           )}
         </div>
@@ -264,24 +269,80 @@ export default function TestSubmission() {
   );
 }
 
-function VerdictBlock({ verdict, ruleResults }: { verdict: Verdict; ruleResults: RuleResult[] }) {
+function VerdictBlock({
+  verdict,
+  ruleResults,
+  trademarkName,
+}: {
+  verdict: Verdict;
+  ruleResults: RuleResult[];
+  trademarkName?: string;
+}) {
   const badge = VERDICT_BADGE[verdict];
+  const isApproved = verdict === "pass" || verdict === "pass_w_note";
+  const checksPassed = ruleResults.filter((rr) => rr.state === "pass").length;
+  const checksTotal = ruleResults.length;
+
   return (
-    <div className="space-y-4">
-      <div
-        className="inline-block px-4 py-2 rounded-xl font-bold text-lg"
-        style={{ backgroundColor: badge.bg, color: badge.color }}
-      >
-        {badge.label}
-      </div>
+    <div className="space-y-5">
+      {isApproved ? (
+        <ApprovalStamp verdict={verdict} trademarkName={trademarkName} />
+      ) : (
+        <div
+          className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl font-bold text-lg"
+          style={{ backgroundColor: badge.bg, color: badge.color }}
+        >
+          <span>{badge.label}</span>
+          {checksTotal > 0 && (
+            <span className="text-xs font-semibold opacity-70">
+              {checksPassed}/{checksTotal} checks passed
+            </span>
+          )}
+        </div>
+      )}
 
       {ruleResults.length > 0 && (
-        <ul className="space-y-2">
-          {ruleResults.map((rr, idx) => (
-            <RuleResultRow key={idx} rr={rr} />
-          ))}
-        </ul>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700 mb-2">Approval checks</h3>
+          <ul className="space-y-2">
+            {ruleResults.map((rr, idx) => (
+              <RuleResultRow key={idx} rr={rr} />
+            ))}
+          </ul>
+        </div>
       )}
+    </div>
+  );
+}
+
+function ApprovalStamp({ verdict, trademarkName }: { verdict: Verdict; trademarkName?: string }) {
+  const isFull = verdict === "pass";
+  const stamp = isFull ? "Approved" : "Approved · with notes";
+  const date = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/40 border-2 border-emerald-300 border-dashed rounded-2xl p-6 flex items-center gap-5">
+      <div className="shrink-0 w-24 h-24 rounded-full border-4 border-emerald-600 text-emerald-700 flex items-center justify-center rotate-[-8deg]">
+        <div className="text-center leading-tight">
+          <div className="text-[10px] font-bold uppercase tracking-widest">Brand</div>
+          <div className="text-xs font-black uppercase">Approved</div>
+          <div className="text-[9px] mt-0.5 opacity-70">{date}</div>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs font-semibold text-emerald-700 uppercase tracking-widest">
+          Approval Certificate
+        </div>
+        <div className="mt-1 text-lg font-black text-slate-900">{stamp}</div>
+        {trademarkName && (
+          <div className="text-sm text-slate-600 mt-0.5">
+            Cleared against <strong>{trademarkName}</strong> brand guidelines.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -290,9 +351,9 @@ function RuleResultRow({ rr }: { rr: RuleResult }) {
   const [expanded, setExpanded] = useState(false);
 
   const stateBadge = {
-    pass:      { label: "✓ pass",     bg: "#c6f6d5", color: "#0a3a1e" },
-    fail:      { label: "✗ fail",     bg: "#fed7d7", color: "#5a0d12" },
-    uncertain: { label: "? uncertain", bg: "#fff3bf", color: "#5b3a00" },
+    pass:      { label: "Passed",       bg: "#c6f6d5", color: "#0a3a1e" },
+    fail:      { label: "Did not pass", bg: "#fed7d7", color: "#5a0d12" },
+    uncertain: { label: "Inconclusive", bg: "#fff3bf", color: "#5b3a00" },
   }[rr.state];
 
   const borderColor =
@@ -300,38 +361,77 @@ function RuleResultRow({ rr }: { rr: RuleResult }) {
     : rr.state === "fail" ? "border-l-red-400"
     : "border-l-amber-400";
 
+  const violations = vlmViolations(rr);
+  const facts = observedFacts(rr);
+  const title = ruleDisplayName(rr);
+  const hasDetail = violations.length > 0 || facts.length > 0;
+
   return (
     <li className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderColor} overflow-hidden`}>
       <div
-        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50/50"
-        onClick={() => setExpanded(!expanded)}
+        className={`flex items-center justify-between px-4 py-3 ${hasDetail ? "cursor-pointer hover:bg-slate-50/50" : ""}`}
+        onClick={() => hasDetail && setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-slate-300 text-xs">{expanded ? "▾" : "▸"}</span>
+          {hasDetail ? (
+            <span className="text-slate-300 text-xs">{expanded ? "▾" : "▸"}</span>
+          ) : (
+            <span className="text-slate-200 text-xs">·</span>
+          )}
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate">{rr.rule_name || rr.primitive}</div>
-            <div className="text-xs text-slate-400">
-              <code>{rr.primitive}</code> · severity: {rr.on_fail}
-            </div>
+            <div className="text-sm font-semibold text-slate-900 truncate">{title}</div>
+            <div className="text-xs text-slate-400">{severityCopy(rr.on_fail)} check</div>
           </div>
         </div>
         <span
-          className="text-xs font-semibold px-2 py-0.5 rounded-full"
+          className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
           style={{ backgroundColor: stateBadge.bg, color: stateBadge.color }}
         >
           {stateBadge.label}
         </span>
       </div>
-      {expanded && (
-        <div className="border-t border-slate-100 px-4 py-4 bg-slate-50/30 space-y-2 text-xs">
-          <div>
-            <div className="font-semibold text-slate-600 mb-1">Observed</div>
-            <pre className="bg-slate-900 text-slate-100 rounded p-3 overflow-x-auto">{JSON.stringify(rr.observed, null, 2)}</pre>
-          </div>
-          {rr.evidence && Object.keys(rr.evidence).length > 0 && (
-            <div>
-              <div className="font-semibold text-slate-600 mb-1">Evidence</div>
-              <pre className="bg-slate-900 text-slate-100 rounded p-3 overflow-x-auto">{JSON.stringify(rr.evidence, null, 2)}</pre>
+      {expanded && hasDetail && (
+        <div className="border-t border-slate-100 px-4 py-4 bg-slate-50/30 space-y-4 text-sm">
+          {facts.length > 0 && (
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+              {facts.map((f, i) => (
+                <div key={i} className="flex items-baseline justify-between gap-3">
+                  <dt className="text-xs text-slate-500">{f.label}</dt>
+                  <dd
+                    className={`text-sm font-semibold ${
+                      f.tone === "good"
+                        ? "text-emerald-700"
+                        : f.tone === "bad"
+                          ? "text-red-700"
+                          : "text-slate-800"
+                    }`}
+                  >
+                    {f.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {violations.length > 0 && (
+            <div className="space-y-2">
+              <div className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
+                What didn't match
+              </div>
+              <ul className="space-y-2">
+                {violations.map((v, i) => (
+                  <li
+                    key={i}
+                    className="bg-red-50 border-l-2 border-red-300 rounded px-3 py-2"
+                  >
+                    <div className="font-semibold text-red-900 text-sm">
+                      {v.rule || "Guideline issue"}
+                    </div>
+                    {v.reason && (
+                      <div className="text-red-800 text-xs mt-0.5">{v.reason}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
