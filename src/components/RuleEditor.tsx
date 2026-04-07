@@ -14,23 +14,22 @@ interface Props {
   ipType: IpType;
 }
 
-const PRIMITIVES_FOR: Record<IpType, { value: PrimitiveName; label: string; description: string }[]> = {
-  mark: [
-    { value: "identity_match", label: "Identity must be present", description: "Detection gating — fail if the IP isn't present" },
-    { value: "palette", label: "Brand color palette", description: "Cropped region's dominant colors must match allowed palette" },
-    { value: "ocr_contains", label: "Word mark in image", description: "OCR must find a required string" },
-    { value: "style_fidelity", label: "Style fidelity", description: "Cosine similarity to canonical reference centroid" },
-    { value: "manual_check", label: "Manual review (placeholder)", description: "Surface a guideline that has no auto-primitive yet" },
-  ],
-  character: [
-    { value: "identity_match", label: "Identity must be present", description: "Detection gating — fail if the character isn't present" },
-    { value: "pose_class", label: "Required pose", description: "Pose classifier against tagged reference exemplars" },
-    { value: "palette", label: "Brand color palette", description: "Cropped region's dominant colors must match allowed palette" },
-    { value: "style_fidelity", label: "Style fidelity", description: "Cosine similarity to canonical reference centroid" },
-    { value: "ocr_contains", label: "Word mark in image", description: "OCR must find a required string" },
-    { value: "manual_check", label: "Manual review (placeholder)", description: "Surface a guideline that has no auto-primitive yet" },
-  ],
-};
+interface PrimitiveOption {
+  value: PrimitiveName;
+  label: string;
+  description: string;
+  /** If set, only ideal for this ip_type — still selectable, but a hint shows. */
+  bestFor?: IpType;
+}
+
+const ALL_PRIMITIVES: PrimitiveOption[] = [
+  { value: "identity_match", label: "Identity must be present", description: "Detection gating — fail if the IP isn't present" },
+  { value: "pose_class",     label: "Required pose",            description: "Pose classifier against tagged reference exemplars", bestFor: "character" },
+  { value: "palette",        label: "Brand color palette",      description: "Cropped region's dominant colors must match allowed palette" },
+  { value: "ocr_contains",   label: "Word mark in image",       description: "OCR must find a required string" },
+  { value: "style_fidelity", label: "Style fidelity",           description: "Cosine similarity to canonical reference centroid" },
+  { value: "manual_check",   label: "Manual review (placeholder)", description: "Surface a guideline that has no auto-primitive yet" },
+];
 
 function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Record<string, unknown>; on_fail: RuleSeverity; name: string } {
   switch (primitive) {
@@ -43,7 +42,7 @@ function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Reco
     case "pose_class":
       return {
         name: "Required pose",
-        config: { required_poses: ["standing"], min_similarity: 0.5 },
+        config: { required_poses: ["standing"], min_similarity: 0.5, min_class_margin: 0 },
         on_fail: "fail",
       };
     case "palette":
@@ -138,7 +137,7 @@ export default function RuleEditor({ trademarkId, ipType }: Props) {
     return <div className="text-sm text-slate-400">Loading rules…</div>;
   }
 
-  const primitives = PRIMITIVES_FOR[ipType];
+  const primitives = ALL_PRIMITIVES;
 
   return (
     <div className="space-y-4">
@@ -187,16 +186,26 @@ export default function RuleEditor({ trademarkId, ipType }: Props) {
       {showAdd ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pick a primitive</div>
-          {primitives.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => addRule(p.value)}
-              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
-            >
-              <div className="text-sm font-semibold text-slate-900">{p.label}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
-            </button>
-          ))}
+          {primitives.map((p) => {
+            const mismatch = p.bestFor && p.bestFor !== ipType;
+            return (
+              <button
+                key={p.value}
+                onClick={() => addRule(p.value)}
+                className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-semibold text-slate-900">{p.label}</div>
+                  {mismatch && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                      best for {p.bestFor} IPs
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
+              </button>
+            );
+          })}
           <button
             onClick={() => setShowAdd(false)}
             className="w-full px-4 py-2 text-xs text-slate-400 hover:text-slate-600"
@@ -344,14 +353,26 @@ function PrimitiveConfigEditor({
             onChange={(v) => onChange({ ...cfg, required_poses: v.split(",").map((s) => s.trim()).filter(Boolean) })}
             placeholder="standing"
           />
-          <NumberField
-            label="Min similarity to nearest exemplar"
-            value={(cfg.min_similarity as number) ?? 0.5}
-            onChange={(v) => onChange({ ...cfg, min_similarity: v })}
-            step={0.05}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField
+              label="Min per-class similarity"
+              value={(cfg.min_similarity as number) ?? 0.5}
+              onChange={(v) => onChange({ ...cfg, min_similarity: v })}
+              step={0.05}
+            />
+            <NumberField
+              label="Min class margin"
+              value={(cfg.min_class_margin as number) ?? 0}
+              onChange={(v) => onChange({ ...cfg, min_class_margin: v })}
+              step={0.01}
+            />
+          </div>
           <p className="text-xs text-slate-400">
-            Tag reference images with a pose label below to add exemplars.
+            Classification uses per-class mean cosine similarity (not top-1 nearest neighbour) so a single
+            portrait exemplar isn't drowned out by 14 standing exemplars. <strong>Tag at least 3 reference
+            images per pose class</strong> below for stable classification — single-anchor classes are
+            brittle. <strong>Min class margin</strong> (default 0) fails the rule if the predicted class
+            wins by less than this — set to e.g. <code>0.05</code> to fail-closed on ambiguous cases.
           </p>
         </div>
       );

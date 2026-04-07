@@ -3,11 +3,13 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   getTrademark,
   deleteTrademark,
+  updateTrademark,
   uploadTrademarkImages,
   deleteTrademarkImage,
   setImagePoseLabel,
   type Trademark,
   type TrademarkImage,
+  type IpType,
 } from "../api";
 import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
@@ -72,6 +74,12 @@ export default function TrademarkDetail() {
     load();
   }
 
+  async function handleIpTypeChange(newType: IpType) {
+    if (!id || !trademark || trademark.ip_type === newType) return;
+    await updateTrademark(id, { ip_type: newType });
+    load();
+  }
+
   async function handleDelete() {
     if (!id || !confirm("Delete this trademark and all its images?")) return;
     await deleteTrademark(id);
@@ -97,9 +105,15 @@ export default function TrademarkDetail() {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">{trademark.name}</h1>
           {trademark.description && <p className="mt-1 text-sm text-slate-500">{trademark.description}</p>}
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
-              {trademark.ip_type}
-            </span>
+            <select
+              value={trademark.ip_type}
+              onChange={(e) => handleIpTypeChange(e.target.value as IpType)}
+              className="text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              title="Change IP type"
+            >
+              <option value="mark">mark</option>
+              <option value="character">character</option>
+            </select>
             <span className="text-slate-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
             {trademark.centroid_dino ? (
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">Indexed</span>

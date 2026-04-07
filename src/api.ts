@@ -116,6 +116,16 @@ export function deleteTrademark(id: string) {
   return request<{ ok: boolean }>(`/api/trademarks/${id}`, { method: "DELETE" });
 }
 
+export function updateTrademark(
+  id: string,
+  patch: { name?: string; description?: string; ip_type?: IpType }
+) {
+  return request<{ trademark: Trademark }>(`/api/trademarks/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function uploadTrademarkImages(trademarkId: string, files: File[]) {
   const form = new FormData();
   for (const f of files) form.append("images", f);
