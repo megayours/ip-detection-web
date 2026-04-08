@@ -8,8 +8,8 @@ import type { PrimitiveName, RuleSeverity, RuleResult } from "../api";
  */
 const PRIMITIVE_LABELS: Record<PrimitiveName, { title: string; subtitle: string }> = {
   identity_match: {
-    title: "IP Recognition",
-    subtitle: "Confirms the registered IP is present in the image",
+    title: "Subject Detected",
+    subtitle: "A subject visually similar to the registered IP was found in the image. This is a coarse first-pass — strict matching happens in Reference Likeness and the brand guideline review.",
   },
   style_fidelity: {
     title: "Visual Style Match",
