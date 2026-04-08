@@ -59,8 +59,6 @@ export function getMe() {
 
 // --- Trademarks ---
 
-export type IpType = "character" | "mark";
-
 export interface BaselineConfig {
   identity_match?: { min_score?: number; min_confidence?: "LOW" | "MEDIUM" | "HIGH" };
   style_fidelity?: { min_similarity?: number; warn_below?: number };
@@ -71,7 +69,6 @@ export interface Trademark {
   id: string;
   name: string;
   description: string | null;
-  ip_type: IpType;
   image_count: number;
   indexed_count: number;
   centroid_dino: number[] | null;
@@ -101,12 +98,11 @@ export function listPublicTrademarks() {
 export function createTrademark(
   name: string,
   description?: string,
-  ipType: IpType = "mark",
   guidelines?: string,
 ) {
   return request<{ trademark: Trademark }>("/api/trademarks", {
     method: "POST",
-    body: JSON.stringify({ name, description, ip_type: ipType, guidelines }),
+    body: JSON.stringify({ name, description, guidelines }),
   });
 }
 
@@ -123,7 +119,6 @@ export function updateTrademark(
   patch: {
     name?: string;
     description?: string;
-    ip_type?: IpType;
     guidelines?: string | null;
     baseline_config?: BaselineConfig | null;
   }
@@ -227,7 +222,6 @@ export interface Rule {
 
 export interface RuleGraphContent {
   schema_version: 1;
-  ip_type: IpType;
   rules: Rule[];
 }
 
@@ -252,6 +246,18 @@ export function putRuleGraph(trademarkId: string, content: RuleGraphContent, ver
 // --- Submissions (licensee pre-flight checks) ---
 
 export type Verdict = "pass" | "pass_w_note" | "fail" | "fail_hard";
+
+/**
+ * One reference image surfaced by canonical_proximity's evidence so the report
+ * card can show "closest references" thumbnails. The API decorates each entry
+ * with a presigned `image_url` before returning the submission payload.
+ */
+export interface CanonicalRefMatch {
+  similarity: number;
+  image_id: string | null;
+  storage_path: string | null;
+  image_url?: string;
+}
 
 export interface RuleResult {
   rule_id: string;
@@ -282,7 +288,7 @@ export interface Submission {
 
 export interface SubmissionResponse {
   submission: Submission;
-  trademark: { id: string; name: string; ip_type: IpType } | null;
+  trademark: { id: string; name: string } | null;
   job: { id: string; status: string; error: string | null } | null;
 }
 
@@ -327,7 +333,7 @@ export function requestSubmissionReview(id: string) {
 
 export interface ReviewQueueItem {
   id: string;
-  trademark: { id: string; name: string; ip_type: IpType } | null;
+  trademark: { id: string; name: string } | null;
   verdict: Verdict | null;
   submitter_email: string | null;
   submitter_note: string | null;

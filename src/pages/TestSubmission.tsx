@@ -9,9 +9,20 @@ import {
   type SubmissionResponse,
   type Verdict,
   type RuleResult,
+  type CanonicalRefMatch,
 } from "../api";
 import ImageUploader from "../components/ImageUploader";
-import { ruleDisplayName, severityCopy, vlmViolations, observedFacts } from "../lib/labels";
+import {
+  ruleDisplayName,
+  severityCopy,
+  vlmViolations,
+  observedFacts,
+  closestReferences,
+  proximityCalibration,
+  proximityExplanation,
+  type ProximityCalibration,
+  type ProximityExplanation,
+} from "../lib/labels";
 
 const VERDICT_BADGE: Record<Verdict | "pending", { label: string; bg: string; color: string }> = {
   pass:         { label: "Approved",          bg: "#c6f6d5", color: "#0a3a1e" },
@@ -159,7 +170,7 @@ export default function TestSubmission() {
           >
             {trademarks.map((tm) => (
               <option key={tm.id} value={tm.id}>
-                {tm.name} ({tm.ip_type})
+                {tm.name}
               </option>
             ))}
           </select>
@@ -214,6 +225,7 @@ export default function TestSubmission() {
               verdict={verdict}
               ruleResults={ruleResults}
               trademarkName={selectedTm?.name}
+              submissionImageUrl={submission?.submission.image_url}
             />
           )}
 
@@ -273,10 +285,12 @@ function VerdictBlock({
   verdict,
   ruleResults,
   trademarkName,
+  submissionImageUrl,
 }: {
   verdict: Verdict;
   ruleResults: RuleResult[];
   trademarkName?: string;
+  submissionImageUrl?: string;
 }) {
   const badge = VERDICT_BADGE[verdict];
   const isApproved = verdict === "pass" || verdict === "pass_w_note";
@@ -306,7 +320,7 @@ function VerdictBlock({
           <h3 className="text-sm font-semibold text-slate-700 mb-2">Approval checks</h3>
           <ul className="space-y-2">
             {ruleResults.map((rr, idx) => (
-              <RuleResultRow key={idx} rr={rr} />
+              <RuleResultRow key={idx} rr={rr} submissionImageUrl={submissionImageUrl} />
             ))}
           </ul>
         </div>
@@ -347,7 +361,13 @@ function ApprovalStamp({ verdict, trademarkName }: { verdict: Verdict; trademark
   );
 }
 
-function RuleResultRow({ rr }: { rr: RuleResult }) {
+function RuleResultRow({
+  rr,
+  submissionImageUrl,
+}: {
+  rr: RuleResult;
+  submissionImageUrl?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   const stateBadge = {
@@ -363,8 +383,20 @@ function RuleResultRow({ rr }: { rr: RuleResult }) {
 
   const violations = vlmViolations(rr);
   const facts = observedFacts(rr);
+  const refs = closestReferences(rr);
+  const calibration = proximityCalibration(rr);
+  const explanation = proximityExplanation(rr);
+  const proximityScore =
+    rr.primitive === "canonical_proximity"
+      ? (rr.observed?.proximity_score as number | undefined)
+      : undefined;
   const title = ruleDisplayName(rr);
-  const hasDetail = violations.length > 0 || facts.length > 0;
+  const hasDetail =
+    violations.length > 0 ||
+    facts.length > 0 ||
+    refs.length > 0 ||
+    calibration !== null ||
+    explanation !== null;
 
   return (
     <li className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderColor} overflow-hidden`}>
@@ -412,6 +444,13 @@ function RuleResultRow({ rr }: { rr: RuleResult }) {
               ))}
             </dl>
           )}
+          {explanation && <ProximityExplanationBlock explanation={explanation} />}
+          {calibration && proximityScore !== undefined && (
+            <CalibrationStrip calibration={calibration} score={proximityScore} />
+          )}
+          {refs.length > 0 && (
+            <ClosestReferences refs={refs} submissionImageUrl={submissionImageUrl} />
+          )}
           {violations.length > 0 && (
             <div className="space-y-2">
               <div className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
@@ -437,5 +476,319 @@ function RuleResultRow({ rr }: { rr: RuleResult }) {
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * One-sentence VLM explanation of why a canonical_proximity rule failed —
+ * surfaced from `evidence.explanation.text`. Visually distinct so users
+ * understand it's an AI-generated hint, not a hard rule.
+ */
+function ProximityExplanationBlock({ explanation }: { explanation: ProximityExplanation }) {
+  return (
+    <div className="bg-violet-50 border-l-2 border-violet-300 rounded px-3 py-2.5">
+      <div className="text-[10px] font-semibold text-violet-700 uppercase tracking-wider mb-0.5">
+        AI explanation
+      </div>
+      <div className="text-sm text-violet-900 leading-snug">{explanation.text}</div>
+    </div>
+  );
+}
+
+/**
+ * Visual placement of the submission's score on the brand's own canonical
+ * self-similarity distribution. Shows users that the threshold isn't a magic
+ * number — it's calibrated from how similar the brand's references are to
+ * each other.
+ */
+function CalibrationStrip({
+  calibration,
+  score,
+}: {
+  calibration: ProximityCalibration;
+  score: number;
+}) {
+  // Render the canonical band (min → p50) on a 0–1 axis, with markers for
+  // p10 (the threshold) and the submission score.
+  const lo = Math.min(calibration.min, score) - 0.02;
+  const hi = Math.max(calibration.p50, score) + 0.02;
+  const range = Math.max(hi - lo, 0.01);
+  const norm = (v: number) => Math.max(0, Math.min(1, (v - lo) / range)) * 100;
+
+  const bandStart = norm(calibration.min);
+  const bandEnd = norm(calibration.p50);
+  const thresholdPos = norm(calibration.p10);
+  const scorePos = norm(score);
+  const passed = score >= calibration.p10;
+
+  return (
+    <div>
+      <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+        Where you sit vs the brand
+      </div>
+      <div className="relative h-8">
+        {/* axis */}
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-slate-200" />
+        {/* canonical band (min → p50) */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 h-2 bg-emerald-200/70 rounded"
+          style={{ left: `${bandStart}%`, width: `${Math.max(bandEnd - bandStart, 1)}%` }}
+        />
+        {/* threshold marker (p10) */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-px h-5 bg-emerald-700"
+          style={{ left: `${thresholdPos}%` }}
+          title={`Threshold: ${Math.round(calibration.p10 * 100)}%`}
+        />
+        {/* submission score marker */}
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 w-2 h-6 rounded-sm ring-2 ring-white ${
+            passed ? "bg-emerald-600" : "bg-red-600"
+          }`}
+          style={{ left: `calc(${scorePos}% - 4px)` }}
+          title={`Your score: ${Math.round(score * 100)}%`}
+        />
+      </div>
+      <div className="mt-2 text-xs text-slate-500">
+        Brand canonicals score{" "}
+        <strong className="text-slate-700">{Math.round(calibration.min * 100)}–{Math.round(calibration.p50 * 100)}%</strong>{" "}
+        against each other (median{" "}
+        <strong className="text-slate-700">{Math.round(calibration.p50 * 100)}%</strong>
+        {calibration.sampleSize > 0 ? `, n=${calibration.sampleSize}` : ""}). Your submission landed at{" "}
+        <strong className={passed ? "text-emerald-700" : "text-red-700"}>
+          {Math.round(score * 100)}%
+        </strong>
+        .
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Visual comparison block: side-by-side hero of the submission and its single
+ * closest canonical reference, plus a small strip of runners-up. Both layers
+ * are clickable and open a lightbox for full-size inspection.
+ *
+ * When `submissionImageUrl` is missing, falls back to a flat strip of all refs.
+ */
+function ClosestReferences({
+  refs,
+  submissionImageUrl,
+}: {
+  refs: CanonicalRefMatch[];
+  submissionImageUrl?: string;
+}) {
+  const [zoomed, setZoomed] = useState<{ src: string; caption?: string } | null>(null);
+
+  if (refs.length === 0) return null;
+  const [top, ...runnersUp] = refs;
+  const topPct = Math.round(top.similarity * 100);
+
+  // Without a submission image, fall back to a flat strip (the v0 layout).
+  if (!submissionImageUrl) {
+    return (
+      <div>
+        <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+          Closest references
+        </div>
+        <div className="flex gap-3">
+          {refs.map((ref, i) => (
+            <ReferenceThumbnail
+              key={ref.image_id ?? i}
+              ref={ref}
+              size={80}
+              onZoom={(payload) => setZoomed(payload)}
+            />
+          ))}
+        </div>
+        {zoomed && (
+          <Lightbox
+            src={zoomed.src}
+            alt="Reference image"
+            caption={zoomed.caption}
+            onClose={() => setZoomed(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+        Closest reference
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <HeroPanel
+          src={submissionImageUrl}
+          label="Your submission"
+          onZoom={() =>
+            setZoomed({ src: submissionImageUrl, caption: "Your submission" })
+          }
+        />
+        <HeroPanel
+          src={top.image_url}
+          label={`Closest canonical · ${topPct}% similar`}
+          onZoom={
+            top.image_url
+              ? () =>
+                  setZoomed({
+                    src: top.image_url!,
+                    caption: `Closest canonical · ${topPct}% similar`,
+                  })
+              : undefined
+          }
+        />
+      </div>
+      {runnersUp.length > 0 && (
+        <div className="mt-3">
+          <div className="text-xs text-slate-500 mb-1.5">Also similar to</div>
+          <div className="flex gap-2">
+            {runnersUp.map((ref, i) => (
+              <ReferenceThumbnail
+                key={ref.image_id ?? i}
+                ref={ref}
+                size={56}
+                onZoom={(payload) => setZoomed(payload)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {zoomed && (
+        <Lightbox
+          src={zoomed.src}
+          alt="Reference image"
+          caption={zoomed.caption}
+          onClose={() => setZoomed(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function HeroPanel({
+  src,
+  label,
+  onZoom,
+}: {
+  src?: string;
+  label: string;
+  onZoom?: () => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <button
+        type="button"
+        onClick={onZoom}
+        disabled={!onZoom || !src}
+        className="block w-full aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 hover:border-rose-400 hover:shadow-md transition-all disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:shadow-none"
+        title={onZoom ? "Click to enlarge" : undefined}
+      >
+        {src ? (
+          <img src={src} alt={label} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">
+            n/a
+          </div>
+        )}
+      </button>
+      <div className="text-xs font-semibold text-slate-700 text-center">{label}</div>
+    </div>
+  );
+}
+
+function ReferenceThumbnail({
+  ref,
+  size,
+  onZoom,
+}: {
+  ref: CanonicalRefMatch;
+  size: number;
+  onZoom: (payload: { src: string; caption: string }) => void;
+}) {
+  const pct = Math.round(ref.similarity * 100);
+  const handleClick = () => {
+    if (ref.image_url) {
+      onZoom({ src: ref.image_url, caption: `Similarity: ${pct}%` });
+    }
+  };
+  return (
+    <button
+      onClick={handleClick}
+      disabled={!ref.image_url}
+      className="group flex flex-col items-center gap-1 disabled:cursor-not-allowed"
+      title={ref.image_url ? "Click to enlarge" : "Reference unavailable"}
+      style={{ width: size }}
+    >
+      <div
+        className="rounded-lg overflow-hidden border border-slate-200 bg-slate-100 group-hover:border-rose-400 group-hover:shadow-md transition-all"
+        style={{ width: size, height: size }}
+      >
+        {ref.image_url ? (
+          <img
+            src={ref.image_url}
+            alt="Reference"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">
+            n/a
+          </div>
+        )}
+      </div>
+      <span className="text-xs font-semibold text-slate-700">{pct}%</span>
+    </button>
+  );
+}
+
+function Lightbox({
+  src,
+  alt,
+  caption,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  caption?: string;
+  onClose: () => void;
+}) {
+  // ESC closes; click on backdrop closes; click on image is swallowed.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6 cursor-zoom-out"
+      onClick={onClose}
+    >
+      <div
+        className="max-w-4xl max-h-full flex flex-col items-center gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-[80vh] rounded-xl shadow-2xl"
+        />
+        {caption && (
+          <div className="text-white/80 text-sm font-medium bg-black/40 px-4 py-1.5 rounded-full">
+            {caption}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white/70 hover:text-white text-2xl font-light w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10"
+        aria-label="Close"
+      >
+        ×
+      </button>
+    </div>
   );
 }

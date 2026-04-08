@@ -99,11 +99,6 @@ export default function ReviewQueue() {
                     >
                       {badge.label}
                     </span>
-                    {item.trademark && (
-                      <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {item.trademark.ip_type}
-                      </span>
-                    )}
                   </div>
                   <div className="text-xs text-slate-500">submitted {new Date(item.created_at).toLocaleString()}</div>
                   {item.submitter_email && (

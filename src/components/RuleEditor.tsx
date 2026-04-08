@@ -3,7 +3,6 @@ import {
   getRuleGraph,
   putRuleGraph,
   updateTrademark,
-  type IpType,
   type Rule,
   type RuleGraphContent,
   type PrimitiveName,
@@ -12,7 +11,6 @@ import {
 
 interface Props {
   trademarkId: string;
-  ipType: IpType;
   initialGuidelines?: string | null;
   onGuidelinesSaved?: (guidelines: string | null) => void;
 }
@@ -21,8 +19,6 @@ interface PrimitiveOption {
   value: PrimitiveName;
   label: string;
   description: string;
-  /** If set, only ideal for this ip_type — still selectable, but a hint shows. */
-  bestFor?: IpType;
 }
 
 const ALL_PRIMITIVES: PrimitiveOption[] = [
@@ -34,11 +30,11 @@ const ALL_PRIMITIVES: PrimitiveOption[] = [
   { value: "manual_check",        label: "Manual review (placeholder)", description: "Surface a guideline that has no auto-primitive yet" },
 ];
 
-function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Record<string, unknown>; on_fail: RuleSeverity; name: string } {
+function defaultConfig(primitive: PrimitiveName): { config: Record<string, unknown>; on_fail: RuleSeverity; name: string } {
   switch (primitive) {
     case "identity_match":
       return {
-        name: `${ipType === "character" ? "Character" : "Mark"} must be present`,
+        name: "Trademark must be present",
         config: { min_score: 0.55, min_confidence: "MEDIUM" },
         on_fail: "fail_hard",
       };
@@ -87,7 +83,7 @@ function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Reco
   }
 }
 
-export default function RuleEditor({ trademarkId, ipType, initialGuidelines, onGuidelinesSaved }: Props) {
+export default function RuleEditor({ trademarkId, initialGuidelines, onGuidelinesSaved }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -136,7 +132,7 @@ export default function RuleEditor({ trademarkId, ipType, initialGuidelines, onG
   }
 
   function addRule(primitive: PrimitiveName) {
-    const d = defaultConfig(primitive, ipType);
+    const d = defaultConfig(primitive);
     setRules([
       ...rules,
       { name: d.name, primitive, config: d.config, on_fail: d.on_fail, description: "" },
@@ -158,7 +154,6 @@ export default function RuleEditor({ trademarkId, ipType, initialGuidelines, onG
     try {
       const content: RuleGraphContent = {
         schema_version: 1,
-        ip_type: ipType,
         rules,
       };
       const { rule_graph } = await putRuleGraph(trademarkId, content);
@@ -270,26 +265,16 @@ export default function RuleEditor({ trademarkId, ipType, initialGuidelines, onG
             {showAdd ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pick a primitive</div>
-                {primitives.map((p) => {
-                  const mismatch = p.bestFor && p.bestFor !== ipType;
-                  return (
-                    <button
-                      key={p.value}
-                      onClick={() => addRule(p.value)}
-                      className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-semibold text-slate-900">{p.label}</div>
-                        {mismatch && (
-                          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-                            best for {p.bestFor} IPs
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
-                    </button>
-                  );
-                })}
+                {primitives.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => addRule(p.value)}
+                    className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
+                  >
+                    <div className="text-sm font-semibold text-slate-900">{p.label}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
+                  </button>
+                ))}
                 <button
                   onClick={() => setShowAdd(false)}
                   className="w-full px-4 py-2 text-xs text-slate-400 hover:text-slate-600"

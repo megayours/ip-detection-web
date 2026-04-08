@@ -1,4 +1,4 @@
-import type { PrimitiveName, RuleSeverity, RuleResult } from "../api";
+import type { PrimitiveName, RuleSeverity, RuleResult, CanonicalRefMatch } from "../api";
 
 /**
  * User-facing labels for the underlying check primitives. We deliberately do
@@ -88,6 +88,69 @@ export function vlmViolations(rr: RuleResult): VlmViolation[] {
   return Array.isArray(v) ? v : [];
 }
 
+/**
+ * Closest canonical references for a canonical_proximity rule. Capped to top-N
+ * (default 3 — keeps the report card compact). Returns [] for any other primitive.
+ */
+export function closestReferences(rr: RuleResult, limit = 3): CanonicalRefMatch[] {
+  if (rr.primitive !== "canonical_proximity") return [];
+  const ev = rr.evidence as Record<string, unknown> | undefined;
+  const refs = ev?.top_similarities as CanonicalRefMatch[] | undefined;
+  if (!Array.isArray(refs)) return [];
+  return refs.slice(0, limit);
+}
+
+/**
+ * The auto-calibrated proximity stats for a canonical_proximity rule. The
+ * report card uses these to render the "brand canonicals score X–Y to each
+ * other, you scored Z" calibration strip.
+ */
+export interface ProximityCalibration {
+  min: number;
+  p10: number;
+  p50: number;
+  /** How many canonical-vs-canonical samples the percentiles were computed from. */
+  sampleSize: number;
+}
+
+export function proximityCalibration(rr: RuleResult): ProximityCalibration | null {
+  if (rr.primitive !== "canonical_proximity") return null;
+  const ev = rr.evidence as Record<string, unknown> | undefined;
+  const stats = ev?.proximity_stats as Record<string, unknown> | undefined;
+  if (!stats) return null;
+  const min = stats.min as number | undefined;
+  const p10 = stats.p10 as number | undefined;
+  const p50 = stats.p50 as number | undefined;
+  const samples = stats.samples as number[] | undefined;
+  if (typeof min !== "number" || typeof p10 !== "number" || typeof p50 !== "number") return null;
+  return { min, p10, p50, sampleSize: Array.isArray(samples) ? samples.length : 0 };
+}
+
+export interface ProximityExplanation {
+  text: string;
+  model?: string;
+  cacheHit?: boolean;
+}
+
+/**
+ * One-sentence VLM explanation of the visual gap to the closest canonical
+ * (only present on failed canonical_proximity rules where the worker
+ * successfully reached Gemini). Returns null otherwise.
+ */
+export function proximityExplanation(rr: RuleResult): ProximityExplanation | null {
+  if (rr.primitive !== "canonical_proximity") return null;
+  const ev = rr.evidence as Record<string, unknown> | undefined;
+  const exp = ev?.explanation as Record<string, unknown> | undefined;
+  if (!exp) return null;
+  const text = exp.text as string | undefined;
+  if (!text) return null;
+  return {
+    text,
+    model: exp.model as string | undefined,
+    cacheHit: exp.cache_hit as boolean | undefined,
+  };
+}
+
 export interface ObservedFact {
   label: string;
   value: string;
@@ -151,6 +214,15 @@ export function observedFacts(rr: RuleResult): ObservedFact[] {
       }
       if (threshold !== undefined) {
         facts.push({ label: "Threshold", value: pct(threshold), tone: "neutral" });
+      }
+      if (score !== undefined && threshold !== undefined) {
+        const gap = score - threshold;
+        const sign = gap >= 0 ? "+" : "−";
+        facts.push({
+          label: "Gap to threshold",
+          value: `${sign}${Math.round(Math.abs(gap) * 100)} pts`,
+          tone: gap >= 0 ? "good" : "bad",
+        });
       }
       return facts;
     }
