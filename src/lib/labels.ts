@@ -127,28 +127,46 @@ export function proximityCalibration(rr: RuleResult): ProximityCalibration | nul
 }
 
 export interface ProximityExplanation {
-  text: string;
+  changes: string[];
   model?: string;
   cacheHit?: boolean;
 }
 
 /**
- * One-sentence VLM explanation of the visual gap to the closest canonical
- * (only present on failed canonical_proximity rules where the worker
- * successfully reached Gemini). Returns null otherwise.
+ * VLM-generated imperative bullets describing what the submission needs to
+ * change to look more like its closest canonical. Only present on failed
+ * canonical_proximity rules where the worker successfully reached Gemini.
+ * Returns null otherwise — see `proximityExplanationDebug` for the failure
+ * reason in that case.
  */
 export function proximityExplanation(rr: RuleResult): ProximityExplanation | null {
   if (rr.primitive !== "canonical_proximity") return null;
   const ev = rr.evidence as Record<string, unknown> | undefined;
   const exp = ev?.explanation as Record<string, unknown> | undefined;
   if (!exp) return null;
-  const text = exp.text as string | undefined;
-  if (!text) return null;
+  const rawChanges = exp.changes as unknown;
+  if (!Array.isArray(rawChanges)) return null;
+  const changes = rawChanges.filter((c): c is string => typeof c === "string" && c.length > 0);
+  if (changes.length === 0) return null;
   return {
-    text,
+    changes,
     model: exp.model as string | undefined,
     cacheHit: exp.cache_hit as boolean | undefined,
   };
+}
+
+/**
+ * Reason the worker couldn't generate a VLM explanation, surfaced via
+ * `evidence.explanation_debug`. Useful for diagnosing missing explanations
+ * (e.g. "GEMINI_API_KEY not set", "failed to download closest reference: ...").
+ * Returns null when an explanation was generated successfully or the rule
+ * passed.
+ */
+export function proximityExplanationDebug(rr: RuleResult): string | null {
+  if (rr.primitive !== "canonical_proximity") return null;
+  const ev = rr.evidence as Record<string, unknown> | undefined;
+  const debug = ev?.explanation_debug;
+  return typeof debug === "string" && debug ? debug : null;
 }
 
 export interface ObservedFact {

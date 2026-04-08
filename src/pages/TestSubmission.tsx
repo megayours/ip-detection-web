@@ -20,6 +20,7 @@ import {
   closestReferences,
   proximityCalibration,
   proximityExplanation,
+  proximityExplanationDebug,
   type ProximityCalibration,
   type ProximityExplanation,
 } from "../lib/labels";
@@ -386,6 +387,7 @@ function RuleResultRow({
   const refs = closestReferences(rr);
   const calibration = proximityCalibration(rr);
   const explanation = proximityExplanation(rr);
+  const explanationDebug = proximityExplanationDebug(rr);
   const proximityScore =
     rr.primitive === "canonical_proximity"
       ? (rr.observed?.proximity_score as number | undefined)
@@ -396,7 +398,8 @@ function RuleResultRow({
     facts.length > 0 ||
     refs.length > 0 ||
     calibration !== null ||
-    explanation !== null;
+    explanation !== null ||
+    explanationDebug !== null;
 
   return (
     <li className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderColor} overflow-hidden`}>
@@ -445,6 +448,9 @@ function RuleResultRow({
             </dl>
           )}
           {explanation && <ProximityExplanationBlock explanation={explanation} />}
+          {!explanation && explanationDebug && (
+            <ProximityExplanationDebugBlock reason={explanationDebug} />
+          )}
           {calibration && proximityScore !== undefined && (
             <CalibrationStrip calibration={calibration} score={proximityScore} />
           )}
@@ -480,17 +486,42 @@ function RuleResultRow({
 }
 
 /**
- * One-sentence VLM explanation of why a canonical_proximity rule failed —
- * surfaced from `evidence.explanation.text`. Visually distinct so users
- * understand it's an AI-generated hint, not a hard rule.
+ * VLM-generated imperative bullets describing what the submission needs to
+ * change to look more like its closest canonical. Surfaced from
+ * `evidence.explanation.changes`. Visually distinct so users understand
+ * these are AI-generated suggestions, not hard rules.
  */
 function ProximityExplanationBlock({ explanation }: { explanation: ProximityExplanation }) {
   return (
-    <div className="bg-violet-50 border-l-2 border-violet-300 rounded px-3 py-2.5">
-      <div className="text-[10px] font-semibold text-violet-700 uppercase tracking-wider mb-0.5">
-        AI explanation
+    <div className="bg-violet-50 border-l-2 border-violet-300 rounded px-4 py-3">
+      <div className="text-[10px] font-semibold text-violet-700 uppercase tracking-wider mb-2">
+        Suggested changes
       </div>
-      <div className="text-sm text-violet-900 leading-snug">{explanation.text}</div>
+      <ul className="space-y-1.5">
+        {explanation.changes.map((change, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm text-violet-900 leading-snug">
+            <span className="text-violet-400 font-bold mt-0.5">→</span>
+            <span>{change}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Fallback shown when the worker tried to generate an explanation but failed
+ * (no API key, image download error, malformed VLM response, etc). Surfaces
+ * `evidence.explanation_debug` so the user can diagnose without digging
+ * through worker logs.
+ */
+function ProximityExplanationDebugBlock({ reason }: { reason: string }) {
+  return (
+    <div className="bg-slate-50 border-l-2 border-slate-300 rounded px-4 py-2.5">
+      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
+        Suggested changes unavailable
+      </div>
+      <div className="text-xs text-slate-600 font-mono">{reason}</div>
     </div>
   );
 }
