@@ -7,12 +7,46 @@ import {
   type RuleGraphContent,
   type PrimitiveName,
   type RuleSeverity,
+  type BaselineConfig,
 } from "../api";
 
 interface Props {
   trademarkId: string;
   initialGuidelines?: string | null;
+  initialBaselineConfig?: BaselineConfig | null;
   onGuidelinesSaved?: (guidelines: string | null) => void;
+  onBaselineSaved?: (config: BaselineConfig | null) => void;
+}
+
+/**
+ * Mirrors `BASELINE_DEFAULTS` in `worker/lib/rules.py`. Surfaced in the UI as
+ * the placeholder/reset value so users see what their override compares
+ * against. KEEP THESE IN SYNC with the worker.
+ */
+const BASELINE_DEFAULTS = {
+  identity_match: { min_score: 0.55, min_confidence: "MEDIUM" as const },
+  style_fidelity: { min_similarity: 0.4, warn_below: 0.55 },
+  canonical_proximity: { k: 3, calibration_percentile: "p10" as const },
+};
+
+const PERCENTILE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "min", label: "min — strictest" },
+  { value: "p05", label: "p05 — very strict" },
+  { value: "p10", label: "p10 — strict (default)" },
+  { value: "p25", label: "p25 — moderate" },
+  { value: "p50", label: "p50 — loose (median)" },
+];
+
+/** Drop empty sub-objects so we never send `{ identity_match: {} }` to the API. */
+function pruneBaseline(cfg: BaselineConfig): BaselineConfig {
+  const out: BaselineConfig = {};
+  for (const key of ["identity_match", "style_fidelity", "canonical_proximity"] as const) {
+    const sub = cfg[key];
+    if (sub && Object.keys(sub).some((k) => (sub as Record<string, unknown>)[k] !== undefined)) {
+      out[key] = sub as never;
+    }
+  }
+  return out;
 }
 
 interface PrimitiveOption {
@@ -83,7 +117,13 @@ function defaultConfig(primitive: PrimitiveName): { config: Record<string, unkno
   }
 }
 
-export default function RuleEditor({ trademarkId, initialGuidelines, onGuidelinesSaved }: Props) {
+export default function RuleEditor({
+  trademarkId,
+  initialGuidelines,
+  initialBaselineConfig,
+  onGuidelinesSaved,
+  onBaselineSaved,
+}: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,9 +138,19 @@ export default function RuleEditor({ trademarkId, initialGuidelines, onGuideline
   const [savingGuidelines, setSavingGuidelines] = useState(false);
   const [guidelinesSavedAt, setGuidelinesSavedAt] = useState<string | null>(null);
 
+  // Editable per-trademark overrides for the always-on baseline primitives.
+  // null/undefined values fall back to BASELINE_DEFAULTS in the worker.
+  const [baseline, setBaseline] = useState<BaselineConfig>(initialBaselineConfig ?? {});
+  const [savingBaseline, setSavingBaseline] = useState(false);
+  const [baselineSavedAt, setBaselineSavedAt] = useState<string | null>(null);
+
   useEffect(() => {
     setGuidelines(initialGuidelines ?? "");
   }, [initialGuidelines]);
+
+  useEffect(() => {
+    setBaseline(initialBaselineConfig ?? {});
+  }, [initialBaselineConfig]);
 
   useEffect(() => {
     getRuleGraph(trademarkId)
@@ -129,6 +179,31 @@ export default function RuleEditor({ trademarkId, initialGuidelines, onGuideline
     } finally {
       setSavingGuidelines(false);
     }
+  }
+
+  async function saveBaseline() {
+    setSavingBaseline(true);
+    setError("");
+    try {
+      // Send null to clear all overrides; otherwise send the trimmed config
+      // (drop empty sub-objects so the worker reads pure defaults for them).
+      const cleaned = pruneBaseline(baseline);
+      const payload = Object.keys(cleaned).length === 0 ? null : cleaned;
+      const { trademark } = await updateTrademark(trademarkId, {
+        baseline_config: payload,
+      });
+      setBaseline(trademark.baseline_config ?? {});
+      setBaselineSavedAt(new Date().toISOString());
+      onBaselineSaved?.(trademark.baseline_config);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSavingBaseline(false);
+    }
+  }
+
+  function resetBaseline() {
+    setBaseline({});
   }
 
   function addRule(primitive: PrimitiveName) {
@@ -233,16 +308,35 @@ export default function RuleEditor({ trademarkId, initialGuidelines, onGuideline
         </button>
 
         {showAdvanced && (
-          <div className="border-t border-slate-100 p-5 space-y-4">
-            <div className="flex items-center justify-end">
-              <button
-                onClick={save}
-                disabled={saving || rules.length === 0}
-                className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
-              >
-                {saving ? "Saving…" : version ? "Publish new version" : "Publish v0.1.0"}
-              </button>
-              {savedAt && <span className="text-xs text-slate-400 ml-2">saved just now</span>}
+          <div className="border-t border-slate-100 p-5 space-y-6">
+            <BaselineEditor
+              config={baseline}
+              onChange={setBaseline}
+              onSave={saveBaseline}
+              onReset={resetBaseline}
+              saving={savingBaseline}
+              savedAt={baselineSavedAt}
+            />
+
+            <div className="border-t border-slate-100 pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Custom rules</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Add structured primitives — palette, OCR, etc.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={save}
+                    disabled={saving || rules.length === 0}
+                    className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+                  >
+                    {saving ? "Saving…" : version ? "Publish new version" : "Publish v0.1.0"}
+                  </button>
+                  {savedAt && <span className="text-xs text-slate-400">saved just now</span>}
+                </div>
+              </div>
             </div>
 
             {rules.length === 0 ? (
@@ -624,6 +718,232 @@ function SelectField({ label, value, onChange, options }: { label: string; value
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Per-trademark overrides for the always-on baseline primitives. Mirrors the
+ * worker's `BASELINE_DEFAULTS` so users see the default values as placeholders
+ * and can selectively loosen any of them. Empty fields fall back to defaults.
+ */
+function BaselineEditor({
+  config,
+  onChange,
+  onSave,
+  onReset,
+  saving,
+  savedAt,
+}: {
+  config: BaselineConfig;
+  onChange: (cfg: BaselineConfig) => void;
+  onSave: () => void;
+  onReset: () => void;
+  saving: boolean;
+  savedAt: string | null;
+}) {
+  const identity = config.identity_match ?? {};
+  const style = config.style_fidelity ?? {};
+  const canon = config.canonical_proximity ?? {};
+
+  function patchIdentity(p: Partial<NonNullable<BaselineConfig["identity_match"]>>) {
+    onChange({ ...config, identity_match: { ...identity, ...p } });
+  }
+  function patchStyle(p: Partial<NonNullable<BaselineConfig["style_fidelity"]>>) {
+    onChange({ ...config, style_fidelity: { ...style, ...p } });
+  }
+  function patchCanon(p: Partial<NonNullable<BaselineConfig["canonical_proximity"]>>) {
+    onChange({ ...config, canonical_proximity: { ...canon, ...p } });
+  }
+
+  const dirty = Object.keys(pruneBaseline(config)).length > 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Baseline thresholds</div>
+          <div className="text-xs text-slate-500 mt-0.5 max-w-md">
+            The three always-on checks. Loosen these for IPs with looser
+            requirements; leave any field blank to fall back to the global
+            default.
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <button
+              onClick={onReset}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+            >
+              Reset to defaults
+            </button>
+          )}
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 transition-all"
+          >
+            {saving ? "Saving…" : "Save thresholds"}
+          </button>
+          {savedAt && <span className="text-xs text-slate-400">saved just now</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Subject Detected (identity_match) */}
+        <BaselineCard title="Subject Detected" subtitle="Detection gating">
+          <BaselineNumber
+            label="Min match strength"
+            value={identity.min_score}
+            placeholder={BASELINE_DEFAULTS.identity_match.min_score}
+            step={0.05}
+            onChange={(v) => patchIdentity({ min_score: v })}
+          />
+          <BaselineSelect
+            label="Min confidence"
+            value={identity.min_confidence}
+            placeholder={BASELINE_DEFAULTS.identity_match.min_confidence}
+            options={[
+              { value: "LOW", label: "LOW" },
+              { value: "MEDIUM", label: "MEDIUM" },
+              { value: "HIGH", label: "HIGH" },
+            ]}
+            onChange={(v) =>
+              patchIdentity({ min_confidence: (v || undefined) as "LOW" | "MEDIUM" | "HIGH" | undefined })
+            }
+          />
+        </BaselineCard>
+
+        {/* Visual Style Match (style_fidelity) */}
+        <BaselineCard title="Visual Style Match" subtitle="Centroid similarity">
+          <BaselineNumber
+            label="Min similarity"
+            value={style.min_similarity}
+            placeholder={BASELINE_DEFAULTS.style_fidelity.min_similarity}
+            step={0.05}
+            onChange={(v) => patchStyle({ min_similarity: v })}
+          />
+          <BaselineNumber
+            label="Warn below"
+            value={style.warn_below}
+            placeholder={BASELINE_DEFAULTS.style_fidelity.warn_below}
+            step={0.05}
+            onChange={(v) => patchStyle({ warn_below: v })}
+          />
+        </BaselineCard>
+
+        {/* Reference Likeness (canonical_proximity) */}
+        <BaselineCard title="Reference Likeness" subtitle="Auto-calibrated novelty">
+          <BaselineSelect
+            label="Calibration percentile"
+            value={canon.calibration_percentile}
+            placeholder={BASELINE_DEFAULTS.canonical_proximity.calibration_percentile}
+            options={PERCENTILE_OPTIONS}
+            onChange={(v) => patchCanon({ calibration_percentile: v || undefined })}
+          />
+          <BaselineNumber
+            label="Min proximity (override)"
+            value={canon.min_proximity}
+            placeholder={undefined}
+            placeholderText="auto"
+            step={0.01}
+            onChange={(v) => patchCanon({ min_proximity: v })}
+          />
+        </BaselineCard>
+      </div>
+    </div>
+  );
+}
+
+function BaselineCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+      <div>
+        <div className="text-xs font-bold text-slate-900">{title}</div>
+        <div className="text-[11px] text-slate-500">{subtitle}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Number field that treats blank as "use default" — value undefined means
+ *  the user hasn't overridden, and the placeholder shows the global default. */
+function BaselineNumber({
+  label,
+  value,
+  placeholder,
+  placeholderText,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number | undefined;
+  placeholder: number | undefined;
+  placeholderText?: string;
+  step?: number;
+  onChange: (v: number | undefined) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-[11px] font-medium text-slate-600 mb-1">{label}</label>
+      <input
+        type="number"
+        value={value ?? ""}
+        placeholder={placeholderText ?? (placeholder !== undefined ? String(placeholder) : "")}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === "") {
+            onChange(undefined);
+          } else {
+            const n = parseFloat(raw);
+            onChange(Number.isNaN(n) ? undefined : n);
+          }
+        }}
+        step={step ?? 0.1}
+        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+      />
+    </div>
+  );
+}
+
+/** Select field with an "Use default" option that maps to undefined. */
+function BaselineSelect({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string | undefined;
+  placeholder: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (v: string | undefined) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-[11px] font-medium text-slate-600 mb-1">{label}</label>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+      >
+        <option value="">use default ({placeholder})</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
         ))}
       </select>
     </div>

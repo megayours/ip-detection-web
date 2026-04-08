@@ -184,7 +184,9 @@ export default function TrademarkDetail() {
           <RuleEditor
             trademarkId={trademark.id}
             initialGuidelines={trademark.guidelines}
+            initialBaselineConfig={trademark.baseline_config}
             onGuidelinesSaved={(g) => setTrademark({ ...trademark, guidelines: g })}
+            onBaselineSaved={(cfg) => setTrademark({ ...trademark, baseline_config: cfg })}
           />
         </div>
       )}
