@@ -87,7 +87,6 @@ export interface TrademarkImage {
   storage_path: string;
   url: string;
   status: string;
-  pose_label: string | null;
   created_at: string;
 }
 
@@ -109,16 +108,6 @@ export function createTrademark(
     method: "POST",
     body: JSON.stringify({ name, description, ip_type: ipType, guidelines }),
   });
-}
-
-export function setImagePoseLabel(trademarkId: string, imageId: string, poseLabel: string | null) {
-  return request<{ ok: boolean; pose_label: string | null }>(
-    `/api/trademarks/${trademarkId}/images/${imageId}/pose`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ pose_label: poseLabel }),
-    }
-  );
 }
 
 export function getTrademark(id: string) {
@@ -221,7 +210,6 @@ export type PrimitiveName =
   | "style_fidelity"
   | "palette"
   | "ocr_contains"
-  | "pose_class"
   | "manual_check"
   | "canonical_proximity"
   | "vlm_check";

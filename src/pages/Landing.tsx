@@ -126,7 +126,7 @@ export default function Landing() {
               <PipelineRow
                 icon="eye"
                 title="Structural Analysis"
-                description="Visual structure — shapes, poses, spatial composition, character anatomy"
+                description="Visual structure — shapes, spatial composition, character anatomy"
               />
               <PipelineRow
                 icon="brain"

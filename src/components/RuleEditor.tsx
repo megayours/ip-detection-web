@@ -28,7 +28,6 @@ interface PrimitiveOption {
 const ALL_PRIMITIVES: PrimitiveOption[] = [
   { value: "identity_match",      label: "Identity must be present",  description: "Detection gating — fail if the IP isn't present" },
   { value: "canonical_proximity", label: "Canonical proximity",       description: "Auto-calibrated novelty detection. Top-k mean similarity to canonical refs vs threshold derived from the reference set itself. Catches off-canon parodies that style_fidelity is too coarse to detect." },
-  { value: "pose_class",          label: "Required pose",             description: "Pose classifier against tagged reference exemplars", bestFor: "character" },
   { value: "palette",             label: "Brand color palette",       description: "Cropped region's dominant colors must match allowed palette" },
   { value: "ocr_contains",        label: "Word mark in image",        description: "OCR must find a required string" },
   { value: "style_fidelity",      label: "Style fidelity (centroid)", description: "Cosine similarity to canonical centroid. Coarser than canonical_proximity — kept for backward compat." },
@@ -42,12 +41,6 @@ function defaultConfig(primitive: PrimitiveName, ipType: IpType): { config: Reco
         name: `${ipType === "character" ? "Character" : "Mark"} must be present`,
         config: { min_score: 0.55, min_confidence: "MEDIUM" },
         on_fail: "fail_hard",
-      };
-    case "pose_class":
-      return {
-        name: "Required pose",
-        config: { required_poses: ["standing"], min_similarity: 0.5, min_class_margin: 0 },
-        on_fail: "fail",
       };
     case "palette":
       return {
@@ -237,7 +230,7 @@ export default function RuleEditor({ trademarkId, ipType, initialGuidelines, onG
           <div className="text-left">
             <div className="text-sm font-semibold text-slate-900">Advanced rules</div>
             <div className="text-xs text-slate-500 mt-0.5">
-              Add structured primitives — palette, OCR, pose, custom thresholds.
+              Add structured primitives — palette, OCR, custom thresholds.
               {version && <> Current version <code className="text-rose-600">{version}</code>.</>}
             </div>
           </div>
@@ -435,39 +428,6 @@ function PrimitiveConfigEditor({
             onChange={(v) => onChange({ ...cfg, min_confidence: v })}
             options={["LOW", "MEDIUM", "HIGH"]}
           />
-        </div>
-      );
-
-    case "pose_class":
-      return (
-        <div className="space-y-3">
-          <TextField
-            label="Required poses (comma-separated)"
-            value={Array.isArray(cfg.required_poses) ? (cfg.required_poses as string[]).join(", ") : ""}
-            onChange={(v) => onChange({ ...cfg, required_poses: v.split(",").map((s) => s.trim()).filter(Boolean) })}
-            placeholder="standing"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <NumberField
-              label="Min per-class similarity"
-              value={(cfg.min_similarity as number) ?? 0.5}
-              onChange={(v) => onChange({ ...cfg, min_similarity: v })}
-              step={0.05}
-            />
-            <NumberField
-              label="Min class margin"
-              value={(cfg.min_class_margin as number) ?? 0}
-              onChange={(v) => onChange({ ...cfg, min_class_margin: v })}
-              step={0.01}
-            />
-          </div>
-          <p className="text-xs text-slate-400">
-            Classification uses per-class mean cosine similarity (not top-1 nearest neighbour) so a single
-            portrait exemplar isn't drowned out by 14 standing exemplars. <strong>Tag at least 3 reference
-            images per pose class</strong> below for stable classification — single-anchor classes are
-            brittle. <strong>Min class margin</strong> (default 0) fails the rule if the predicted class
-            wins by less than this — set to e.g. <code>0.05</code> to fail-closed on ambiguous cases.
-          </p>
         </div>
       );
 

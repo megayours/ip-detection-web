@@ -134,7 +134,7 @@ export default function Trademarks() {
                   className="sr-only"
                 />
                 <div className="text-sm font-semibold text-slate-900">Character</div>
-                <div className="text-xs text-slate-500 mt-0.5">Cartoon, mascot — unlocks pose rules</div>
+                <div className="text-xs text-slate-500 mt-0.5">Cartoon, mascot, illustrated character</div>
               </label>
             </div>
           </div>

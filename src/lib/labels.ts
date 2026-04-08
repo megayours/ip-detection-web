@@ -31,10 +31,6 @@ const PRIMITIVE_LABELS: Record<PrimitiveName, { title: string; subtitle: string 
     title: "Word Mark",
     subtitle: "Looks for required text in the image",
   },
-  pose_class: {
-    title: "Required Pose",
-    subtitle: "Checks the character is in an approved pose",
-  },
   manual_check: {
     title: "Manual Review",
     subtitle: "Flagged for a human reviewer",
@@ -199,19 +195,6 @@ export function observedFacts(rr: RuleResult): ObservedFact[] {
         value: f.passed ? `Found "${f.best_match ?? f.required}"` : "Not found",
         tone: f.passed ? "good" : "bad",
       }));
-    }
-
-    case "pose_class": {
-      const detected = obs.predicted_class as string | undefined;
-      const sim = obs.predicted_similarity as number | undefined;
-      const facts: ObservedFact[] = [];
-      if (detected) {
-        facts.push({ label: "Detected pose", value: detected, tone: passTone(passed) });
-      }
-      if (sim !== undefined) {
-        facts.push({ label: "Match strength", value: pct(sim) });
-      }
-      return facts;
     }
 
     case "manual_check":

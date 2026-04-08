@@ -6,7 +6,6 @@ import {
   updateTrademark,
   uploadTrademarkImages,
   deleteTrademarkImage,
-  setImagePoseLabel,
   type Trademark,
   type TrademarkImage,
   type IpType,
@@ -65,12 +64,6 @@ export default function TrademarkDetail() {
   async function handleDeleteImage(imageId: string) {
     if (!id) return;
     await deleteTrademarkImage(id, imageId);
-    load();
-  }
-
-  async function handlePoseLabel(imageId: string, poseLabel: string | null) {
-    if (!id) return;
-    await setImagePoseLabel(id, imageId, poseLabel);
     load();
   }
 
@@ -188,23 +181,13 @@ export default function TrademarkDetail() {
                   x
                 </button>
               </div>
-              <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs font-medium space-y-1">
-                <div>
-                  {img.status === "indexed" ? (
-                    <span className="text-emerald-600">Indexed</span>
-                  ) : img.status === "failed" ? (
-                    <span className="text-red-500">Failed</span>
-                  ) : (
-                    <span className="text-slate-400">Pending</span>
-                  )}
-                </div>
-                {trademark.ip_type === "character" && img.status === "indexed" && (
-                  <input
-                    value={img.pose_label ?? ""}
-                    onChange={(e) => handlePoseLabel(img.id, e.target.value || null)}
-                    placeholder="pose label…"
-                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white focus:outline-none focus:border-rose-400"
-                  />
+              <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm px-3 py-1.5 text-xs font-medium">
+                {img.status === "indexed" ? (
+                  <span className="text-emerald-600">Indexed</span>
+                ) : img.status === "failed" ? (
+                  <span className="text-red-500">Failed</span>
+                ) : (
+                  <span className="text-slate-400">Pending</span>
                 )}
               </div>
             </div>
