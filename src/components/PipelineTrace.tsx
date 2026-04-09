@@ -44,7 +44,7 @@ const STAGES: Stage[] = [
   {
     key: "vlm",
     label: "Infringement review",
-    description: "VLM compares the suspect with the closest canonical reference",
+    description: "Comparison with the closest canonical reference",
     primitives: ["vlm_infringement_check", "vlm_check"],
   },
 ];

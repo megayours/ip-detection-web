@@ -25,7 +25,7 @@ const PRIMITIVE_LABELS: Record<PrimitiveName, { title: string; subtitle: string 
   },
   vlm_infringement_check: {
     title: "Infringement Review",
-    subtitle: "VLM compares the suspect image with the closest canonical reference and judges whether it infringes",
+    subtitle: "Comparison with the closest canonical reference and judges whether it infringes",
   },
   palette: {
     title: "Brand Colors",

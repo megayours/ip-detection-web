@@ -10,6 +10,7 @@ import {
   type CaseComment,
   type CaseDetailResponse,
   type CaseReviewStatus,
+  type RuleResult,
 } from "../api";
 import { useAuth } from "../context/AuthContext";
 import PipelineTrace from "../components/PipelineTrace";
@@ -232,10 +233,12 @@ export default function CaseDetail() {
       <section className="space-y-3">
         <h2 className="text-lg font-black text-slate-900 tracking-tight">Pipeline trace</h2>
         <p className="text-sm text-slate-500">
-          Each stage runs cheap → expensive. We escalate every candidate that
-          looks suspicious through the full pipeline; the only candidates we
-          drop are the ones whose IP name isn't even in the picture.
+          The cheap stages run on local nodes and produce the evidence trail.
+          The infringement review (VLM) is the final judge when it runs;
+          otherwise canonical proximity decides. Cases the model clears are
+          auto-dismissed.
         </p>
+        {c.review_status === "dismissed" && <DismissReasonBanner ruleResults={ruleResults} />}
         <PipelineTrace pipelineStage={c.pipeline_stage} ruleResults={ruleResults} />
       </section>
 
@@ -443,6 +446,47 @@ function ReviewBadge({ status }: { status: CaseReviewStatus }) {
     <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${palette[status]}`}>
       {label[status]}
     </span>
+  );
+}
+
+function DismissReasonBanner({ ruleResults }: { ruleResults: RuleResult[] }) {
+  // Mirror of the worker's auto-dismiss logic so the user can see WHY a case
+  // landed in Dismissed without digging through worker logs.
+  const vlm = ruleResults.find((r) => r.primitive === "vlm_infringement_check");
+  const canonical = ruleResults.find((r) => r.primitive === "canonical_proximity");
+
+  let reason: string;
+  if (vlm && (vlm.state === "pass" || vlm.state === "fail")) {
+    if (vlm.state === "pass") {
+      const why =
+        typeof (vlm.evidence as any)?.reasoning === "string"
+          ? ((vlm.evidence as any).reasoning as string)
+          : null;
+      reason = why
+        ? `The infringement review concluded this is not infringement: "${why}"`
+        : "The infringement review concluded this is not infringement.";
+    } else {
+      // Shouldn't happen — VLM hit means the case stays pending — but render
+      // something reasonable just in case.
+      reason = "The infringement review flagged this as infringement.";
+    }
+  } else if (canonical && canonical.state !== "pass") {
+    reason =
+      "Canonical proximity (the auto-calibrated novelty check) did not flag this as infringement, and the VLM didn't reach a confident verdict.";
+  } else {
+    reason = "Auto-dismissed by the scan pipeline.";
+  }
+
+  return (
+    <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-xl px-4 py-3 flex items-start gap-3">
+      <div className="shrink-0 w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold">
+        i
+      </div>
+      <div className="min-w-0">
+        <div className="font-semibold text-slate-700">Auto-dismissed</div>
+        <div className="text-xs mt-0.5">{reason}</div>
+      </div>
+    </div>
   );
 }
 
