@@ -20,7 +20,7 @@ const STAGES: Stage[] = [
   {
     key: "detect",
     label: "Detect",
-    description: "Visual recognition · DINO + SigLIP + LightGlue",
+    description: "Visual recognition",
     primitives: ["identity_match"], // first row in the trace is the detection summary
   },
   {
