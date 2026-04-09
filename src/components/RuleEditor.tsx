@@ -24,8 +24,8 @@ interface Props {
  * against. KEEP THESE IN SYNC with the worker.
  */
 const BASELINE_DEFAULTS = {
-  identity_match: { min_score: 0.55, min_confidence: "MEDIUM" as const },
-  style_fidelity: { min_similarity: 0.4, warn_below: 0.55 },
+  identity_match: { min_score: 0.9, min_confidence: "MEDIUM" as const },
+  style_fidelity: { min_similarity: 0.7, warn_below: 0.55 },
   canonical_proximity: { k: 3, calibration_percentile: "p10" as const },
 };
 
