@@ -114,6 +114,14 @@ function defaultConfig(primitive: PrimitiveName): { config: Record<string, unkno
         config: { guidelines: "", min_confidence: 0.7 },
         on_fail: "fail",
       };
+    case "vlm_infringement_check":
+      // Scan-only primitive — never authored from the rule editor (handle_scan
+      // injects it). Stub keeps the switch exhaustive.
+      return {
+        name: "VLM infringement review (scan only)",
+        config: { min_confidence: 0.7 },
+        on_fail: "fail",
+      };
   }
 }
 

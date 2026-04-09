@@ -4,17 +4,19 @@ import { listCases, type Case, type CaseReviewStatus } from "../api";
 import CaseCard from "../components/CaseCard";
 
 const STATUSES: Array<{ key: CaseReviewStatus | "all"; label: string }> = [
-  { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
   { key: "confirmed", label: "Confirmed" },
   { key: "dismissed", label: "Dismissed" },
+  { key: "all", label: "All" },
 ];
 
 export default function Cases() {
   const [params, setParams] = useSearchParams();
   const sourceUrl = params.get("source_url") ?? undefined;
   const trademarkId = params.get("trademark_id") ?? undefined;
-  const statusParam = (params.get("status") as CaseReviewStatus | null) ?? "all";
+  // Default to Pending so auto-dismissed cases (rubber-duck-style noise) stay
+  // out of the way; the user can flip to All / Dismissed when investigating.
+  const statusParam = (params.get("status") as CaseReviewStatus | "all" | null) ?? "pending";
 
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +36,7 @@ export default function Cases() {
 
   function setStatus(s: CaseReviewStatus | "all") {
     const next = new URLSearchParams(params);
-    if (s === "all") next.delete("status");
-    else next.set("status", s);
+    next.set("status", s);
     setParams(next, { replace: true });
   }
 
@@ -58,7 +59,7 @@ export default function Cases() {
       {/* Status tabs */}
       <div className="flex flex-wrap gap-2">
         {STATUSES.map((s) => {
-          const active = (s.key === "all" && statusParam === "all") || s.key === statusParam;
+          const active = s.key === statusParam;
           return (
             <button
               key={s.key}

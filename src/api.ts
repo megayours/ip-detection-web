@@ -202,7 +202,8 @@ export type PrimitiveName =
   | "ocr_contains"
   | "manual_check"
   | "canonical_proximity"
-  | "vlm_check";
+  | "vlm_check"
+  | "vlm_infringement_check";
 
 export type RuleSeverity = "fail" | "fail_hard" | "note";
 

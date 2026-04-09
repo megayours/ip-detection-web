@@ -23,6 +23,10 @@ const PRIMITIVE_LABELS: Record<PrimitiveName, { title: string; subtitle: string 
     title: "Brand Guideline Review",
     subtitle: "Checks free-text brand guidelines",
   },
+  vlm_infringement_check: {
+    title: "Infringement Review",
+    subtitle: "VLM compares the suspect image with the closest canonical reference and judges whether it infringes",
+  },
   palette: {
     title: "Brand Colors",
     subtitle: "Checks dominant colors against the allowed palette",

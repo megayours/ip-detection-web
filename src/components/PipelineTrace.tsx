@@ -43,9 +43,9 @@ const STAGES: Stage[] = [
   },
   {
     key: "vlm",
-    label: "Brand-guideline review",
-    description: "Evaluates the IP's guidelines",
-    primitives: ["vlm_check"],
+    label: "Infringement review",
+    description: "VLM compares the suspect with the closest canonical reference",
+    primitives: ["vlm_infringement_check", "vlm_check"],
   },
 ];
 
@@ -124,7 +124,9 @@ type StageStatus = "pending" | "running" | "hit" | "clear" | "uncertain" | "skip
  */
 function interpretInScanContext(primitive: string, state: string): StageStatus {
   if (state === "uncertain") return "uncertain";
-  if (primitive === "vlm_check") {
+  // Both VLM primitives are inverted: `fail` is the suspicious signal
+  // (vlm_check = "violates guidelines", vlm_infringement_check = "infringes").
+  if (primitive === "vlm_check" || primitive === "vlm_infringement_check") {
     return state === "fail" ? "hit" : "clear";
   }
   // identity_match, style_fidelity, canonical_proximity all share the same
@@ -201,16 +203,26 @@ function StageMeter({
   if (!meter) return null;
 
   // For VLM, the bar represents the model's *confidence* in its verdict, not
-  // a similarity. The verdict itself ("Violates" / "Follows") is the headline.
+  // a similarity. The verdict itself ("Infringes" / "Does not infringe") is
+  // the headline; reasoning is shown below when present.
   if (stageKey === "vlm") {
     return (
-      <div className="mt-3 pl-10 space-y-1">
+      <div className="mt-3 pl-10 space-y-2">
         <div className="flex items-baseline justify-between text-xs">
-          <span className="text-slate-500">{meter.verdictLabel}</span>
-          <span className="font-bold text-slate-900">
+          <span
+            className={`font-bold ${meter.isHit ? "text-red-700" : "text-emerald-700"}`}
+          >
+            {meter.verdictLabel}
+          </span>
+          <span className="text-slate-500">
             {(meter.score * 100).toFixed(0)}% confidence
           </span>
         </div>
+        {meter.reasoning && (
+          <p className="text-xs text-slate-600 leading-snug italic">
+            "{meter.reasoning}"
+          </p>
+        )}
       </div>
     );
   }
@@ -264,6 +276,7 @@ interface MeterValues {
   threshold: number;
   isHit: boolean;
   verdictLabel?: string;
+  reasoning?: string;
 }
 
 function extractMeter(stageKey: Stage["key"], row: RuleResult): MeterValues | null {
@@ -296,13 +309,26 @@ function extractMeter(stageKey: Stage["key"], row: RuleResult): MeterValues | nu
     case "vlm": {
       const score = num(o.confidence);
       const verdict = String(o.verdict ?? "");
-      const isHit = verdict === "fail";
-      return {
-        score,
-        threshold: 0.7,
-        isHit,
-        verdictLabel: isHit ? "Violates guidelines" : "Follows guidelines",
-      };
+      const reasoning =
+        typeof (row.evidence as any)?.reasoning === "string"
+          ? ((row.evidence as any).reasoning as string)
+          : undefined;
+      // The two VLM primitives use different verdict vocabularies:
+      //   vlm_infringement_check: "infringes" / "does_not_infringe" / "unclear"
+      //   vlm_check (legacy):     "fail" / "pass" / "unclear"
+      // Both map to a "did the model flag this?" boolean.
+      const isHit = verdict === "infringes" || verdict === "fail";
+      const verdictLabel =
+        row.primitive === "vlm_infringement_check"
+          ? isHit
+            ? "Infringes"
+            : verdict === "does_not_infringe"
+              ? "Does not infringe"
+              : "Inconclusive"
+          : isHit
+            ? "Violates guidelines"
+            : "Follows guidelines";
+      return { score, threshold: 0.7, isHit, verdictLabel, reasoning };
     }
   }
   return null;
