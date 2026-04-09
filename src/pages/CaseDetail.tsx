@@ -285,9 +285,7 @@ function PaneCard({ label, children }: { label: string; children: React.ReactNod
 }
 
 function CaseScreenshot({ c }: { c: Case }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Pull bbox from the detect-stage rule's evidence — the worker stamps it
-  // there for each case during stage 1.
+  // Bbox is stamped on the detect-stage rule's evidence by the worker.
   const detectRow = c.primitive_results?.rule_results.find(
     (r) => r.rule_id === "stage:detect"
   );
@@ -295,33 +293,11 @@ function CaseScreenshot({ c }: { c: Case }) {
     | [number, number, number, number]
     | undefined;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !c.image_url) return;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0);
-      if (bbox) {
-        const [x, y, w, h] = bbox;
-        ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = Math.max(3, img.naturalWidth / 200);
-        ctx.strokeRect(x, y, w, h);
-        ctx.font = `bold ${Math.max(14, img.naturalWidth / 60)}px sans-serif`;
-        const label = `${(c.score * 100).toFixed(0)}%`;
-        const metrics = ctx.measureText(label);
-        const labelH = parseInt(ctx.font, 10) + 6;
-        ctx.fillStyle = "#ef4444";
-        ctx.fillRect(x, Math.max(0, y - labelH), metrics.width + 12, labelH);
-        ctx.fillStyle = "#fff";
-        ctx.fillText(label, x + 6, Math.max(labelH - 6, y - 6));
-      }
-    };
-    img.src = c.image_url;
-  }, [c.image_url, c.score, bbox]);
+  // Use a plain <img> + absolutely-positioned SVG overlay so we don't need
+  // canvas pixel access (S3 presigned GETs don't return CORS headers, which
+  // tainted the canvas approach). The SVG viewBox auto-scales to whatever the
+  // <img> renders at.
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
 
   if (!c.image_url) {
     return (
@@ -330,7 +306,54 @@ function CaseScreenshot({ c }: { c: Case }) {
       </div>
     );
   }
-  return <canvas ref={canvasRef} className="w-full h-auto block" />;
+
+  return (
+    <div className="relative">
+      <img
+        src={c.image_url}
+        alt="Scanned"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+        }}
+        className="block w-full h-auto"
+      />
+      {bbox && natural && (
+        <svg
+          viewBox={`0 0 ${natural.w} ${natural.h}`}
+          preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        >
+          <rect
+            x={bbox[0]}
+            y={bbox[1]}
+            width={bbox[2]}
+            height={bbox[3]}
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth={Math.max(3, natural.w / 200)}
+          />
+          <rect
+            x={bbox[0]}
+            y={Math.max(0, bbox[1] - Math.max(natural.w / 30, 22))}
+            width={Math.max(natural.w / 12, 80)}
+            height={Math.max(natural.w / 30, 22)}
+            fill="#ef4444"
+          />
+          <text
+            x={bbox[0] + 8}
+            y={Math.max(natural.w / 50, 16) + Math.max(0, bbox[1] - Math.max(natural.w / 30, 22))}
+            fill="#fff"
+            fontSize={Math.max(natural.w / 50, 16)}
+            fontWeight="bold"
+            fontFamily="sans-serif"
+          >
+            {(c.score * 100).toFixed(0)}%
+          </text>
+        </svg>
+      )}
+    </div>
+  );
 }
 
 function ScoreBadge({ score }: { score: number }) {
