@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { listCases } from "../api";
 
 type SourceType = "Marketplace" | "Social account" | "Website" | "Forum";
 type SourceStatus = "active" | "paused";
@@ -9,11 +11,11 @@ interface Source {
   label: string;
   type: SourceType;
   lastScan: string;
-  findings: number;
   status: SourceStatus;
 }
 
 const TIER_LIMIT = 5;
+const STORAGE_KEY = "monitored_sources_v1";
 
 const SEED: Source[] = [
   {
@@ -22,7 +24,6 @@ const SEED: Source[] = [
     label: "Suspicious eBay seller",
     type: "Marketplace",
     lastScan: "2h ago",
-    findings: 12,
     status: "active",
   },
   {
@@ -31,13 +32,60 @@ const SEED: Source[] = [
     label: "Knockoff drops account",
     type: "Social account",
     lastScan: "1d ago",
-    findings: 3,
     status: "active",
   },
 ];
 
+function loadStoredSources(): Source[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return SEED;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return SEED;
+}
+
 export default function MonitoredSources() {
-  const [sources, setSources] = useState<Source[]>(SEED);
+  const [sources, setSources] = useState<Source[]>(loadStoredSources);
+  const [caseCounts, setCaseCounts] = useState<Record<string, number>>({});
+
+  // Persist sources across reloads so the demo stays warm.
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sources));
+    } catch {
+      /* quota / safari private mode — non-fatal */
+    }
+  }, [sources]);
+
+  // Fetch real case counts per source URL. Each scan we run with image_url=
+  // mode persists a case stamped with that URL, so the count comes straight
+  // from the cases table.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCounts() {
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        sources.map(async (s) => {
+          try {
+            const r = await listCases({ source_url: s.url, limit: 200 });
+            counts[s.url] = r.cases.length;
+          } catch {
+            counts[s.url] = 0;
+          }
+        })
+      );
+      if (!cancelled) setCaseCounts(counts);
+    }
+    if (sources.length > 0) loadCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [sources]);
+
   const [showAdd, setShowAdd] = useState(false);
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
@@ -57,7 +105,6 @@ export default function MonitoredSources() {
         label: label.trim() || "Untitled source",
         type,
         lastScan: "just now",
-        findings: 0,
         status: "active",
       },
     ]);
@@ -189,7 +236,12 @@ export default function MonitoredSources() {
       ) : (
         <div className="grid gap-3">
           {sources.map((s) => (
-            <SourceCard key={s.id} source={s} onRemove={() => removeSource(s.id)} />
+            <SourceCard
+              key={s.id}
+              source={s}
+              caseCount={caseCounts[s.url] ?? 0}
+              onRemove={() => removeSource(s.id)}
+            />
           ))}
         </div>
       )}
@@ -197,13 +249,23 @@ export default function MonitoredSources() {
   );
 }
 
-function SourceCard({ source, onRemove }: { source: Source; onRemove: () => void }) {
+function SourceCard({
+  source,
+  caseCount,
+  onRemove,
+}: {
+  source: Source;
+  caseCount: number;
+  onRemove: () => void;
+}) {
   let host = source.url;
   try {
     host = new URL(source.url).hostname.replace(/^www\./, "");
   } catch {
     /* ignore */
   }
+
+  const casesHref = `/cases?source_url=${encodeURIComponent(source.url)}`;
 
   return (
     <div className="group bg-white rounded-2xl border border-slate-200 p-4 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-100 transition-all">
@@ -226,15 +288,17 @@ function SourceCard({ source, onRemove }: { source: Source; onRemove: () => void
           <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
             {source.type}
           </span>
-          <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-              source.findings > 0
-                ? "text-rose-700 bg-rose-50"
-                : "text-slate-400 bg-slate-50"
+          <Link
+            to={casesHref}
+            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
+              caseCount > 0
+                ? "text-rose-700 bg-rose-50 hover:bg-rose-100"
+                : "text-slate-400 bg-slate-50 hover:bg-slate-100"
             }`}
+            title="Open cases for this source"
           >
-            {source.findings} findings
-          </span>
+            {caseCount} case{caseCount !== 1 ? "s" : ""}
+          </Link>
           <span className="text-[10px] text-slate-400">{source.lastScan}</span>
         </div>
         <button

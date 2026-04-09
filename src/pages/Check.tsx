@@ -1,26 +1,59 @@
-import { useState, useEffect, useMemo } from "react";
-import { listPublicTrademarks, submitDetection, type Trademark, type Detection } from "../api";
+import { useState, useEffect, useRef } from "react";
+import { listCases, submitScan, type Case } from "../api";
 import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
-import DetectionResult from "../components/DetectionResult";
+import CaseCard from "../components/CaseCard";
 
-const ALL_TRADEMARKS = "__all__";
+type InputMode = "file" | "url";
+type ScopeMode = "own" | "all";
 
 export default function Check() {
-  const [trademarks, setTrademarks] = useState<Trademark[]>([]);
-  const [selectedId, setSelectedId] = useState(ALL_TRADEMARKS);
+  const [inputMode, setInputMode] = useState<InputMode>("file");
+  const [scope, setScope] = useState<ScopeMode>("own");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [cases, setCases] = useState<Case[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const job = useJobPoller(jobId);
-  const detections: Detection[] = useMemo(() => job?.result?.detections ?? [], [job]);
+  const isProcessing =
+    !!jobId && (!job || (job.status !== "completed" && job.status !== "failed"));
+  const isComplete = job?.status === "completed";
 
+  // Poll cases?job_id=… while the scan is in flight, so the stepper updates
+  // as the worker progressively writes case rows.
   useEffect(() => {
-    listPublicTrademarks().then(({ trademarks }) => setTrademarks(trademarks));
-  }, []);
+    if (!jobId) return;
+    let cancelled = false;
+    async function loadCases() {
+      try {
+        const r = await listCases({ job_id: jobId! });
+        if (!cancelled) setCases(r.cases);
+      } catch {
+        /* ignore */
+      }
+    }
+    loadCases();
+    pollRef.current = setInterval(loadCases, 1500);
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [jobId]);
+
+  // Stop polling once job completes.
+  useEffect(() => {
+    if (isComplete && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+      // Final refresh.
+      if (jobId) listCases({ job_id: jobId }).then((r) => setCases(r.cases)).catch(() => {});
+    }
+  }, [isComplete, jobId]);
 
   function handleFile(files: File[]) {
     const f = files[0];
@@ -28,16 +61,32 @@ export default function Check() {
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
     setJobId(null);
+    setCases([]);
+    setError("");
+  }
+
+  function handleReset() {
+    setFile(null);
+    setPreviewUrl(null);
+    setImageUrl("");
+    setJobId(null);
+    setCases([]);
     setError("");
   }
 
   async function handleSubmit() {
-    if (!file) return;
     setSubmitting(true);
     setError("");
+    setCases([]);
     try {
-      const tmId = selectedId === ALL_TRADEMARKS ? undefined : selectedId;
-      const { job_id } = await submitDetection(file, tmId);
+      const opts =
+        inputMode === "file"
+          ? { file: file ?? undefined, mode: scope }
+          : { imageUrl: imageUrl.trim(), mode: scope };
+      if (inputMode === "file" && !file) throw new Error("Choose an image to scan.");
+      if (inputMode === "url" && !imageUrl.trim())
+        throw new Error("Paste an image URL to scan.");
+      const { job_id } = await submitScan(opts);
       setJobId(job_id);
     } catch (e: any) {
       setError(e.message);
@@ -46,82 +95,145 @@ export default function Check() {
     }
   }
 
-  function handleReset() {
-    setFile(null);
-    setPreviewUrl(null);
-    setJobId(null);
-    setError("");
-  }
-
-  const isProcessing = job && job.status !== "completed" && job.status !== "failed";
-  const selectedLabel = selectedId === ALL_TRADEMARKS
-    ? `all ${trademarks.length} trademarks`
-    : trademarks.find((t) => t.id === selectedId)?.name ?? "selected trademark";
+  const canSubmit =
+    !submitting &&
+    !isProcessing &&
+    ((inputMode === "file" && !!file) || (inputMode === "url" && !!imageUrl.trim()));
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Scan Image</h1>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Scan</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Upload an image to check for visual IP proximity against registered trademarks.
+          Run a single image — uploaded or pulled from a URL — through the cheap → expensive
+          pipeline. Suspicious matches become persistent cases with full pipeline traces.
         </p>
       </div>
 
-      {/* Trademark selector */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Check against</label>
-        {trademarks.length === 0 ? (
-          <div className="text-sm text-slate-400 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-            No indexed trademarks available yet. Register and index IP first.
-          </div>
+      {/* Input mode tabs */}
+      <div className="space-y-3">
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+          {(["file", "url"] as InputMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => {
+                setInputMode(m);
+                setError("");
+              }}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                inputMode === m
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {m === "file" ? "Upload file" : "Image URL"}
+            </button>
+          ))}
+        </div>
+
+        {inputMode === "file" ? (
+          !file ? (
+            <ImageUploader
+              onUpload={handleFile}
+              multiple={false}
+              label="Drop an image to scan, or click to browse"
+            />
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600 font-medium">{file.name}</span>
+                <button
+                  onClick={handleReset}
+                  className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="max-w-full h-auto rounded-xl border border-slate-200"
+                />
+              )}
+            </div>
+          )
         ) : (
-          <select
-            value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white transition-all"
-          >
-            <option value={ALL_TRADEMARKS}>
-              All Trademarks ({trademarks.length})
-            </option>
-            {trademarks.map((tm) => (
-              <option key={tm.id} value={tm.id}>
-                {tm.name} ({tm.image_count} references)
-              </option>
-            ))}
-          </select>
+          <div className="space-y-2">
+            <input
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://www.ebay.com/itm/.../image.jpg"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+            />
+            <p className="text-xs text-slate-400">
+              Paste a public image URL. The URL is recorded as the case source — this is the same
+              entrypoint our future Monitor scrapers will use.
+            </p>
+          </div>
         )}
       </div>
 
-      {/* Upload / preview */}
-      {!file ? (
-        <ImageUploader
-          onUpload={handleFile}
-          multiple={false}
-          label="Drop an image to scan, or click to browse"
-        />
-      ) : (
-        <div className="space-y-6">
+      {/* Scope radio */}
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-slate-700">Scan against</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <ScopeOption
+            current={scope}
+            value="own"
+            label="My IPs"
+            description="Sweep the IPs you've registered. Produces 0..N cases — one per suspiciously close match."
+            onSelect={setScope}
+          />
+          <ScopeOption
+            current={scope}
+            value="all"
+            label="All public IPs"
+            description="Sweep every indexed IP across the platform. Persists at most 1 case for the closest scoring IP."
+            onSelect={setScope}
+          />
+        </div>
+      </div>
+
+      {/* Submit */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+        >
+          {submitting ? "Submitting…" : isProcessing ? "Scanning…" : jobId ? "Scan again" : "Run scan"}
+        </button>
+        {(jobId || file || imageUrl) && (
+          <button
+            onClick={handleReset}
+            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
+          {error}
+        </div>
+      )}
+
+      {/* Live pipeline state */}
+      {jobId && (
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 font-medium">{file.name}</span>
-            <button onClick={handleReset} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
-              Clear
-            </button>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              {isComplete ? "Scan complete" : "Scanning…"}
+            </h2>
+            {isProcessing && (
+              <div className="flex items-center gap-2 text-xs text-blue-700">
+                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                {scope === "own" ? "sweeping your IPs" : "sweeping all public IPs"}
+              </div>
+            )}
           </div>
-
-          {/* Results or preview */}
-          {job?.status === "completed" && previewUrl ? (
-            <DetectionResult imageUrl={previewUrl} detections={detections} />
-          ) : previewUrl ? (
-            <img src={previewUrl} alt="Preview" className="max-w-full h-auto rounded-xl border border-slate-200" />
-          ) : null}
-
-          {/* Processing state */}
-          {isProcessing && (
-            <div className="bg-blue-50 border border-blue-100 text-blue-700 text-sm rounded-xl px-5 py-4 flex items-center gap-3">
-              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              Scanning against {selectedLabel}...
-            </div>
-          )}
 
           {job?.status === "failed" && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
@@ -129,30 +241,66 @@ export default function Check() {
             </div>
           )}
 
-          {job?.status === "completed" && detections.length === 0 && (
+          {isComplete && cases.length === 0 && (
             <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm rounded-xl px-5 py-4">
-              No IP proximity detected against {selectedLabel}. Image appears clear.
+              No suspicious matches — image appears clear.
             </div>
           )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
-              {error}
-            </div>
+          {cases.length > 0 && (
+            <>
+              <p className="text-sm text-slate-500">
+                {cases.length} case{cases.length !== 1 ? "s" : ""} created. Click into one to see
+                the pipeline trace and take action.
+              </p>
+              <div className="grid gap-4">
+                {cases.map((c) => (
+                  <CaseCard key={c.id} c={c} />
+                ))}
+              </div>
+            </>
           )}
-
-          {/* Submit */}
-          {(!job || job.status === "completed" || job.status === "failed") && (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || trademarks.length === 0}
-              className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
-            >
-              {submitting ? "Submitting..." : job ? "Scan Again" : "Scan Image"}
-            </button>
-          )}
-        </div>
+        </section>
       )}
     </div>
+  );
+}
+
+function ScopeOption({
+  current,
+  value,
+  label,
+  description,
+  onSelect,
+}: {
+  current: ScopeMode;
+  value: ScopeMode;
+  label: string;
+  description: string;
+  onSelect: (v: ScopeMode) => void;
+}) {
+  const active = current === value;
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(value)}
+      className={`text-left rounded-xl border-2 p-4 transition-all ${
+        active
+          ? "border-rose-500 bg-rose-50/40"
+          : "border-slate-200 hover:border-slate-300"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={`w-4 h-4 rounded-full border-2 ${
+            active ? "border-rose-500 bg-rose-500" : "border-slate-300"
+          }`}
+        >
+          {active && <div className="w-1.5 h-1.5 rounded-full bg-white m-auto mt-[3px]" />}
+        </div>
+        <div className="text-sm font-bold text-slate-900">{label}</div>
+      </div>
+      <div className="mt-1.5 text-xs text-slate-500 leading-snug">{description}</div>
+    </button>
   );
 }

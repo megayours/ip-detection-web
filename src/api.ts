@@ -349,6 +349,110 @@ export function listReviewQueue() {
 
 export type ReviewAction = "override_to_pass" | "uphold_fail" | "note";
 
+// --- Cases (persistent scan-pipeline output) ---
+
+export type CaseReviewStatus = "pending" | "confirmed" | "dismissed";
+export type CasePipelineStage =
+  | "detect"
+  | "identity"
+  | "style"
+  | "canonical"
+  | "vlm"
+  | "complete";
+
+export interface Case {
+  id: string;
+  tenant_id: string;
+  account_id: string;
+  trademark_id: string;
+  job_id: string | null;
+  storage_path: string;
+  source_url: string | null;
+  score: number;
+  pipeline_stage: CasePipelineStage;
+  primitive_results: PrimitiveResultsBlob | null;
+  review_status: CaseReviewStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Annotated by /api/cases routes:
+  image_url?: string;
+  trademark?: { id: string; name: string } | null;
+}
+
+export interface CaseDetailResponse {
+  case: Case;
+  trademark: { id: string; name: string; description: string | null } | null;
+  reference_images: Array<{ id: string; image_url: string }>;
+}
+
+export interface ListCasesFilter {
+  source_url?: string;
+  trademark_id?: string;
+  status?: CaseReviewStatus;
+  job_id?: string;
+  limit?: number;
+}
+
+export function listCases(filter: ListCasesFilter = {}) {
+  const params = new URLSearchParams();
+  if (filter.source_url) params.set("source_url", filter.source_url);
+  if (filter.trademark_id) params.set("trademark_id", filter.trademark_id);
+  if (filter.status) params.set("status", filter.status);
+  if (filter.job_id) params.set("job_id", filter.job_id);
+  if (filter.limit !== undefined) params.set("limit", String(filter.limit));
+  const qs = params.toString();
+  return request<{ cases: Case[] }>(`/api/cases${qs ? `?${qs}` : ""}`);
+}
+
+export function getCase(id: string) {
+  return request<CaseDetailResponse>(`/api/cases/${id}`);
+}
+
+export function updateCase(
+  id: string,
+  patch: { review_status?: CaseReviewStatus; notes?: string | null }
+) {
+  return request<{ case: Case }>(`/api/cases/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteCase(id: string) {
+  return request<{ ok: boolean }>(`/api/cases/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Kick off a scan job. Two mutually-exclusive image sources (file XOR URL) and
+ * two scope modes (own = tenant's IPs, all = every public IP, top match only).
+ */
+export async function submitScan(opts: {
+  file?: File;
+  imageUrl?: string;
+  mode?: "own" | "all";
+}) {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  if (opts.file) {
+    const form = new FormData();
+    form.append("image", opts.file);
+    if (opts.mode) form.append("mode", opts.mode);
+    const res = await fetch(`${API}/api/detect`, { method: "POST", headers, body: form });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    return res.json() as Promise<{ job_id: string; status: string }>;
+  }
+
+  return request<{ job_id: string; status: string }>(`/api/detect`, {
+    method: "POST",
+    body: JSON.stringify({ image_url: opts.imageUrl, mode: opts.mode ?? "own" }),
+  });
+}
+
 export function postReview(submissionId: string, action: ReviewAction, note?: string) {
   return request<{ review: { id: string } }>(`/api/reviews/${submissionId}`, {
     method: "POST",

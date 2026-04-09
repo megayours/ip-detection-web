@@ -31,6 +31,9 @@ export default function Nav() {
               <Link to="/check" className={linkClass("/check")}>
                 Scan
               </Link>
+              <Link to="/cases" className={linkClass("/cases")}>
+                Cases
+              </Link>
               <Link to="/test" className={linkClass("/test")}>
                 Test
               </Link>

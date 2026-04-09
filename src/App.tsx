@@ -5,6 +5,8 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
+import Cases from "./pages/Cases";
+import CaseDetail from "./pages/CaseDetail";
 import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
@@ -47,6 +49,14 @@ export default function App() {
         <Route
           path="/check"
           element={<ProtectedRoute><Check /></ProtectedRoute>}
+        />
+        <Route
+          path="/cases"
+          element={<ProtectedRoute><Cases /></ProtectedRoute>}
+        />
+        <Route
+          path="/cases/:id"
+          element={<ProtectedRoute><CaseDetail /></ProtectedRoute>}
         />
         <Route
           path="/test"
