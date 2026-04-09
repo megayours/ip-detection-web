@@ -25,7 +25,7 @@ export default function Nav() {
           </Link>
           {user && (
             <div className="flex items-center gap-6">
-              <Link to="/trademarks" className={linkClass("/trademarks")}>
+              <Link to="/registry" className={linkClass("/registry")}>
                 Registry
               </Link>
               <Link to="/check" className={linkClass("/check")}>

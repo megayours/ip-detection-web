@@ -9,7 +9,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    navigate("/trademarks");
+    navigate("/registry");
     return null;
   }
 
@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     try {
       await register();
-      navigate("/trademarks");
+      navigate("/registry");
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -31,7 +31,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login();
-      navigate("/trademarks");
+      navigate("/registry");
     } catch (e: any) {
       setError(e.message);
     } finally {

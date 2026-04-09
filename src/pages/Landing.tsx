@@ -42,7 +42,7 @@ export default function Landing() {
                   Scan an Image
                 </Link>
                 <Link
-                  to="/trademarks"
+                  to="/registry"
                   className="px-6 py-3 bg-white/10 text-white rounded-lg text-sm font-semibold hover:bg-white/15 transition-all border border-white/10"
                 >
                   IP Registry
@@ -88,7 +88,7 @@ export default function Landing() {
           <Card
             step="01"
             title="Register IP"
-            description="Upload reference images of your trademark. Our pipeline extracts a unique visual fingerprint that captures both structure and meaning."
+            description="Upload reference images of your IP. Our pipeline extracts a unique visual fingerprint that captures both structure and meaning."
           />
           <Card
             step="02"

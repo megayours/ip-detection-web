@@ -1,13 +1,18 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Nav from "./components/Nav";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
-import Trademarks from "./pages/Trademarks";
-import TrademarkDetail from "./pages/TrademarkDetail";
+import Registry from "./pages/Registry";
+import RegistryDetail from "./pages/RegistryDetail";
 import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
+
+function RedirectTrademark() {
+  const { id } = useParams();
+  return <Navigate to={`/registry/${id}`} replace />;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -30,13 +35,15 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route
-          path="/trademarks"
-          element={<ProtectedRoute><Trademarks /></ProtectedRoute>}
+          path="/registry"
+          element={<ProtectedRoute><Registry /></ProtectedRoute>}
         />
         <Route
-          path="/trademarks/:id"
-          element={<ProtectedRoute><TrademarkDetail /></ProtectedRoute>}
+          path="/registry/:id"
+          element={<ProtectedRoute><RegistryDetail /></ProtectedRoute>}
         />
+        <Route path="/trademarks" element={<Navigate to="/registry" replace />} />
+        <Route path="/trademarks/:id" element={<RedirectTrademark />} />
         <Route
           path="/check"
           element={<ProtectedRoute><Check /></ProtectedRoute>}

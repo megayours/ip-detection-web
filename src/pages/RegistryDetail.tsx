@@ -12,10 +12,10 @@ import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
 import RuleEditor from "../components/RuleEditor";
 
-export default function TrademarkDetail() {
+export default function RegistryDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [trademark, setTrademark] = useState<Trademark | null>(null);
+  const [ip, setIp] = useState<Trademark | null>(null);
   const [images, setImages] = useState<TrademarkImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -28,7 +28,7 @@ export default function TrademarkDetail() {
     if (!id) return;
     try {
       const data = await getTrademark(id);
-      setTrademark(data.trademark);
+      setIp(data.trademark);
       setImages(data.images);
     } finally {
       setLoading(false);
@@ -66,9 +66,9 @@ export default function TrademarkDetail() {
   }
 
   async function handleDelete() {
-    if (!id || !confirm("Delete this trademark and all its images?")) return;
+    if (!id || !confirm("Delete this IP and all its images?")) return;
     await deleteTrademark(id);
-    navigate("/trademarks");
+    navigate("/registry");
   }
 
   if (loading) {
@@ -78,7 +78,7 @@ export default function TrademarkDetail() {
       </div>
     );
   }
-  if (!trademark) return <p className="text-red-600 p-8">Trademark not found</p>;
+  if (!ip) return <p className="text-red-600 p-8">IP not found</p>;
 
   const pendingImages = images.filter((i) => i.status === "pending");
 
@@ -87,11 +87,11 @@ export default function TrademarkDetail() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{trademark.name}</h1>
-          {trademark.description && <p className="mt-1 text-sm text-slate-500">{trademark.description}</p>}
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{ip.name}</h1>
+          {ip.description && <p className="mt-1 text-sm text-slate-500">{ip.description}</p>}
           <div className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-slate-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
-            {trademark.centroid_dino ? (
+            {ip.centroid_dino ? (
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">Indexed</span>
             ) : pendingImages.length > 0 ? (
               <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full">
@@ -104,7 +104,7 @@ export default function TrademarkDetail() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to={`/test?trademark=${trademark.id}`}
+            to={`/test?trademark=${ip.id}`}
             className="px-4 py-2 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all"
           >
             Test mockup
@@ -179,14 +179,14 @@ export default function TrademarkDetail() {
       )}
 
       {/* Rules section — only when there's something to attach rules to */}
-      {trademark.centroid_dino && (
+      {ip.centroid_dino && (
         <div className="pt-6 border-t border-slate-100">
           <RuleEditor
-            trademarkId={trademark.id}
-            initialGuidelines={trademark.guidelines}
-            initialBaselineConfig={trademark.baseline_config}
-            onGuidelinesSaved={(g) => setTrademark({ ...trademark, guidelines: g })}
-            onBaselineSaved={(cfg) => setTrademark({ ...trademark, baseline_config: cfg })}
+            trademarkId={ip.id}
+            initialGuidelines={ip.guidelines}
+            initialBaselineConfig={ip.baseline_config}
+            onGuidelinesSaved={(g) => setIp({ ...ip, guidelines: g })}
+            onBaselineSaved={(cfg) => setIp({ ...ip, baseline_config: cfg })}
           />
         </div>
       )}
