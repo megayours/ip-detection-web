@@ -82,9 +82,9 @@ export default function PipelineTrace({ pipelineStage, ruleResults }: Props) {
       {STAGES.map((stage, idx) => {
         const stageIdx = STAGE_ORDER.indexOf(stage.key);
         const row = rowFor(stage);
-        let status: "pending" | "running" | "pass" | "fail" | "uncertain" | "skipped";
+        let status: StageStatus;
         if (row) {
-          status = row.state as "pass" | "fail" | "uncertain";
+          status = interpretInScanContext(row.primitive, row.state);
         } else if (stageIdx < reachedIdx) {
           status = "skipped";
         } else if (stageIdx === reachedIdx && pipelineStage !== "complete") {
@@ -108,6 +108,30 @@ export default function PipelineTrace({ pipelineStage, ruleResults }: Props) {
   );
 }
 
+type StageStatus = "pending" | "running" | "hit" | "clear" | "uncertain" | "skipped";
+
+/**
+ * Map a primitive's `pass`/`fail`/`uncertain` state to the scan-context label.
+ *
+ * The underlying primitives use brand-approval semantics:
+ *   pass = "this image matches the canonical IP"
+ *   fail = "it doesn't"
+ * which is the *opposite* of what a Scan wants. A scan is hunting for
+ * infringements, so a primitive saying "pass / matches the IP" is actually
+ * a HIT (suspicious), not a clear. The only inverted case is `vlm_check`,
+ * where the VLM evaluates brand guidelines and a `fail` means "violates the
+ * guidelines" — that's the hit, not the pass.
+ */
+function interpretInScanContext(primitive: string, state: string): StageStatus {
+  if (state === "uncertain") return "uncertain";
+  if (primitive === "vlm_check") {
+    return state === "fail" ? "hit" : "clear";
+  }
+  // identity_match, style_fidelity, canonical_proximity all share the same
+  // semantic: pass = matches the IP = HIT.
+  return state === "pass" ? "hit" : "clear";
+}
+
 function StageRow({
   index,
   stage,
@@ -116,7 +140,7 @@ function StageRow({
 }: {
   index: number;
   stage: Stage;
-  status: "pending" | "running" | "pass" | "fail" | "uncertain" | "skipped";
+  status: StageStatus;
   row: RuleResult | null;
 }) {
   const palette = STATUS_PALETTE[status];
@@ -128,10 +152,10 @@ function StageRow({
         >
           {status === "running" ? (
             <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          ) : status === "pass" ? (
-            "✓"
-          ) : status === "fail" ? (
+          ) : status === "hit" ? (
             "!"
+          ) : status === "clear" ? (
+            "✓"
           ) : status === "uncertain" ? (
             "?"
           ) : status === "skipped" ? (
@@ -151,61 +175,150 @@ function StageRow({
         </span>
       </div>
       {row && status !== "skipped" && status !== "pending" && (
-        <StageEvidence row={row} />
+        <StageMeter stageKey={stage.key} row={row} />
       )}
     </div>
   );
 }
 
-function StageEvidence({ row }: { row: RuleResult }) {
-  // Compact key→value display of the most useful observed fields. Avoids the
-  // full TestSubmission VerdictBlock — case detail uses this as a quick read.
-  const observed = (row.observed ?? {}) as Record<string, unknown>;
-  const facts: Array<{ label: string; value: string }> = [];
-  for (const [k, v] of Object.entries(observed)) {
-    if (v === null || v === undefined) continue;
-    if (typeof v === "object") continue;
-    facts.push({ label: prettyLabel(k), value: prettyValue(v) });
-  }
-  if (facts.length === 0) return null;
-  return (
-    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 pl-10">
-      {facts.slice(0, 6).map((f, i) => (
-        <div key={i} className="flex items-baseline justify-between gap-3 text-xs">
-          <dt className="text-slate-500">{f.label}</dt>
-          <dd className="font-semibold text-slate-800">{f.value}</dd>
+/**
+ * Per-stage visual meter: a horizontal bar with the stage's score, plus a
+ * vertical marker for the threshold. Color flips between green and red based
+ * on whether the score is on the "hit" side of the threshold.
+ *
+ * Each stage knows where to find its score and threshold inside the
+ * primitive's `observed` payload (the fields differ across primitives, so we
+ * branch by stage.key here rather than a generic walker).
+ */
+function StageMeter({
+  stageKey,
+  row,
+}: {
+  stageKey: Stage["key"];
+  row: RuleResult;
+}) {
+  const meter = extractMeter(stageKey, row);
+  if (!meter) return null;
+
+  // For VLM, the bar represents the model's *confidence* in its verdict, not
+  // a similarity. The verdict itself ("Violates" / "Follows") is the headline.
+  if (stageKey === "vlm") {
+    return (
+      <div className="mt-3 pl-10 space-y-1">
+        <div className="flex items-baseline justify-between text-xs">
+          <span className="text-slate-500">{meter.verdictLabel}</span>
+          <span className="font-bold text-slate-900">
+            {(meter.score * 100).toFixed(0)}% confidence
+          </span>
         </div>
-      ))}
-    </dl>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 pl-10 space-y-1.5">
+      <Bar score={meter.score} threshold={meter.threshold} isHit={meter.isHit} />
+      <div className="flex items-baseline justify-between text-xs">
+        <span
+          className={`font-bold ${meter.isHit ? "text-red-700" : "text-emerald-700"}`}
+        >
+          {(meter.score * 100).toFixed(1)}%
+        </span>
+        <span className="text-slate-400">
+          threshold {(meter.threshold * 100).toFixed(0)}%
+        </span>
+      </div>
+    </div>
   );
 }
 
-function prettyLabel(key: string): string {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (m) => m.toUpperCase());
+function Bar({
+  score,
+  threshold,
+  isHit,
+}: {
+  score: number;
+  threshold: number;
+  isHit: boolean;
+}) {
+  const scorePct = Math.min(100, Math.max(0, score * 100));
+  const threshPct = Math.min(100, Math.max(0, threshold * 100));
+  const fillColor = isHit ? "bg-red-500" : "bg-emerald-500";
+  return (
+    <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
+      <div
+        className={`absolute inset-y-0 left-0 ${fillColor}`}
+        style={{ width: `${scorePct}%` }}
+      />
+      <div
+        className="absolute top-0 bottom-0 w-0.5 bg-slate-700"
+        style={{ left: `calc(${threshPct}% - 1px)` }}
+        title={`Threshold ${threshPct.toFixed(0)}%`}
+      />
+    </div>
+  );
 }
 
-function prettyValue(v: unknown): string {
-  if (typeof v === "number") {
-    if (v >= 0 && v <= 1) return `${(v * 100).toFixed(1)}%`;
-    return v.toString();
+interface MeterValues {
+  score: number;
+  threshold: number;
+  isHit: boolean;
+  verdictLabel?: string;
+}
+
+function extractMeter(stageKey: Stage["key"], row: RuleResult): MeterValues | null {
+  const o = (row.observed ?? {}) as Record<string, unknown>;
+  const num = (v: unknown, fallback = 0): number =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+  switch (stageKey) {
+    case "detect": {
+      const score = num(o.score);
+      const threshold = num(o.threshold, 0.6);
+      return { score, threshold, isHit: score >= threshold };
+    }
+    case "identity": {
+      const score = num(o.best_score);
+      const threshold = num(o.min_score, 0.55);
+      const found = o.found === true;
+      return { score, threshold, isHit: found && score >= threshold };
+    }
+    case "style": {
+      const score = num(o.similarity);
+      const threshold = num(o.min_similarity, 0.4);
+      return { score, threshold, isHit: score >= threshold };
+    }
+    case "canonical": {
+      const score = num(o.proximity_score);
+      const threshold = num(o.threshold, 0.85);
+      return { score, threshold, isHit: score >= threshold };
+    }
+    case "vlm": {
+      const score = num(o.confidence);
+      const verdict = String(o.verdict ?? "");
+      const isHit = verdict === "fail";
+      return {
+        score,
+        threshold: 0.7,
+        isHit,
+        verdictLabel: isHit ? "Violates guidelines" : "Follows guidelines",
+      };
+    }
   }
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  return String(v);
+  return null;
 }
 
-const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<StageStatus, string> = {
   pending: "Queued",
   running: "Running",
-  pass: "Cleared",
-  fail: "Hit",
+  hit: "Hit",
+  clear: "Clear",
   uncertain: "Inconclusive",
   skipped: "Skipped",
 };
 
 const STATUS_PALETTE: Record<
-  string,
+  StageStatus,
   { border: string; badgeBg: string; badgeText: string; pillBg: string; pillText: string }
 > = {
   pending: {
@@ -222,19 +335,19 @@ const STATUS_PALETTE: Record<
     pillBg: "bg-blue-50",
     pillText: "text-blue-700",
   },
-  pass: {
-    border: "border-l-emerald-400",
-    badgeBg: "bg-emerald-100",
-    badgeText: "text-emerald-700",
-    pillBg: "bg-emerald-50",
-    pillText: "text-emerald-700",
-  },
-  fail: {
+  hit: {
     border: "border-l-red-400",
     badgeBg: "bg-red-100",
     badgeText: "text-red-700",
     pillBg: "bg-red-50",
     pillText: "text-red-700",
+  },
+  clear: {
+    border: "border-l-emerald-400",
+    badgeBg: "bg-emerald-100",
+    badgeText: "text-emerald-700",
+    pillBg: "bg-emerald-50",
+    pillText: "text-emerald-700",
   },
   uncertain: {
     border: "border-l-amber-400",
