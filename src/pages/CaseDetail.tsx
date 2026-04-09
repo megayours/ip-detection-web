@@ -232,8 +232,9 @@ export default function CaseDetail() {
       <section className="space-y-3">
         <h2 className="text-lg font-black text-slate-900 tracking-tight">Pipeline trace</h2>
         <p className="text-sm text-slate-500">
-          Each stage runs cheap → expensive. We stop early when a stage clears with margin or
-          drops the candidate, saving compute and producing only legitimate cases.
+          Each stage runs cheap → expensive. We escalate every candidate that
+          looks suspicious through the full pipeline; the only candidates we
+          drop are the ones whose IP name isn't even in the picture.
         </p>
         <PipelineTrace pipelineStage={c.pipeline_stage} ruleResults={ruleResults} />
       </section>

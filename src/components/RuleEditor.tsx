@@ -278,7 +278,7 @@ export default function RuleEditor({
           className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white resize-y"
         />
         <p className="text-xs text-slate-400">
-          Sent to a vision-language model alongside each submission. Leave empty to skip.
+          Specific guidelines verified on each submission. Leave empty to skip.
         </p>
         <div className="flex justify-end">
           <button
