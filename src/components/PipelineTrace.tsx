@@ -44,7 +44,7 @@ const STAGES: Stage[] = [
   {
     key: "vlm",
     label: "Brand-guideline review",
-    description: "VLM evaluates the IP's free-text guidelines",
+    description: "Evaluates the IP's guidelines",
     primitives: ["vlm_check"],
   },
 ];

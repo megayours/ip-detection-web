@@ -4,20 +4,27 @@ import {
   getCase,
   updateCase,
   deleteCase as apiDeleteCase,
+  postCaseComment,
+  deleteCaseComment as apiDeleteCaseComment,
   type Case,
+  type CaseComment,
   type CaseDetailResponse,
   type CaseReviewStatus,
 } from "../api";
+import { useAuth } from "../context/AuthContext";
 import PipelineTrace from "../components/PipelineTrace";
+import Avatar from "../components/Avatar";
+import CommentBody from "../components/CommentBody";
 
 export default function CaseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState<CaseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
-  const [notesDraft, setNotesDraft] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function load() {
@@ -25,7 +32,6 @@ export default function CaseDetail() {
     try {
       const resp = await getCase(id);
       setData(resp);
-      if (notesDraft === "" && resp.case.notes) setNotesDraft(resp.case.notes);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -65,16 +71,31 @@ export default function CaseDetail() {
     }
   }
 
-  async function saveNotes() {
-    if (!id) return;
-    setSavingNotes(true);
+  async function postComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!id || !data) return;
+    const body = commentDraft.trim();
+    if (!body) return;
+    setPostingComment(true);
     try {
-      const r = await updateCase(id, { notes: notesDraft });
-      if (data) setData({ ...data, case: { ...data.case, ...r.case } });
+      const r = await postCaseComment(id, body);
+      setData({ ...data, comments: [...data.comments, r.comment] });
+      setCommentDraft("");
     } catch (e: any) {
       setError(e.message);
     } finally {
-      setSavingNotes(false);
+      setPostingComment(false);
+    }
+  }
+
+  async function deleteComment(commentId: string) {
+    if (!id || !data) return;
+    if (!confirm("Delete this comment?")) return;
+    try {
+      await apiDeleteCaseComment(id, commentId);
+      setData({ ...data, comments: data.comments.filter((c) => c.id !== commentId) });
+    } catch (e: any) {
+      setError(e.message);
     }
   }
 
@@ -217,23 +238,63 @@ export default function CaseDetail() {
         <PipelineTrace pipelineStage={c.pipeline_stage} ruleResults={ruleResults} />
       </section>
 
-      {/* Notes */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-black text-slate-900 tracking-tight">Notes</h2>
-        <textarea
-          value={notesDraft}
-          onChange={(e) => setNotesDraft(e.target.value)}
-          rows={4}
-          placeholder="Investigation notes, internal context, follow-up actions…"
-          className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-y"
-        />
-        <button
-          onClick={saveNotes}
-          disabled={savingNotes || notesDraft === (c.notes ?? "")}
-          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 transition-all"
-        >
-          {savingNotes ? "Saving…" : "Save notes"}
-        </button>
+      {/* Comments */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-black text-slate-900 tracking-tight">
+          Comments
+          {data.comments.length > 0 && (
+            <span className="ml-2 text-sm font-semibold text-slate-400">
+              {data.comments.length}
+            </span>
+          )}
+        </h2>
+
+        {data.comments.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            No comments yet — be the first to add context to this case.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {data.comments.map((comment) => (
+              <CommentRow
+                key={comment.id}
+                comment={comment}
+                isAuthor={!!user && user.id === comment.author.id}
+                onDelete={() => deleteComment(comment.id)}
+              />
+            ))}
+          </ul>
+        )}
+
+        {/* Compose */}
+        <form onSubmit={postComment} className="flex gap-3 items-start pt-2">
+          <Avatar
+            pictureUrl={user?.picture_url ?? null}
+            name={user?.display_name ?? user?.email ?? null}
+            size={32}
+          />
+          <div className="flex-1 space-y-2">
+            <textarea
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              rows={3}
+              placeholder="Add a comment — visible to everyone in your workspace."
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-y"
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-400">
+                Plain text for now — mentions and attachments coming soon.
+              </p>
+              <button
+                type="submit"
+                disabled={postingComment || !commentDraft.trim()}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 transition-all"
+              >
+                {postingComment ? "Posting…" : "Post comment"}
+              </button>
+            </div>
+          </div>
+        </form>
       </section>
 
       {/* Review actions */}
@@ -381,6 +442,48 @@ function ReviewBadge({ status }: { status: CaseReviewStatus }) {
     <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${palette[status]}`}>
       {label[status]}
     </span>
+  );
+}
+
+function CommentRow({
+  comment,
+  isAuthor,
+  onDelete,
+}: {
+  comment: CaseComment;
+  isAuthor: boolean;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="flex gap-3 group">
+      <Avatar
+        pictureUrl={comment.author.picture_url}
+        name={comment.author.display_name}
+        size={32}
+      />
+      <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="text-sm font-bold text-slate-900 truncate">
+              {comment.author.display_name || "Anonymous"}
+            </span>
+            <span className="text-[11px] text-slate-400 shrink-0">
+              {new Date(comment.created_at).toLocaleString()}
+            </span>
+          </div>
+          {isAuthor && (
+            <button
+              onClick={onDelete}
+              className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 hover:text-red-500 transition-all"
+              title="Delete your comment"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+        <CommentBody body={comment.body} />
+      </div>
+    </li>
   );
 }
 

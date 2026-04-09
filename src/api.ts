@@ -29,32 +29,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface AuthUser {
   id: string;
+  email: string | null;
+  display_name: string | null;
+  picture_url: string | null;
+  tenant_id: string;
 }
 
-export function getRegisterOptions() {
-  return request<any>("/api/auth/register/options", { method: "POST" });
-}
-
-export function verifyRegistration(response: any, challenge: string) {
-  return request<{ token: string; user: AuthUser }>("/api/auth/register/verify", {
-    method: "POST",
-    body: JSON.stringify({ response, challenge }),
-  });
-}
-
-export function getLoginOptions() {
-  return request<any>("/api/auth/login/options", { method: "POST" });
-}
-
-export function verifyLogin(response: any, challenge: string) {
-  return request<{ token: string; user: AuthUser }>("/api/auth/login/verify", {
-    method: "POST",
-    body: JSON.stringify({ response, challenge }),
-  });
+/** URL the browser navigates to in order to start a WorkOS AuthKit sign-in. */
+export function workosLoginUrl(): string {
+  return `${API}/api/auth/workos/start`;
 }
 
 export function getMe() {
   return request<{ user: AuthUser | null }>("/api/auth/me");
+}
+
+export async function logout() {
+  try {
+    await request<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
+  } finally {
+    setToken(null);
+  }
 }
 
 // --- Trademarks ---
@@ -372,7 +367,6 @@ export interface Case {
   pipeline_stage: CasePipelineStage;
   primitive_results: PrimitiveResultsBlob | null;
   review_status: CaseReviewStatus;
-  notes: string | null;
   created_at: string;
   updated_at: string;
   // Annotated by /api/cases routes:
@@ -380,10 +374,23 @@ export interface Case {
   trademark?: { id: string; name: string } | null;
 }
 
+export interface CaseComment {
+  id: string;
+  case_id: string;
+  body: string;
+  created_at: string;
+  author: {
+    id: string;
+    display_name: string | null;
+    picture_url: string | null;
+  };
+}
+
 export interface CaseDetailResponse {
   case: Case;
   trademark: { id: string; name: string; description: string | null } | null;
   reference_images: Array<{ id: string; image_url: string }>;
+  comments: CaseComment[];
 }
 
 export interface ListCasesFilter {
@@ -411,7 +418,7 @@ export function getCase(id: string) {
 
 export function updateCase(
   id: string,
-  patch: { review_status?: CaseReviewStatus; notes?: string | null }
+  patch: { review_status: CaseReviewStatus }
 ) {
   return request<{ case: Case }>(`/api/cases/${id}`, {
     method: "PATCH",
@@ -421,6 +428,25 @@ export function updateCase(
 
 export function deleteCase(id: string) {
   return request<{ ok: boolean }>(`/api/cases/${id}`, { method: "DELETE" });
+}
+
+// --- Case comments ---
+
+export function listCaseComments(caseId: string) {
+  return request<{ comments: CaseComment[] }>(`/api/cases/${caseId}/comments`);
+}
+
+export function postCaseComment(caseId: string, body: string) {
+  return request<{ comment: CaseComment }>(`/api/cases/${caseId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function deleteCaseComment(caseId: string, commentId: string) {
+  return request<{ ok: boolean }>(`/api/cases/${caseId}/comments/${commentId}`, {
+    method: "DELETE",
+  });
 }
 
 /**

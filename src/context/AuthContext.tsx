@@ -1,22 +1,18 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 import {
-  getRegisterOptions,
-  verifyRegistration,
-  getLoginOptions,
-  verifyLogin,
   getMe,
   setToken,
   getToken,
+  workosLoginUrl,
+  logout as apiLogout,
   type AuthUser,
 } from "../api";
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  register: () => Promise<void>;
-  login: () => Promise<void>;
-  logout: () => void;
+  signIn: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -26,6 +22,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // After WorkOS callback the backend redirects us back here with `?token=…`
+    // in the URL. Consume it once, persist into localStorage, then strip it
+    // from the URL so refreshes don't re-process the same token.
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get("token");
+    if (tokenFromUrl) {
+      setToken(tokenFromUrl);
+      urlParams.delete("token");
+      const newSearch = urlParams.toString();
+      const newUrl =
+        window.location.pathname + (newSearch ? `?${newSearch}` : "") + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+
     if (getToken()) {
       getMe()
         .then(({ user }) => {
@@ -38,29 +48,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  async function register() {
-    const options = await getRegisterOptions();
-    const attestation = await startRegistration({ optionsJSON: options });
-    const { token, user } = await verifyRegistration(attestation, options.challenge);
-    setToken(token);
-    setUser(user);
+  function signIn() {
+    // Full-page navigation — WorkOS hosted UI takes over from here.
+    window.location.href = workosLoginUrl();
   }
 
-  async function login() {
-    const options = await getLoginOptions();
-    const assertion = await startAuthentication({ optionsJSON: options });
-    const { token, user } = await verifyLogin(assertion, options.challenge);
-    setToken(token);
-    setUser(user);
-  }
-
-  function logout() {
-    setToken(null);
+  async function logout() {
+    await apiLogout();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, signIn, logout }}>
       {children}
     </AuthContext.Provider>
   );
