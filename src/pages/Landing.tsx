@@ -138,7 +138,7 @@ export default function Landing() {
                 <div className="flex items-start gap-3">
                   <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
                   <div>
-                    <div className="text-sm font-semibold text-white/80">VLM examines the full picture</div>
+                    <div className="text-sm font-semibold text-white/80">Examines the full picture</div>
                     <div className="text-xs text-white/40">Input image + closest reference + all stage evidence</div>
                   </div>
                 </div>
