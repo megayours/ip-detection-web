@@ -32,7 +32,7 @@ export default function ImageUploader({ onUpload, uploading, accept = "image/*",
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-        dragOver ? "border-amber-400 bg-amber-50/50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
+        dragOver ? "border-red-400 bg-red-50/50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
       } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
     >
       <input

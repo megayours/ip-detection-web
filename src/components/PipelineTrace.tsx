@@ -376,11 +376,11 @@ const STATUS_PALETTE: Record<
     pillText: "text-emerald-700",
   },
   uncertain: {
-    border: "border-l-amber-400",
-    badgeBg: "bg-amber-100",
-    badgeText: "text-amber-700",
-    pillBg: "bg-amber-50",
-    pillText: "text-amber-700",
+    border: "border-l-red-400",
+    badgeBg: "bg-red-100",
+    badgeText: "text-red-700",
+    pillBg: "bg-red-50",
+    pillText: "text-red-700",
   },
   skipped: {
     border: "border-l-stone-200",

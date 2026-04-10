@@ -37,7 +37,7 @@ export default function Nav() {
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2">
-            <svg width="28" height="18" viewBox="0 0 56 36" className="shrink-0">
+            <svg width="38" height="24" viewBox="0 0 56 36" className="shrink-0">
               <path d="M2,10 L2,4 L8,4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
               <path d="M48,4 L54,4 L54,10" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
               <path d="M2,26 L2,32 L8,32" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>

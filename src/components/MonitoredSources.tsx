@@ -135,7 +135,7 @@ export default function MonitoredSources() {
             <span className="font-bold text-stone-900">{sources.length}</span>
             <span className="text-stone-400"> / {TIER_LIMIT}</span> sources · Basic plan
           </div>
-          <button className="text-xs font-semibold text-amber-700 hover:text-amber-800 mt-0.5">
+          <button className="text-xs font-semibold text-red-700 hover:text-red-800 mt-0.5">
             Upgrade →
           </button>
         </div>
@@ -168,7 +168,7 @@ export default function MonitoredSources() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://www.ebay.com/usr/..."
-              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
             />
           </div>
           <div>
@@ -179,7 +179,7 @@ export default function MonitoredSources() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Suspicious eBay seller"
-              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -188,7 +188,7 @@ export default function MonitoredSources() {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as SourceType)}
-                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
               >
                 <option>Marketplace</option>
                 <option>Social account</option>
@@ -204,7 +204,7 @@ export default function MonitoredSources() {
               <select
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value)}
-                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
               >
                 <option>Daily</option>
                 <option disabled>Hourly — Pro</option>
@@ -278,7 +278,7 @@ function SourceCard({
             <span className="font-bold text-stone-900 text-sm truncate">{source.label}</span>
             <span
               className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-                source.status === "active" ? "bg-emerald-500" : "bg-amber-500"
+                source.status === "active" ? "bg-emerald-500" : "bg-red-500"
               }`}
             />
           </div>
@@ -292,7 +292,7 @@ function SourceCard({
             to={casesHref}
             className={`text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
               caseCount > 0
-                ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                ? "text-red-700 bg-red-50 hover:bg-red-100"
                 : "text-stone-400 bg-stone-50 hover:bg-stone-100"
             }`}
             title="Open cases for this source"

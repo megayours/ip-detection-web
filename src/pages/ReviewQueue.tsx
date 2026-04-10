@@ -81,7 +81,7 @@ export default function ReviewQueue() {
             return (
               <li
                 key={item.id}
-                className="bg-white rounded-2xl border border-stone-200 border-l-4 border-l-amber-400 p-5 flex gap-5 items-start"
+                className="bg-white rounded-2xl border border-stone-200 border-l-4 border-l-red-400 p-5 flex gap-5 items-start"
               >
                 <img
                   src={item.image_url}

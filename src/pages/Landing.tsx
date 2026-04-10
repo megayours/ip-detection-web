@@ -18,7 +18,7 @@ export default function Landing() {
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-stone-900">
               Visual{" "}
-              <span className="text-amber-600">Similarity Scoring</span>
+              <span className="text-red-600">Similarity Scoring</span>
               {" "}That Understands Meaning
             </h1>
             <p className="mt-6 text-lg text-stone-500 max-w-2xl mx-auto leading-relaxed">
@@ -101,7 +101,7 @@ export default function Landing() {
             {/* Phase 1 */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-black">1</div>
+                <div className="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-sm font-black">1</div>
                 <h3 className="text-xl font-black">Gather the Evidence</h3>
               </div>
               <p className="text-sm text-white/50 mb-6">
@@ -119,7 +119,7 @@ export default function Landing() {
             {/* Phase 2 */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-black">2</div>
+                <div className="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-sm font-black">2</div>
                 <h3 className="text-xl font-black">Reach a Verdict</h3>
               </div>
               <p className="text-sm text-white/50 mb-6">

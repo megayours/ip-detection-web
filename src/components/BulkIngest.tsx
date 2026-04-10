@@ -25,7 +25,7 @@ export default function BulkIngest() {
             <h2 className="text-lg font-black text-stone-900 tracking-tight">
               Bulk import from your systems
             </h2>
-            <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
+            <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
               Beta
             </span>
           </div>
@@ -105,13 +105,13 @@ function Tile({
       className={`group relative text-left rounded-2xl border-2 border-dashed p-5 transition-all ${
         isDone
           ? "border-emerald-300 bg-emerald-50/40"
-          : "border-stone-200 hover:border-amber-400 hover:bg-amber-50/30"
+          : "border-stone-200 hover:border-red-400 hover:bg-red-50/30"
       } ${isUploading ? "opacity-60 cursor-wait" : "cursor-pointer"}`}
     >
       <div className="flex items-start gap-3">
         <div
           className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-            isDone ? "bg-emerald-100 text-emerald-600" : "bg-stone-100 text-stone-500 group-hover:bg-amber-100 group-hover:text-amber-600"
+            isDone ? "bg-emerald-100 text-emerald-600" : "bg-stone-100 text-stone-500 group-hover:bg-red-100 group-hover:text-red-600"
           } transition-colors`}
         >
           {icon === "table" ? <TableIcon /> : <DocIcon />}

@@ -173,7 +173,7 @@ export default function CaseDetail() {
       {/* Source link row */}
       {c.source_url && (
         <div className="bg-white rounded-2xl border border-stone-200 p-4 flex items-center gap-3">
-          <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+          <div className="shrink-0 w-9 h-9 rounded-lg bg-red-50 text-red-700 flex items-center justify-center">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
@@ -186,7 +186,7 @@ export default function CaseDetail() {
               href={c.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-amber-700 hover:text-amber-800 truncate block"
+              className="text-sm text-red-700 hover:text-red-800 truncate block"
             >
               {c.source_url}
             </a>
@@ -220,7 +220,7 @@ export default function CaseDetail() {
             <div className="px-4 py-3 border-t border-stone-100">
               <Link
                 to={`/registry/${data.trademark.id}`}
-                className="text-xs font-semibold text-amber-700 hover:text-amber-800"
+                className="text-xs font-semibold text-red-700 hover:text-red-800"
               >
                 View IP →
               </Link>
@@ -283,7 +283,7 @@ export default function CaseDetail() {
               onChange={(e) => setCommentDraft(e.target.value)}
               rows={3}
               placeholder="Add a comment — visible to everyone in your workspace."
-              className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all resize-y"
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
             />
             <div className="flex items-center justify-between">
               <p className="text-xs text-stone-400">
@@ -323,7 +323,7 @@ export default function CaseDetail() {
             current={c.review_status}
             target="pending"
             label="Reset to pending"
-            tone="amber"
+            tone="red"
             onClick={() => setReviewStatus("pending")}
           />
         </div>
@@ -423,7 +423,7 @@ function CaseScreenshot({ c }: { c: Case }) {
 
 function ScoreBadge({ score }: { score: number }) {
   const tone =
-    score >= 80 ? "bg-red-50 text-red-700" : score >= 60 ? "bg-amber-50 text-amber-700" : "bg-stone-50 text-stone-600";
+    score >= 80 ? "bg-red-50 text-red-700" : score >= 60 ? "bg-red-50 text-red-700" : "bg-stone-50 text-stone-600";
   return (
     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${tone}`}>
       {score}% match
@@ -433,7 +433,7 @@ function ScoreBadge({ score }: { score: number }) {
 
 function ReviewBadge({ status }: { status: CaseReviewStatus }) {
   const palette: Record<CaseReviewStatus, string> = {
-    pending: "bg-amber-50 text-amber-700",
+    pending: "bg-red-50 text-red-700",
     confirmed: "bg-red-50 text-red-700",
     dismissed: "bg-stone-100 text-stone-500",
   };
@@ -542,7 +542,7 @@ function ReviewButton({
   current: CaseReviewStatus;
   target: CaseReviewStatus;
   label: string;
-  tone: "red" | "slate" | "amber";
+  tone: "red" | "slate" | "red";
   onClick: () => void;
 }) {
   const active = current === target;
@@ -553,9 +553,9 @@ function ReviewButton({
     slate: active
       ? "bg-stone-900 text-white border-stone-900"
       : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50",
-    amber: active
-      ? "bg-amber-500 text-white border-amber-500"
-      : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50",
+    red: active
+      ? "bg-red-500 text-white border-red-500"
+      : "bg-white text-red-700 border-red-200 hover:bg-red-50",
   };
   return (
     <button

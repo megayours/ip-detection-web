@@ -164,7 +164,7 @@ export default function Check() {
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://www.ebay.com/itm/.../image.jpg"
-              className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
             />
             <p className="text-xs text-stone-400">
               Paste a public image URL. The URL is recorded as the case source — this is the same
@@ -286,14 +286,14 @@ function ScopeOption({
       onClick={() => onSelect(value)}
       className={`text-left rounded-xl border-2 p-4 transition-all ${
         active
-          ? "border-amber-600 bg-amber-50/40"
+          ? "border-red-600 bg-red-50/40"
           : "border-stone-200 hover:border-stone-300"
       }`}
     >
       <div className="flex items-center gap-2">
         <div
           className={`w-4 h-4 rounded-full border-2 ${
-            active ? "border-amber-600 bg-amber-600" : "border-stone-300"
+            active ? "border-red-600 bg-red-600" : "border-stone-300"
           }`}
         >
           {active && <div className="w-1.5 h-1.5 rounded-full bg-white m-auto mt-[3px]" />}

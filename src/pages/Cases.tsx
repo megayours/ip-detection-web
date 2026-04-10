@@ -80,11 +80,11 @@ export default function Cases() {
       {(sourceUrl || trademarkId) && (
         <div className="flex flex-wrap gap-2 text-xs">
           {sourceUrl && (
-            <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-1 rounded-full">
               source: {prettyHost(sourceUrl)}
               <button
                 onClick={() => clearFilter("source_url")}
-                className="text-amber-500 hover:text-amber-700 font-bold"
+                className="text-red-500 hover:text-red-700 font-bold"
                 title="Clear filter"
               >
                 ×
@@ -92,11 +92,11 @@ export default function Cases() {
             </span>
           )}
           {trademarkId && (
-            <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-1 rounded-full">
               IP filter
               <button
                 onClick={() => clearFilter("trademark_id")}
-                className="text-amber-500 hover:text-amber-700 font-bold"
+                className="text-red-500 hover:text-red-700 font-bold"
                 title="Clear filter"
               >
                 ×

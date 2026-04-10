@@ -283,7 +283,7 @@ export default function RuleEditor({
           onChange={(e) => setGuidelines(e.target.value)}
           rows={6}
           placeholder="e.g. Hands must have 3 thick fingers and 1 thumb (4 digits total). No nails or visible joints. Bow tie always present and red. Eyes are simple black ovals."
-          className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white resize-y"
+          className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white resize-y"
         />
         <p className="text-xs text-stone-400">
           Specific guidelines verified on each submission. Leave empty to skip.
@@ -309,7 +309,7 @@ export default function RuleEditor({
             <div className="text-sm font-semibold text-stone-900">Advanced rules</div>
             <div className="text-xs text-stone-500 mt-0.5">
               Add structured primitives — palette, OCR, custom thresholds.
-              {version && <> Current version <code className="text-amber-700">{version}</code>.</>}
+              {version && <> Current version <code className="text-red-700">{version}</code>.</>}
             </div>
           </div>
           <span className="text-stone-400 text-sm">{showAdvanced ? "▾" : "▸"}</span>
@@ -371,7 +371,7 @@ export default function RuleEditor({
                   <button
                     key={p.value}
                     onClick={() => addRule(p.value)}
-                    className="w-full text-left px-4 py-3 rounded-xl border border-stone-200 hover:border-amber-300 hover:bg-amber-50/40 transition-all"
+                    className="w-full text-left px-4 py-3 rounded-xl border border-stone-200 hover:border-red-300 hover:bg-red-50/40 transition-all"
                   >
                     <div className="text-sm font-semibold text-stone-900">{p.label}</div>
                     <div className="text-xs text-stone-500 mt-0.5">{p.description}</div>
@@ -387,7 +387,7 @@ export default function RuleEditor({
             ) : (
               <button
                 onClick={() => setShowAdd(true)}
-                className="w-full px-4 py-3 rounded-xl border border-dashed border-stone-300 text-sm text-stone-500 hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50/40 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-dashed border-stone-300 text-sm text-stone-500 hover:border-red-400 hover:text-red-700 hover:bg-red-50/40 transition-all"
               >
                 + Add rule
               </button>
@@ -412,7 +412,7 @@ function RuleCard({
 
   const severityClass: Record<RuleSeverity, string> = {
     fail_hard: "text-red-700 bg-red-50 border-red-200",
-    fail: "text-amber-700 bg-amber-50 border-amber-200",
+    fail: "text-red-700 bg-red-50 border-red-200",
     note: "text-blue-700 bg-blue-50 border-blue-200",
   };
 
@@ -455,7 +455,7 @@ function RuleCard({
             <input
               value={rule.name}
               onChange={(e) => onChange({ name: e.target.value })}
-              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
             />
           </div>
 
@@ -466,7 +466,7 @@ function RuleCard({
               onChange={(e) => onChange({ description: e.target.value })}
               rows={2}
               placeholder="Quote the relevant guideline section so the brand owner sees why this rule exists."
-              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
             />
           </div>
 
@@ -475,7 +475,7 @@ function RuleCard({
             <select
               value={rule.on_fail}
               onChange={(e) => onChange({ on_fail: e.target.value as RuleSeverity })}
-              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
             >
               <option value="fail_hard">fail_hard — block, no manual review path</option>
               <option value="fail">fail — block, manual review allowed</option>
@@ -662,7 +662,7 @@ function PaletteEditor({
           ))}
           <button
             onClick={addColor}
-            className="text-xs text-amber-700 hover:text-amber-800 font-semibold"
+            className="text-xs text-red-700 hover:text-red-800 font-semibold"
           >
             + Add color
           </button>
@@ -695,7 +695,7 @@ function NumberField({ label, value, onChange, step }: { label: string; value: n
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         step={step ?? 0.1}
-        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
       />
     </div>
   );
@@ -709,7 +709,7 @@ function TextField({ label, value, onChange, placeholder }: { label: string; val
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
       />
     </div>
   );
@@ -722,7 +722,7 @@ function SelectField({ label, value, onChange, options }: { label: string; value
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
@@ -919,7 +919,7 @@ function BaselineNumber({
           }
         }}
         step={step ?? 0.1}
-        className="w-full px-2.5 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+        className="w-full px-2.5 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
       />
     </div>
   );
@@ -945,7 +945,7 @@ function BaselineSelect({
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || undefined)}
-        className="w-full px-2.5 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+        className="w-full px-2.5 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white"
       >
         <option value="">use default ({placeholder})</option>
         {options.map((o) => (

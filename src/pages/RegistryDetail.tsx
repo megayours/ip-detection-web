@@ -94,7 +94,7 @@ export default function RegistryDetail() {
             {ip.centroid_dino ? (
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">Indexed</span>
             ) : pendingImages.length > 0 ? (
-              <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full">
                 {pendingImages.length} pending
               </span>
             ) : (

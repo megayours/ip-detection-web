@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import type { Case } from "../api";
 
 const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  pending:   { label: "Pending review", bg: "bg-amber-50",   color: "text-amber-700" },
+  pending:   { label: "Pending review", bg: "bg-red-50",   color: "text-red-700" },
   confirmed: { label: "Confirmed",      bg: "bg-red-50",     color: "text-red-700" },
   dismissed: { label: "Dismissed",      bg: "bg-stone-50",   color: "text-stone-500" },
 };
@@ -42,7 +42,7 @@ export default function CaseCard({ c }: { c: Case }) {
               <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider">
                 Suspected match
               </div>
-              <div className="font-bold text-stone-900 group-hover:text-amber-700 transition-colors truncate">
+              <div className="font-bold text-stone-900 group-hover:text-red-700 transition-colors truncate">
                 {c.trademark?.name ?? "Unknown IP"}
               </div>
             </div>

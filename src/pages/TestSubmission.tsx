@@ -167,7 +167,7 @@ export default function TestSubmission() {
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white transition-all"
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-white transition-all"
           >
             {trademarks.map((tm) => (
               <option key={tm.id} value={tm.id}>
@@ -186,7 +186,7 @@ export default function TestSubmission() {
             value={submitterEmail}
             onChange={(e) => setSubmitterEmail(e.target.value)}
             placeholder="licensee@partner.com"
-            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
           />
         </div>
         <div>
@@ -195,7 +195,7 @@ export default function TestSubmission() {
             value={submitterNote}
             onChange={(e) => setSubmitterNote(e.target.value)}
             placeholder="e.g. Spring 2026 collection mockup"
-            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
           />
         </div>
       </div>
@@ -255,13 +255,13 @@ export default function TestSubmission() {
             <button
               onClick={handleRequestReview}
               disabled={requestingReview}
-              className="px-5 py-2.5 border border-amber-200 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 transition-all disabled:opacity-50"
+              className="px-5 py-2.5 border border-red-200 bg-red-50 text-red-700 rounded-xl text-sm font-semibold hover:bg-red-100 transition-all disabled:opacity-50"
             >
               {requestingReview ? "Requesting…" : "Request manual review"}
             </button>
           )}
           {submission?.submission.review_requested && (
-            <div className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-5 py-4">
+            <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl px-5 py-4">
               ⏳ Manual review requested.
             </div>
           )}
@@ -380,7 +380,7 @@ function RuleResultRow({
   const borderColor =
     rr.state === "pass" ? "border-l-emerald-400"
     : rr.state === "fail" ? "border-l-red-400"
-    : "border-l-amber-400";
+    : "border-l-red-400";
 
   const violations = vlmViolations(rr);
   const facts = observedFacts(rr);
@@ -713,7 +713,7 @@ function HeroPanel({
         type="button"
         onClick={onZoom}
         disabled={!onZoom || !src}
-        className="block w-full aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-100 hover:border-amber-500 hover:shadow-md transition-all disabled:cursor-not-allowed disabled:hover:border-stone-200 disabled:hover:shadow-none"
+        className="block w-full aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-100 hover:border-red-500 hover:shadow-md transition-all disabled:cursor-not-allowed disabled:hover:border-stone-200 disabled:hover:shadow-none"
         title={onZoom ? "Click to enlarge" : undefined}
       >
         {src ? (
@@ -753,7 +753,7 @@ function ReferenceThumbnail({
       style={{ width: size }}
     >
       <div
-        className="rounded-lg overflow-hidden border border-stone-200 bg-stone-100 group-hover:border-amber-500 group-hover:shadow-md transition-all"
+        className="rounded-lg overflow-hidden border border-stone-200 bg-stone-100 group-hover:border-red-500 group-hover:shadow-md transition-all"
         style={{ width: size, height: size }}
       >
         {ref.image_url ? (
