@@ -25,7 +25,7 @@ export default function Avatar({ pictureUrl, name, size = 32, className = "" }: 
         alt={name ?? ""}
         onError={() => setErrored(true)}
         style={style}
-        className={`rounded-full object-cover bg-slate-100 ${className}`}
+        className={`rounded-full object-cover bg-stone-100 ${className}`}
       />
     );
   }
@@ -33,7 +33,7 @@ export default function Avatar({ pictureUrl, name, size = 32, className = "" }: 
   return (
     <div
       style={style}
-      className={`rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-slate-600 font-bold flex items-center justify-center ${className}`}
+      className={`rounded-full bg-gradient-to-br from-stone-200 to-stone-300 text-stone-600 font-bold flex items-center justify-center ${className}`}
     >
       {initial}
     </div>

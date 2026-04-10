@@ -147,7 +147,7 @@ function StageRow({
 }) {
   const palette = STATUS_PALETTE[status];
   return (
-    <div className={`rounded-xl border-l-4 ${palette.border} bg-white border border-slate-200 px-4 py-3`}>
+    <div className={`rounded-xl border-l-4 ${palette.border} bg-white border border-stone-200 px-4 py-3`}>
       <div className="flex items-center gap-3">
         <div
           className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${palette.badgeBg} ${palette.badgeText}`}
@@ -167,8 +167,8 @@ function StageRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-slate-900">{stage.label}</div>
-          <div className="text-xs text-slate-500">{stage.description}</div>
+          <div className="text-sm font-bold text-stone-900">{stage.label}</div>
+          <div className="text-xs text-stone-500">{stage.description}</div>
         </div>
         <span
           className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${palette.pillBg} ${palette.pillText}`}
@@ -214,12 +214,12 @@ function StageMeter({
           >
             {meter.verdictLabel}
           </span>
-          <span className="text-slate-500">
+          <span className="text-stone-500">
             {(meter.score * 100).toFixed(0)}% confidence
           </span>
         </div>
         {meter.reasoning && (
-          <p className="text-xs text-slate-600 leading-snug italic">
+          <p className="text-xs text-stone-600 leading-snug italic">
             "{meter.reasoning}"
           </p>
         )}
@@ -236,7 +236,7 @@ function StageMeter({
         >
           {(meter.score * 100).toFixed(1)}%
         </span>
-        <span className="text-slate-400">
+        <span className="text-stone-400">
           threshold {(meter.threshold * 100).toFixed(0)}%
         </span>
       </div>
@@ -257,13 +257,13 @@ function Bar({
   const threshPct = Math.min(100, Math.max(0, threshold * 100));
   const fillColor = isHit ? "bg-red-500" : "bg-emerald-500";
   return (
-    <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
+    <div className="relative h-2 bg-stone-100 rounded-full overflow-hidden">
       <div
         className={`absolute inset-y-0 left-0 ${fillColor}`}
         style={{ width: `${scorePct}%` }}
       />
       <div
-        className="absolute top-0 bottom-0 w-0.5 bg-slate-700"
+        className="absolute top-0 bottom-0 w-0.5 bg-stone-700"
         style={{ left: `calc(${threshPct}% - 1px)` }}
         title={`Threshold ${threshPct.toFixed(0)}%`}
       />
@@ -348,11 +348,11 @@ const STATUS_PALETTE: Record<
   { border: string; badgeBg: string; badgeText: string; pillBg: string; pillText: string }
 > = {
   pending: {
-    border: "border-l-slate-200",
-    badgeBg: "bg-slate-100",
-    badgeText: "text-slate-400",
-    pillBg: "bg-slate-50",
-    pillText: "text-slate-400",
+    border: "border-l-stone-200",
+    badgeBg: "bg-stone-100",
+    badgeText: "text-stone-400",
+    pillBg: "bg-stone-50",
+    pillText: "text-stone-400",
   },
   running: {
     border: "border-l-blue-400",
@@ -383,10 +383,10 @@ const STATUS_PALETTE: Record<
     pillText: "text-amber-700",
   },
   skipped: {
-    border: "border-l-slate-200",
-    badgeBg: "bg-slate-100",
-    badgeText: "text-slate-400",
-    pillBg: "bg-slate-50",
-    pillText: "text-slate-500",
+    border: "border-l-stone-200",
+    badgeBg: "bg-stone-100",
+    badgeText: "text-stone-400",
+    pillBg: "bg-stone-50",
+    pillText: "text-stone-500",
   },
 };

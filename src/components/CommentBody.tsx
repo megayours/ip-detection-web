@@ -8,7 +8,7 @@
  */
 export default function CommentBody({ body }: { body: string }) {
   return (
-    <div className="text-sm text-slate-700 whitespace-pre-wrap break-words leading-relaxed">
+    <div className="text-sm text-stone-700 whitespace-pre-wrap break-words leading-relaxed">
       {body}
     </div>
   );

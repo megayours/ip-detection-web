@@ -44,7 +44,7 @@ export default function ReviewQueue() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-6 py-16 flex justify-center">
-        <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -52,8 +52,8 @@ export default function ReviewQueue() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Review queue</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-black text-stone-900 tracking-tight">Review queue</h1>
+        <p className="mt-1 text-sm text-stone-500">
           Submissions licensees have flagged for manual review. Override or uphold the auto-verdict.
         </p>
       </div>
@@ -66,10 +66,10 @@ export default function ReviewQueue() {
 
       {items.length === 0 ? (
         <div className="text-center py-20 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto">
+          <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto">
             <span className="text-2xl">&#x2709;</span>
           </div>
-          <p className="text-slate-500 text-sm">No submissions awaiting review.</p>
+          <p className="text-stone-500 text-sm">No submissions awaiting review.</p>
         </div>
       ) : (
         <ul className="space-y-4">
@@ -81,16 +81,16 @@ export default function ReviewQueue() {
             return (
               <li
                 key={item.id}
-                className="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-amber-400 p-5 flex gap-5 items-start"
+                className="bg-white rounded-2xl border border-stone-200 border-l-4 border-l-amber-400 p-5 flex gap-5 items-start"
               >
                 <img
                   src={item.image_url}
                   alt="submission"
-                  className="w-32 h-32 object-cover rounded-xl border border-slate-200 flex-shrink-0"
+                  className="w-32 h-32 object-cover rounded-xl border border-stone-200 flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-base font-bold text-slate-900">
+                    <h3 className="text-base font-bold text-stone-900">
                       {item.trademark?.name ?? "(unknown)"}
                     </h3>
                     <span
@@ -100,12 +100,12 @@ export default function ReviewQueue() {
                       {badge.label}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500">submitted {new Date(item.created_at).toLocaleString()}</div>
+                  <div className="text-xs text-stone-500">submitted {new Date(item.created_at).toLocaleString()}</div>
                   {item.submitter_email && (
-                    <div className="text-xs text-slate-500">from {item.submitter_email}</div>
+                    <div className="text-xs text-stone-500">from {item.submitter_email}</div>
                   )}
                   {item.submitter_note && (
-                    <div className="text-xs text-slate-500 italic">"{item.submitter_note}"</div>
+                    <div className="text-xs text-stone-500 italic">"{item.submitter_note}"</div>
                   )}
                   {failedRules.length > 0 && (
                     <div className="text-xs text-red-600 font-semibold">

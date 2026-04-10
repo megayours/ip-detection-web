@@ -74,7 +74,7 @@ export default function RegistryDetail() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-6 py-16 flex justify-center">
-        <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -87,10 +87,10 @@ export default function RegistryDetail() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{ip.name}</h1>
-          {ip.description && <p className="mt-1 text-sm text-slate-500">{ip.description}</p>}
+          <h1 className="text-2xl font-black text-stone-900 tracking-tight">{ip.name}</h1>
+          {ip.description && <p className="mt-1 text-sm text-stone-500">{ip.description}</p>}
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <span className="text-slate-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
+            <span className="text-stone-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
             {ip.centroid_dino ? (
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">Indexed</span>
             ) : pendingImages.length > 0 ? (
@@ -98,14 +98,14 @@ export default function RegistryDetail() {
                 {pendingImages.length} pending
               </span>
             ) : (
-              <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-0.5 rounded-full">No images</span>
+              <span className="text-xs font-semibold text-stone-400 bg-stone-50 px-2.5 py-0.5 rounded-full">No images</span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Link
             to={`/test?trademark=${ip.id}`}
-            className="px-4 py-2 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all"
+            className="px-4 py-2 text-sm font-semibold bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition-all"
           >
             Test mockup
           </Link>
@@ -153,12 +153,12 @@ export default function RegistryDetail() {
       {images.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {images.map((img) => (
-            <div key={img.id} className="relative group rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
+            <div key={img.id} className="relative group rounded-xl border border-stone-200 overflow-hidden bg-stone-50">
               <img src={img.url} alt="" className="w-full aspect-square object-cover" />
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
-                  className="bg-white/90 text-red-500 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold hover:bg-red-50 border border-slate-200 shadow-sm"
+                  className="bg-white/90 text-red-500 rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold hover:bg-red-50 border border-stone-200 shadow-sm"
                   title="Delete image"
                 >
                   x
@@ -170,7 +170,7 @@ export default function RegistryDetail() {
                 ) : img.status === "failed" ? (
                   <span className="text-red-500">Failed</span>
                 ) : (
-                  <span className="text-slate-400">Pending</span>
+                  <span className="text-stone-400">Pending</span>
                 )}
               </div>
             </div>
@@ -180,7 +180,7 @@ export default function RegistryDetail() {
 
       {/* Rules section — only when there's something to attach rules to */}
       {ip.centroid_dino && (
-        <div className="pt-6 border-t border-slate-100">
+        <div className="pt-6 border-t border-stone-100">
           <RuleEditor
             trademarkId={ip.id}
             initialGuidelines={ip.guidelines}

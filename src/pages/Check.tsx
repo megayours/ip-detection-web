@@ -103,8 +103,8 @@ export default function Check() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Scan</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-black text-stone-900 tracking-tight">Scan</h1>
+        <p className="mt-1 text-sm text-stone-500">
           Run a single image — uploaded or pulled from a URL — through the cheap → expensive
           pipeline. Suspicious matches become persistent cases with full pipeline traces.
         </p>
@@ -112,7 +112,7 @@ export default function Check() {
 
       {/* Input mode tabs */}
       <div className="space-y-3">
-        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
+        <div className="flex gap-1 p-1 bg-stone-100 rounded-xl w-fit">
           {(["file", "url"] as InputMode[]).map((m) => (
             <button
               key={m}
@@ -122,8 +122,8 @@ export default function Check() {
               }}
               className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                 inputMode === m
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-500 hover:text-stone-700"
               }`}
             >
               {m === "file" ? "Upload file" : "Image URL"}
@@ -141,10 +141,10 @@ export default function Check() {
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600 font-medium">{file.name}</span>
+                <span className="text-sm text-stone-600 font-medium">{file.name}</span>
                 <button
                   onClick={handleReset}
-                  className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                  className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
                 >
                   Clear
                 </button>
@@ -153,7 +153,7 @@ export default function Check() {
                 <img
                   src={previewUrl}
                   alt="Preview"
-                  className="max-w-full h-auto rounded-xl border border-slate-200"
+                  className="max-w-full h-auto rounded-xl border border-stone-200"
                 />
               )}
             </div>
@@ -164,9 +164,9 @@ export default function Check() {
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://www.ebay.com/itm/.../image.jpg"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
             />
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-stone-400">
               Paste a public image URL. The URL is recorded as the case source — this is the same
               entrypoint our future Monitor scrapers will use.
             </p>
@@ -176,7 +176,7 @@ export default function Check() {
 
       {/* Scope radio */}
       <div className="space-y-2">
-        <div className="text-sm font-medium text-slate-700">Scan against</div>
+        <div className="text-sm font-medium text-stone-700">Scan against</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <ScopeOption
             current={scope}
@@ -200,14 +200,14 @@ export default function Check() {
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+          className="px-6 py-3 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all shadow-lg shadow-stone-900/10"
         >
           {submitting ? "Submitting…" : isProcessing ? "Scanning…" : jobId ? "Scan again" : "Run scan"}
         </button>
         {(jobId || file || imageUrl) && (
           <button
             onClick={handleReset}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
           >
             Reset
           </button>
@@ -224,7 +224,7 @@ export default function Check() {
       {jobId && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">
+            <h2 className="text-lg font-black text-stone-900 tracking-tight">
               {isComplete ? "Scan complete" : "Scanning…"}
             </h2>
             {isProcessing && (
@@ -249,7 +249,7 @@ export default function Check() {
 
           {cases.length > 0 && (
             <>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-stone-500">
                 {cases.length} case{cases.length !== 1 ? "s" : ""} created. Click into one to see
                 the pipeline trace and take action.
               </p>
@@ -286,21 +286,21 @@ function ScopeOption({
       onClick={() => onSelect(value)}
       className={`text-left rounded-xl border-2 p-4 transition-all ${
         active
-          ? "border-rose-500 bg-rose-50/40"
-          : "border-slate-200 hover:border-slate-300"
+          ? "border-amber-600 bg-amber-50/40"
+          : "border-stone-200 hover:border-stone-300"
       }`}
     >
       <div className="flex items-center gap-2">
         <div
           className={`w-4 h-4 rounded-full border-2 ${
-            active ? "border-rose-500 bg-rose-500" : "border-slate-300"
+            active ? "border-amber-600 bg-amber-600" : "border-stone-300"
           }`}
         >
           {active && <div className="w-1.5 h-1.5 rounded-full bg-white m-auto mt-[3px]" />}
         </div>
-        <div className="text-sm font-bold text-slate-900">{label}</div>
+        <div className="text-sm font-bold text-stone-900">{label}</div>
       </div>
-      <div className="mt-1.5 text-xs text-slate-500 leading-snug">{description}</div>
+      <div className="mt-1.5 text-xs text-stone-500 leading-snug">{description}</div>
     </button>
   );
 }

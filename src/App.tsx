@@ -21,7 +21,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -31,7 +31,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen bg-cream text-stone-900 font-[Inter,system-ui,sans-serif]">
       <Nav />
       <Routes>
         <Route path="/" element={<Landing />} />

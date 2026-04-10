@@ -250,7 +250,7 @@ export default function RuleEditor({
   }
 
   if (loading) {
-    return <div className="text-sm text-slate-400">Loading rules…</div>;
+    return <div className="text-sm text-stone-400">Loading rules…</div>;
   }
 
   const primitives = ALL_PRIMITIVES;
@@ -258,9 +258,9 @@ export default function RuleEditor({
   return (
     <div className="space-y-6">
       {/* Always-on baseline summary */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-        <h2 className="text-lg font-bold text-slate-900">Rules &amp; guidelines</h2>
-        <p className="text-xs text-slate-500 mt-1">
+      <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5">
+        <h2 className="text-lg font-bold text-stone-900">Rules &amp; guidelines</h2>
+        <p className="text-xs text-stone-500 mt-1">
           Identity, style fidelity and canonical proximity are checked automatically on every submission.
           Use the box below for anything else — anatomy, costume, scene rules — described in plain English.
         </p>
@@ -273,26 +273,26 @@ export default function RuleEditor({
       )}
 
       {/* Free-text guidelines (the simple path) */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+      <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-slate-900">Additional guidelines (optional)</label>
-          {guidelinesSavedAt && <span className="text-xs text-slate-400">saved just now</span>}
+          <label className="text-sm font-semibold text-stone-900">Additional guidelines (optional)</label>
+          {guidelinesSavedAt && <span className="text-xs text-stone-400">saved just now</span>}
         </div>
         <textarea
           value={guidelines}
           onChange={(e) => setGuidelines(e.target.value)}
           rows={6}
           placeholder="e.g. Hands must have 3 thick fingers and 1 thumb (4 digits total). No nails or visible joints. Bow tie always present and red. Eyes are simple black ovals."
-          className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white resize-y"
+          className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white resize-y"
         />
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-stone-400">
           Specific guidelines verified on each submission. Leave empty to skip.
         </p>
         <div className="flex justify-end">
           <button
             onClick={saveGuidelines}
             disabled={savingGuidelines}
-            className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+            className="px-4 py-2 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
           >
             {savingGuidelines ? "Saving…" : "Save guidelines"}
           </button>
@@ -300,23 +300,23 @@ export default function RuleEditor({
       </div>
 
       {/* Advanced — old structured rule-graph editor, hidden by default */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50/50 transition-all"
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-stone-50/50 transition-all"
         >
           <div className="text-left">
-            <div className="text-sm font-semibold text-slate-900">Advanced rules</div>
-            <div className="text-xs text-slate-500 mt-0.5">
+            <div className="text-sm font-semibold text-stone-900">Advanced rules</div>
+            <div className="text-xs text-stone-500 mt-0.5">
               Add structured primitives — palette, OCR, custom thresholds.
-              {version && <> Current version <code className="text-rose-600">{version}</code>.</>}
+              {version && <> Current version <code className="text-amber-700">{version}</code>.</>}
             </div>
           </div>
-          <span className="text-slate-400 text-sm">{showAdvanced ? "▾" : "▸"}</span>
+          <span className="text-stone-400 text-sm">{showAdvanced ? "▾" : "▸"}</span>
         </button>
 
         {showAdvanced && (
-          <div className="border-t border-slate-100 p-5 space-y-6">
+          <div className="border-t border-stone-100 p-5 space-y-6">
             <BaselineEditor
               config={baseline}
               onChange={setBaseline}
@@ -326,11 +326,11 @@ export default function RuleEditor({
               savedAt={baselineSavedAt}
             />
 
-            <div className="border-t border-slate-100 pt-5">
+            <div className="border-t border-stone-100 pt-5">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Custom rules</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-sm font-semibold text-stone-900">Custom rules</div>
+                  <div className="text-xs text-stone-500 mt-0.5">
                     Add structured primitives — palette, OCR, etc.
                   </div>
                 </div>
@@ -338,17 +338,17 @@ export default function RuleEditor({
                   <button
                     onClick={save}
                     disabled={saving || rules.length === 0}
-                    className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+                    className="px-4 py-2 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
                   >
                     {saving ? "Saving…" : version ? "Publish new version" : "Publish v0.1.0"}
                   </button>
-                  {savedAt && <span className="text-xs text-slate-400">saved just now</span>}
+                  {savedAt && <span className="text-xs text-stone-400">saved just now</span>}
                 </div>
               </div>
             </div>
 
             {rules.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="text-center py-8 text-sm text-stone-400 bg-stone-50 rounded-xl border border-stone-100">
                 No advanced rules yet. Add one below.
               </div>
             ) : (
@@ -365,21 +365,21 @@ export default function RuleEditor({
             )}
 
             {showAdd ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Pick a primitive</div>
+              <div className="bg-white rounded-2xl border border-stone-200 p-4 space-y-2">
+                <div className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Pick a primitive</div>
                 {primitives.map((p) => (
                   <button
                     key={p.value}
                     onClick={() => addRule(p.value)}
-                    className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/40 transition-all"
+                    className="w-full text-left px-4 py-3 rounded-xl border border-stone-200 hover:border-amber-300 hover:bg-amber-50/40 transition-all"
                   >
-                    <div className="text-sm font-semibold text-slate-900">{p.label}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{p.description}</div>
+                    <div className="text-sm font-semibold text-stone-900">{p.label}</div>
+                    <div className="text-xs text-stone-500 mt-0.5">{p.description}</div>
                   </button>
                 ))}
                 <button
                   onClick={() => setShowAdd(false)}
-                  className="w-full px-4 py-2 text-xs text-slate-400 hover:text-slate-600"
+                  className="w-full px-4 py-2 text-xs text-stone-400 hover:text-stone-600"
                 >
                   Cancel
                 </button>
@@ -387,7 +387,7 @@ export default function RuleEditor({
             ) : (
               <button
                 onClick={() => setShowAdd(true)}
-                className="w-full px-4 py-3 rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50/40 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-dashed border-stone-300 text-sm text-stone-500 hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50/40 transition-all"
               >
                 + Add rule
               </button>
@@ -417,16 +417,16 @@ function RuleCard({
   };
 
   return (
-    <li className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <li className="bg-white rounded-xl border border-stone-200 overflow-hidden">
       <div
-        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50/50"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-stone-50/50"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-slate-300 text-xs">{expanded ? "▾" : "▸"}</span>
+          <span className="text-stone-300 text-xs">{expanded ? "▾" : "▸"}</span>
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate">{rule.name || "(unnamed)"}</div>
-            <div className="text-xs text-slate-400">
+            <div className="text-sm font-semibold text-stone-900 truncate">{rule.name || "(unnamed)"}</div>
+            <div className="text-xs text-stone-400">
               <code>{rule.primitive}</code>
             </div>
           </div>
@@ -440,7 +440,7 @@ function RuleCard({
               e.stopPropagation();
               onRemove();
             }}
-            className="text-xs text-slate-400 hover:text-red-500 px-2"
+            className="text-xs text-stone-400 hover:text-red-500 px-2"
             title="Remove rule"
           >
             ✕
@@ -449,33 +449,33 @@ function RuleCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-slate-100 px-4 py-4 space-y-3 bg-slate-50/30">
+        <div className="border-t border-stone-100 px-4 py-4 space-y-3 bg-stone-50/30">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Rule name</label>
+            <label className="block text-xs font-medium text-stone-600 mb-1">Rule name</label>
             <input
               value={rule.name}
               onChange={(e) => onChange({ name: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Description (shown in report card)</label>
+            <label className="block text-xs font-medium text-stone-600 mb-1">Description (shown in report card)</label>
             <textarea
               value={rule.description ?? ""}
               onChange={(e) => onChange({ description: e.target.value })}
               rows={2}
               placeholder="Quote the relevant guideline section so the brand owner sees why this rule exists."
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">On fail</label>
+            <label className="block text-xs font-medium text-stone-600 mb-1">On fail</label>
             <select
               value={rule.on_fail}
               onChange={(e) => onChange({ on_fail: e.target.value as RuleSeverity })}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
             >
               <option value="fail_hard">fail_hard — block, no manual review path</option>
               <option value="fail">fail — block, manual review allowed</option>
@@ -572,7 +572,7 @@ function PrimitiveConfigEditor({
             onChange={(v) => onChange({ ...cfg, needs_primitive: v })}
             placeholder="anatomy_keypoints + finger_count"
           />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             Manual checks always surface in the report card with severity = note. Use them to record guidelines no auto-primitive supports yet.
           </p>
         </div>
@@ -601,7 +601,7 @@ function PrimitiveConfigEditor({
             onChange={(v) => onChange({ ...cfg, min_proximity: v > 0 ? v : undefined })}
             step={0.01}
           />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-stone-400">
             Computes the submission's mean cosine similarity to its <strong>k nearest canonical references</strong> (not the centroid). Threshold is auto-calibrated from the canonical set's own pairwise distances at the selected percentile — looser brands get looser thresholds, tighter brands get tighter, automatically. Stricter percentiles (lower number = stricter) catch more outliers but risk rejecting genuine variants. <strong>p10</strong> is a sensible default. Set <em>Min proximity</em> manually only if you want to override calibration.
           </p>
         </div>
@@ -631,7 +631,7 @@ function PaletteEditor({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Allowed colors</label>
+        <label className="block text-xs font-medium text-stone-600 mb-1">Allowed colors</label>
         <div className="space-y-2">
           {colors.map((c, idx) => (
             <div key={idx} className="flex items-center gap-2">
@@ -639,22 +639,22 @@ function PaletteEditor({
                 type="color"
                 value={c.hex}
                 onChange={(e) => updateColor(idx, { hex: e.target.value })}
-                className="w-10 h-9 rounded border border-slate-200 cursor-pointer"
+                className="w-10 h-9 rounded border border-stone-200 cursor-pointer"
               />
               <input
                 value={c.hex}
                 onChange={(e) => updateColor(idx, { hex: e.target.value })}
-                className="w-24 px-2 py-1.5 border border-slate-200 rounded text-xs font-mono bg-white"
+                className="w-24 px-2 py-1.5 border border-stone-200 rounded text-xs font-mono bg-white"
               />
               <input
                 value={c.name}
                 onChange={(e) => updateColor(idx, { name: e.target.value })}
                 placeholder="LABEL"
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded text-sm bg-white"
+                className="flex-1 px-3 py-1.5 border border-stone-200 rounded text-sm bg-white"
               />
               <button
                 onClick={() => removeColor(idx)}
-                className="text-slate-400 hover:text-red-500 px-2"
+                className="text-stone-400 hover:text-red-500 px-2"
               >
                 ✕
               </button>
@@ -662,7 +662,7 @@ function PaletteEditor({
           ))}
           <button
             onClick={addColor}
-            className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
+            className="text-xs text-amber-700 hover:text-amber-800 font-semibold"
           >
             + Add color
           </button>
@@ -689,13 +689,13 @@ function PaletteEditor({
 function NumberField({ label, value, onChange, step }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-stone-600 mb-1">{label}</label>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         step={step ?? 0.1}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
       />
     </div>
   );
@@ -704,12 +704,12 @@ function NumberField({ label, value, onChange, step }: { label: string; value: n
 function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-stone-600 mb-1">{label}</label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
       />
     </div>
   );
@@ -718,11 +718,11 @@ function TextField({ label, value, onChange, placeholder }: { label: string; val
 function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-stone-600 mb-1">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
       >
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
@@ -772,8 +772,8 @@ function BaselineEditor({
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-sm font-semibold text-slate-900">Baseline thresholds</div>
-          <div className="text-xs text-slate-500 mt-0.5 max-w-md">
+          <div className="text-sm font-semibold text-stone-900">Baseline thresholds</div>
+          <div className="text-xs text-stone-500 mt-0.5 max-w-md">
             The three always-on checks. Loosen these for IPs with looser
             requirements; leave any field blank to fall back to the global
             default.
@@ -783,7 +783,7 @@ function BaselineEditor({
           {dirty && (
             <button
               onClick={onReset}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+              className="px-3 py-1.5 text-xs font-semibold text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-all"
             >
               Reset to defaults
             </button>
@@ -791,11 +791,11 @@ function BaselineEditor({
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 transition-all"
+            className="px-4 py-2 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
           >
             {saving ? "Saving…" : "Save thresholds"}
           </button>
-          {savedAt && <span className="text-xs text-slate-400">saved just now</span>}
+          {savedAt && <span className="text-xs text-stone-400">saved just now</span>}
         </div>
       </div>
 
@@ -875,10 +875,10 @@ function BaselineCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+    <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
       <div>
-        <div className="text-xs font-bold text-slate-900">{title}</div>
-        <div className="text-[11px] text-slate-500">{subtitle}</div>
+        <div className="text-xs font-bold text-stone-900">{title}</div>
+        <div className="text-[11px] text-stone-500">{subtitle}</div>
       </div>
       {children}
     </div>
@@ -904,7 +904,7 @@ function BaselineNumber({
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-slate-600 mb-1">{label}</label>
+      <label className="block text-[11px] font-medium text-stone-600 mb-1">{label}</label>
       <input
         type="number"
         value={value ?? ""}
@@ -919,7 +919,7 @@ function BaselineNumber({
           }
         }}
         step={step ?? 0.1}
-        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+        className="w-full px-2.5 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
       />
     </div>
   );
@@ -941,11 +941,11 @@ function BaselineSelect({
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-slate-600 mb-1">{label}</label>
+      <label className="block text-[11px] font-medium text-stone-600 mb-1">{label}</label>
       <select
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value || undefined)}
-        className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white"
+        className="w-full px-2.5 py-1.5 border border-stone-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
       >
         <option value="">use default ({placeholder})</option>
         {options.map((o) => (

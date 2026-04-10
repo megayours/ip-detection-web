@@ -7,122 +7,130 @@ export default function Landing() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
+      <section className="relative overflow-hidden">
+        <div className="relative max-w-6xl mx-auto px-6 pt-24 lg:pt-32 pb-20">
+          <div className="text-center max-w-3xl mx-auto">
+            <div className="inline-block bg-stone-900/5 border border-stone-900/10 text-stone-600 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-6">
+              Visual IP Intelligence
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-stone-900">
+              The{" "}
+              <span className="text-amber-600">
+                Credit Score
+              </span>{" "}
+              for Visual IP
+            </h1>
+            <p className="mt-6 text-lg text-stone-500 max-w-2xl mx-auto leading-relaxed">
+              Every AI-generated image carries hidden IP risk. MegaYours detects, scores, and surfaces
+              intellectual property proximity in visual content — turning liability into clarity.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-4 justify-center">
+              {user ? (
+                <>
+                  <Link
+                    to="/test"
+                    className="px-6 py-3 bg-stone-900 text-white rounded-full text-sm font-semibold hover:bg-stone-800 transition-all"
+                  >
+                    Get Brand Approval
+                  </Link>
+                  <Link
+                    to="/check"
+                    className="px-6 py-3 border border-stone-300 text-stone-700 rounded-full text-sm font-semibold hover:bg-stone-50 transition-all"
+                  >
+                    Scan an Image
+                  </Link>
+                  <Link
+                    to="/registry"
+                    className="px-6 py-3 border border-stone-300 text-stone-700 rounded-full text-sm font-semibold hover:bg-stone-50 transition-all"
+                  >
+                    IP Registry
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="px-6 py-3 bg-stone-900 text-white rounded-full text-sm font-semibold hover:bg-stone-800 transition-all"
+                >
+                  Get Started
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div className="relative max-w-6xl mx-auto px-6 py-24 lg:py-32">
-          <div className="inline-block bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-6">
-            Visual IP Intelligence
-          </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] max-w-3xl">
-            The{" "}
-            <span className="bg-gradient-to-r from-rose-400 to-amber-400 bg-clip-text text-transparent">
-              Credit Score
-            </span>{" "}
-            for Visual IP
-          </h1>
-          <p className="mt-6 text-lg text-white/60 max-w-2xl leading-relaxed">
-            Every AI-generated image carries hidden IP risk. MegaYours detects, scores, and surfaces
-            intellectual property proximity in visual content — turning liability into clarity.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            {user ? (
-              <>
-                <Link
-                  to="/test"
-                  className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg text-sm font-semibold hover:from-rose-600 hover:to-rose-700 transition-all shadow-lg shadow-rose-500/25"
-                >
-                  Get Brand Approval
-                </Link>
-                <Link
-                  to="/check"
-                  className="px-6 py-3 bg-white/10 text-white rounded-lg text-sm font-semibold hover:bg-white/15 transition-all border border-white/10"
-                >
-                  Scan an Image
-                </Link>
-                <Link
-                  to="/registry"
-                  className="px-6 py-3 bg-white/10 text-white rounded-lg text-sm font-semibold hover:bg-white/15 transition-all border border-white/10"
-                >
-                  IP Registry
-                </Link>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg text-sm font-semibold hover:from-rose-600 hover:to-rose-700 transition-all shadow-lg shadow-rose-500/25"
-              >
-                Get Started
-              </Link>
-            )}
-          </div>
-
-          {/* Stats */}
-          <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6">
-            {[
-              { value: "$150B+", label: "IP Services Market" },
-              { value: "70+", label: "Pending AI Suits" },
-              { value: "<10s", label: "Scan Latency" },
-              { value: "0.75+", label: "High Confidence" },
-            ].map(({ value, label }) => (
-              <div key={label} className="border-t border-white/10 pt-4">
-                <div className="text-2xl font-black text-white">{value}</div>
-                <div className="text-xs text-white/40 uppercase tracking-wider mt-1">{label}</div>
-              </div>
-            ))}
-          </div>
+      {/* Stats */}
+      <section className="max-w-6xl mx-auto px-6 pb-20">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { value: "$150B+", label: "IP Services Market" },
+            { value: "70+", label: "Pending AI Suits" },
+            { value: "<10s", label: "Scan Latency" },
+            { value: "0.75+", label: "High Confidence" },
+          ].map(({ value, label }) => (
+            <div key={label} className="bg-white rounded-2xl border border-stone-200 p-6">
+              <div className="text-3xl sm:text-4xl font-black text-stone-900">{value}</div>
+              <div className="text-xs text-stone-400 uppercase tracking-wider mt-2 font-semibold">{label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* How it works */}
-      <section className="max-w-6xl mx-auto px-6 py-20">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-          How the <span className="text-rose-500">Technology</span> Works
-        </h2>
-        <p className="mt-3 text-slate-500 max-w-2xl">
-          A proprietary multi-stage pipeline that detects IP at the semantic level — not just pixel-matching.
-        </p>
+      <section className="bg-stone-900 text-white">
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center mb-12">
+            <div className="inline-block bg-white/10 text-white/70 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4">
+              How it works
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+              How the Technology Works
+            </h2>
+            <p className="mt-3 text-white/50 max-w-2xl mx-auto">
+              A proprietary multi-stage pipeline that detects IP at the semantic level — not just pixel-matching.
+            </p>
+          </div>
 
-        <div className="mt-12 grid md:grid-cols-3 gap-6">
-          <Card
-            step="01"
-            title="Register IP"
-            description="Upload reference images of your IP. Our pipeline extracts a unique visual fingerprint that captures both structure and meaning."
-          />
-          <Card
-            step="02"
-            title="Index & Analyze"
-            description="Multiple detection algorithms work in concert — machine vision, template analysis, and text recognition — to build a comprehensive IP signature."
-          />
-          <Card
-            step="03"
-            title="Detect & Report"
-            description="Upload any image and get a proximity score in seconds. Results include matched regions, confidence levels, and a breakdown by detection method."
-          />
+          <div className="grid md:grid-cols-3 gap-6">
+            <Card
+              step="01"
+              title="Register IP"
+              description="Upload reference images of your IP. Our pipeline extracts a unique visual fingerprint that captures both structure and meaning."
+            />
+            <Card
+              step="02"
+              title="Index & Analyze"
+              description="Multiple detection algorithms work in concert — machine vision, template analysis, and text recognition — to build a comprehensive IP signature."
+            />
+            <Card
+              step="03"
+              title="Detect & Report"
+              description="Upload any image and get a proximity score in seconds. Results include matched regions, confidence levels, and a breakdown by detection method."
+            />
+          </div>
         </div>
       </section>
 
       {/* Tech highlight */}
-      <section className="bg-slate-50 border-y border-slate-100">
+      <section className="border-b border-stone-200">
         <div className="max-w-6xl mx-auto px-6 py-20">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-3xl font-black text-stone-900 tracking-tight">
                 Multi-Stage Detection,<br />Not Pixel Matching
               </h2>
-              <p className="mt-4 text-slate-500 leading-relaxed">
+              <p className="mt-4 text-stone-500 leading-relaxed">
                 Traditional tools rely on perceptual hashing — they check if two images are pixel-identical.
                 When a diffusion model produces something <em>stylistically similar</em> to protected IP
                 but shares no pixels with the original, hash-based tools see nothing.
               </p>
-              <p className="mt-3 text-slate-500 leading-relaxed">
+              <p className="mt-3 text-stone-500 leading-relaxed">
                 MegaYours sees the IP. Our multi-stage pipeline combines structural analysis with
                 semantic understanding, template matching, and optical character recognition to catch
                 visual derivatives, logo placements, and text-based marks across any context.
               </p>
             </div>
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
               <PipelineRow
                 icon="eye"
                 title="Structural Analysis"
@@ -143,8 +151,8 @@ export default function Landing() {
                 title="Text Recognition"
                 description="Optical character recognition — word marks, brand names, typographic IP"
               />
-              <div className="pt-4 border-t border-slate-100">
-                <div className="text-xs text-slate-400 uppercase tracking-wider mb-2">Confidence Levels</div>
+              <div className="pt-4 border-t border-stone-100">
+                <div className="text-xs text-stone-400 uppercase tracking-wider mb-2">Confidence Levels</div>
                 <div className="flex gap-3 text-xs font-medium">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500" /> HIGH
@@ -162,25 +170,24 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Licensee approval — NEW */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-emerald-50 border-y border-emerald-100">
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl" />
+      {/* Licensee approval */}
+      <section className="relative overflow-hidden">
         <div className="relative max-w-6xl mx-auto px-6 py-20">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-block bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-4">
                 New · Licensee Self-Service
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+              <h2 className="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight leading-tight">
                 Get instant brand approval — <span className="text-emerald-600">before</span> you submit.
               </h2>
-              <p className="mt-4 text-slate-600 leading-relaxed">
+              <p className="mt-4 text-stone-600 leading-relaxed">
                 Licensees, partners and creators can upload their designs and get an automated
                 pre-flight check against the brand's guidelines in seconds. A passing result earns
                 an approval certificate they can attach to the work — turning the back-and-forth
                 of brand review into a one-click confirmation.
               </p>
-              <ul className="mt-6 space-y-3 text-sm text-slate-700">
+              <ul className="mt-6 space-y-3 text-sm text-stone-700">
                 <Bullet>Upload a mockup, get a verdict in seconds</Bullet>
                 <Bullet>Plain-English guideline checks — no spec interpretation</Bullet>
                 <Bullet>Approval certificate on every passing submission</Bullet>
@@ -189,7 +196,7 @@ export default function Landing() {
               <div className="mt-8">
                 <Link
                   to={user ? "/test" : "/login"}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-full text-sm font-semibold hover:bg-emerald-700 transition-all"
                 >
                   {user ? "Test a design now" : "Try it free"}
                   <span>→</span>
@@ -212,10 +219,10 @@ export default function Landing() {
                     <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
                       Approval Certificate
                     </div>
-                    <div className="mt-1 text-base font-black text-slate-900">
+                    <div className="mt-1 text-base font-black text-stone-900">
                       Cleared against brand guidelines
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs text-stone-500 mt-0.5">
                       Spring 2026 collection · Donald Duck mockup #142
                     </div>
                     <div className="mt-4 space-y-1.5">
@@ -236,27 +243,29 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-          Ready to scan?
-        </h2>
-        <p className="mt-3 text-slate-500 max-w-lg mx-auto">
-          Register your IP, upload an image, and get a proximity score in seconds.
-          No credit card. No setup. Just passkey authentication.
-        </p>
-        <div className="mt-8">
-          <Link
-            to={user ? "/check" : "/login"}
-            className="inline-block px-8 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-lg text-sm font-semibold hover:from-rose-600 hover:to-rose-700 transition-all shadow-lg shadow-rose-500/25"
-          >
-            {user ? "Scan an Image" : "Get Started"}
-          </Link>
+      <section className="bg-stone-900 text-white">
+        <div className="max-w-6xl mx-auto px-6 py-20 text-center">
+          <h2 className="text-3xl font-black tracking-tight">
+            Ready to scan?
+          </h2>
+          <p className="mt-3 text-white/50 max-w-lg mx-auto">
+            Register your IP, upload an image, and get a proximity score in seconds.
+            No credit card. No setup. Just passkey authentication.
+          </p>
+          <div className="mt-8">
+            <Link
+              to={user ? "/check" : "/login"}
+              className="inline-block px-8 py-3 bg-white text-stone-900 rounded-full text-sm font-semibold hover:bg-stone-100 transition-all"
+            >
+              {user ? "Scan an Image" : "Get Started"}
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-100 py-8">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-slate-400">
+      <footer className="border-t border-stone-200 py-8">
+        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-stone-400">
           <span>MegaYours</span>
           <span>Visual IP Intelligence Platform</span>
         </div>
@@ -267,13 +276,13 @@ export default function Landing() {
 
 function Card({ step, title, description }: { step: string; title: string; description: string }) {
   return (
-    <div className="group relative bg-white rounded-2xl border border-slate-200 p-6 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-100 transition-all">
-      <div className="absolute top-5 right-5 text-5xl font-black text-slate-50 group-hover:text-slate-100 transition-colors">
+    <div className="group relative bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all">
+      <div className="absolute top-5 right-5 text-5xl font-black text-white/5 group-hover:text-white/10 transition-colors">
         {step}
       </div>
       <div className="relative">
-        <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
-        <p className="text-sm text-slate-500 leading-relaxed">{description}</p>
+        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+        <p className="text-sm text-white/50 leading-relaxed">{description}</p>
       </div>
     </div>
   );
@@ -299,7 +308,7 @@ function Bullet({ children }: { children: React.ReactNode }) {
 
 function CheckRow({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-700">
+    <div className="flex items-center gap-2 text-xs text-stone-700">
       <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-black">
         ✓
       </span>
@@ -311,14 +320,14 @@ function CheckRow({ label }: { label: string }) {
 function PipelineRow({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (
     <div className="flex items-start gap-4">
-      <div className="shrink-0 w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-        <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <div className="shrink-0 w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center">
+        <svg className="w-5 h-5 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[icon]} />
         </svg>
       </div>
       <div>
-        <div className="font-semibold text-slate-900 text-sm">{title}</div>
-        <div className="text-xs text-slate-500">{description}</div>
+        <div className="font-semibold text-stone-900 text-sm">{title}</div>
+        <div className="text-xs text-stone-500">{description}</div>
       </div>
     </div>
   );

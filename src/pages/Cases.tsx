@@ -49,8 +49,8 @@ export default function Cases() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Cases</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-black text-stone-900 tracking-tight">Cases</h1>
+        <p className="mt-1 text-sm text-stone-500">
           Persistent infringement candidates produced by the scan pipeline. Each case
           carries the screenshot, pipeline trace, and per-stage evidence.
         </p>
@@ -66,8 +66,8 @@ export default function Cases() {
               onClick={() => setStatus(s.key)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 active
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-stone-900 text-white"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200"
               }`}
             >
               {s.label}
@@ -80,11 +80,11 @@ export default function Cases() {
       {(sourceUrl || trademarkId) && (
         <div className="flex flex-wrap gap-2 text-xs">
           {sourceUrl && (
-            <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 px-3 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1 rounded-full">
               source: {prettyHost(sourceUrl)}
               <button
                 onClick={() => clearFilter("source_url")}
-                className="text-rose-400 hover:text-rose-700 font-bold"
+                className="text-amber-500 hover:text-amber-700 font-bold"
                 title="Clear filter"
               >
                 ×
@@ -92,11 +92,11 @@ export default function Cases() {
             </span>
           )}
           {trademarkId && (
-            <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 px-3 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1 rounded-full">
               IP filter
               <button
                 onClick={() => clearFilter("trademark_id")}
-                className="text-rose-400 hover:text-rose-700 font-bold"
+                className="text-amber-500 hover:text-amber-700 font-bold"
                 title="Clear filter"
               >
                 ×
@@ -114,15 +114,15 @@ export default function Cases() {
 
       {loading ? (
         <div className="py-16 flex justify-center">
-          <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : cases.length === 0 ? (
         <div className="text-center py-16 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto text-2xl">
             ⚖️
           </div>
-          <p className="text-slate-500 text-sm">No cases yet.</p>
-          <p className="text-slate-400 text-xs">
+          <p className="text-stone-500 text-sm">No cases yet.</p>
+          <p className="text-stone-400 text-xs">
             Run a scan to generate cases against your registered IPs.
           </p>
         </div>

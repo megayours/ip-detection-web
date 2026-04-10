@@ -25,19 +25,21 @@ export default function Nav() {
   const linkClass = (path: string) =>
     `text-sm font-medium transition-colors ${
       pathname === path
-        ? "text-slate-900"
-        : "text-slate-400 hover:text-slate-700"
+        ? "text-stone-900"
+        : "text-stone-400 hover:text-stone-700"
     }`;
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+    <nav className="sticky top-0 z-50 bg-cream/80 backdrop-blur-md border-b border-stone-200/60">
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center">
-              <span className="text-white text-xs font-black">M</span>
+            <div className="flex gap-0.5">
+              <div className="w-2.5 h-6 rounded-sm bg-stone-900" />
+              <div className="w-2.5 h-6 rounded-sm bg-stone-900" />
+              <div className="w-2.5 h-6 rounded-sm bg-amber-500" />
             </div>
-            <span className="text-sm font-bold tracking-tight text-slate-900">MegaYours</span>
+            <span className="text-sm font-bold tracking-tight text-stone-900">MegaYours</span>
           </Link>
           {user && (
             <div className="flex items-center gap-6">
@@ -68,11 +70,11 @@ export default function Nav() {
                 title={user.email ?? user.display_name ?? ""}
               >
                 <Avatar pictureUrl={user.picture_url} name={user.display_name ?? user.email} size={28} />
-                <span className="hidden sm:inline text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
+                <span className="hidden sm:inline text-sm font-medium text-stone-700 group-hover:text-stone-900 transition-colors">
                   {user.display_name || user.email || "Account"}
                 </span>
                 <svg
-                  className={`w-3 h-3 text-slate-400 transition-transform ${menuOpen ? "rotate-180" : ""}`}
+                  className={`w-3 h-3 text-stone-400 transition-transform ${menuOpen ? "rotate-180" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -82,13 +84,13 @@ export default function Nav() {
                 </svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg shadow-slate-200/50 overflow-hidden z-50">
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <div className="text-sm font-bold text-slate-900 truncate">
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-stone-200 rounded-xl shadow-lg shadow-stone-200/50 overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-stone-100">
+                    <div className="text-sm font-bold text-stone-900 truncate">
                       {user.display_name || "Signed in"}
                     </div>
                     {user.email && (
-                      <div className="text-xs text-slate-500 truncate">{user.email}</div>
+                      <div className="text-xs text-stone-500 truncate">{user.email}</div>
                     )}
                   </div>
                   <button
@@ -97,7 +99,7 @@ export default function Nav() {
                       await logout();
                       navigate("/");
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 transition-colors"
                   >
                     Sign out
                   </button>
@@ -107,7 +109,7 @@ export default function Nav() {
           ) : (
             <Link
               to="/login"
-              className="text-sm font-medium text-rose-600 hover:text-rose-700 transition-colors"
+              className="px-4 py-1.5 bg-stone-900 text-white text-sm font-semibold rounded-full hover:bg-stone-800 transition-colors"
             >
               Sign in
             </Link>

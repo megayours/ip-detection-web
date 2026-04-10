@@ -113,7 +113,7 @@ export default function CaseDetail() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-6 py-16 flex justify-center">
-        <div className="w-6 h-6 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -131,10 +131,10 @@ export default function CaseDetail() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link to="/cases" className="text-xs text-slate-400 hover:text-slate-600">
+          <Link to="/cases" className="text-xs text-stone-400 hover:text-stone-600">
             ← All cases
           </Link>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+          <h1 className="text-2xl font-black text-stone-900 tracking-tight mt-1">
             Case · {data.trademark?.name ?? "Unknown IP"}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -151,7 +151,7 @@ export default function CaseDetail() {
         <div className="shrink-0 flex items-center gap-2">
           <button
             onClick={() => alert("Export coming soon — we'll bundle the screenshot, pipeline trace, evidence and signed timestamp into a PDF dossier.")}
-            className="px-4 py-2 text-sm font-semibold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all"
+            className="px-4 py-2 text-sm font-semibold bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition-all"
           >
             Export report
           </button>
@@ -172,21 +172,21 @@ export default function CaseDetail() {
 
       {/* Source link row */}
       {c.source_url && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="shrink-0 w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-stone-200 p-4 flex items-center gap-3">
+          <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
               Source
             </div>
             <a
               href={c.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-rose-600 hover:text-rose-700 truncate block"
+              className="text-sm text-amber-700 hover:text-amber-800 truncate block"
             >
               {c.source_url}
             </a>
@@ -207,20 +207,20 @@ export default function CaseDetail() {
                   key={ref.id}
                   src={ref.image_url}
                   alt=""
-                  className="w-full aspect-square object-cover rounded-lg border border-slate-200"
+                  className="w-full aspect-square object-cover rounded-lg border border-stone-200"
                 />
               ))}
             </div>
           ) : (
-            <div className="aspect-square flex items-center justify-center text-slate-300 text-xs">
+            <div className="aspect-square flex items-center justify-center text-stone-300 text-xs">
               No reference images
             </div>
           )}
           {data.trademark && (
-            <div className="px-4 py-3 border-t border-slate-100">
+            <div className="px-4 py-3 border-t border-stone-100">
               <Link
                 to={`/registry/${data.trademark.id}`}
-                className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                className="text-xs font-semibold text-amber-700 hover:text-amber-800"
               >
                 View IP →
               </Link>
@@ -231,8 +231,8 @@ export default function CaseDetail() {
 
       {/* Pipeline trace */}
       <section className="space-y-3">
-        <h2 className="text-lg font-black text-slate-900 tracking-tight">Pipeline trace</h2>
-        <p className="text-sm text-slate-500">
+        <h2 className="text-lg font-black text-stone-900 tracking-tight">Pipeline trace</h2>
+        <p className="text-sm text-stone-500">
           The cheap stages run on local nodes and produce the evidence trail.
           The infringement review (VLM) is the final judge when it runs;
           otherwise canonical proximity decides. Cases the model clears are
@@ -244,17 +244,17 @@ export default function CaseDetail() {
 
       {/* Comments */}
       <section className="space-y-4">
-        <h2 className="text-lg font-black text-slate-900 tracking-tight">
+        <h2 className="text-lg font-black text-stone-900 tracking-tight">
           Comments
           {data.comments.length > 0 && (
-            <span className="ml-2 text-sm font-semibold text-slate-400">
+            <span className="ml-2 text-sm font-semibold text-stone-400">
               {data.comments.length}
             </span>
           )}
         </h2>
 
         {data.comments.length === 0 ? (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-stone-400">
             No comments yet — be the first to add context to this case.
           </p>
         ) : (
@@ -283,16 +283,16 @@ export default function CaseDetail() {
               onChange={(e) => setCommentDraft(e.target.value)}
               rows={3}
               placeholder="Add a comment — visible to everyone in your workspace."
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-y"
+              className="w-full px-4 py-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all resize-y"
             />
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-stone-400">
                 Plain text for now — mentions and attachments coming soon.
               </p>
               <button
                 type="submit"
                 disabled={postingComment || !commentDraft.trim()}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 disabled:opacity-50 transition-all"
+                className="px-4 py-2 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
               >
                 {postingComment ? "Posting…" : "Post comment"}
               </button>
@@ -303,7 +303,7 @@ export default function CaseDetail() {
 
       {/* Review actions */}
       <section className="space-y-3">
-        <h2 className="text-lg font-black text-slate-900 tracking-tight">Review</h2>
+        <h2 className="text-lg font-black text-stone-900 tracking-tight">Review</h2>
         <div className="flex flex-wrap gap-2">
           <ReviewButton
             current={c.review_status}
@@ -330,7 +330,7 @@ export default function CaseDetail() {
       </section>
 
       {/* Audit trail */}
-      <div className="text-xs text-slate-400 pt-4 border-t border-slate-100">
+      <div className="text-xs text-stone-400 pt-4 border-t border-stone-100">
         Created {new Date(c.created_at).toLocaleString()} · Last update{" "}
         {new Date(c.updated_at).toLocaleString()}
       </div>
@@ -340,8 +340,8 @@ export default function CaseDetail() {
 
 function PaneCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+    <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
         {label}
       </div>
       {children}
@@ -366,7 +366,7 @@ function CaseScreenshot({ c }: { c: Case }) {
 
   if (!c.image_url) {
     return (
-      <div className="aspect-square flex items-center justify-center text-slate-300 text-xs">
+      <div className="aspect-square flex items-center justify-center text-stone-300 text-xs">
         no screenshot
       </div>
     );
@@ -423,7 +423,7 @@ function CaseScreenshot({ c }: { c: Case }) {
 
 function ScoreBadge({ score }: { score: number }) {
   const tone =
-    score >= 80 ? "bg-red-50 text-red-700" : score >= 60 ? "bg-amber-50 text-amber-700" : "bg-slate-50 text-slate-600";
+    score >= 80 ? "bg-red-50 text-red-700" : score >= 60 ? "bg-amber-50 text-amber-700" : "bg-stone-50 text-stone-600";
   return (
     <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${tone}`}>
       {score}% match
@@ -435,7 +435,7 @@ function ReviewBadge({ status }: { status: CaseReviewStatus }) {
   const palette: Record<CaseReviewStatus, string> = {
     pending: "bg-amber-50 text-amber-700",
     confirmed: "bg-red-50 text-red-700",
-    dismissed: "bg-slate-100 text-slate-500",
+    dismissed: "bg-stone-100 text-stone-500",
   };
   const label: Record<CaseReviewStatus, string> = {
     pending: "Pending review",
@@ -478,12 +478,12 @@ function DismissReasonBanner({ ruleResults }: { ruleResults: RuleResult[] }) {
   }
 
   return (
-    <div className="bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-xl px-4 py-3 flex items-start gap-3">
-      <div className="shrink-0 w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold">
+    <div className="bg-stone-50 border border-stone-200 text-stone-600 text-sm rounded-xl px-4 py-3 flex items-start gap-3">
+      <div className="shrink-0 w-6 h-6 rounded-full bg-stone-200 text-stone-500 flex items-center justify-center text-xs font-bold">
         i
       </div>
       <div className="min-w-0">
-        <div className="font-semibold text-slate-700">Auto-dismissed</div>
+        <div className="font-semibold text-stone-700">Auto-dismissed</div>
         <div className="text-xs mt-0.5">{reason}</div>
       </div>
     </div>
@@ -506,20 +506,20 @@ function CommentRow({
         name={comment.author.display_name}
         size={32}
       />
-      <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-1.5">
+      <div className="flex-1 min-w-0 bg-white border border-stone-200 rounded-xl px-4 py-3 space-y-1.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-baseline gap-2 min-w-0">
-            <span className="text-sm font-bold text-slate-900 truncate">
+            <span className="text-sm font-bold text-stone-900 truncate">
               {comment.author.display_name || "Anonymous"}
             </span>
-            <span className="text-[11px] text-slate-400 shrink-0">
+            <span className="text-[11px] text-stone-400 shrink-0">
               {new Date(comment.created_at).toLocaleString()}
             </span>
           </div>
           {isAuthor && (
             <button
               onClick={onDelete}
-              className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 hover:text-red-500 transition-all"
+              className="opacity-0 group-hover:opacity-100 text-[11px] text-stone-400 hover:text-red-500 transition-all"
               title="Delete your comment"
             >
               Delete
@@ -551,8 +551,8 @@ function ReviewButton({
       ? "bg-red-600 text-white border-red-600"
       : "bg-white text-red-600 border-red-200 hover:bg-red-50",
     slate: active
-      ? "bg-slate-900 text-white border-slate-900"
-      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
+      ? "bg-stone-900 text-white border-stone-900"
+      : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50",
     amber: active
       ? "bg-amber-500 text-white border-amber-500"
       : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50",

@@ -32,7 +32,7 @@ export default function ImageUploader({ onUpload, uploading, accept = "image/*",
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
       className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-        dragOver ? "border-rose-400 bg-rose-50/50" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
+        dragOver ? "border-amber-400 bg-amber-50/50" : "border-stone-200 hover:border-stone-300 hover:bg-stone-50/50"
       } ${uploading ? "opacity-50 pointer-events-none" : ""}`}
     >
       <input
@@ -44,9 +44,9 @@ export default function ImageUploader({ onUpload, uploading, accept = "image/*",
         className="hidden"
       />
       <div className="space-y-2">
-        <div className="text-slate-300 text-3xl">&#x2191;</div>
-        <p className="text-sm text-slate-500 font-medium">{uploading ? "Uploading..." : label}</p>
-        <p className="text-xs text-slate-400">PNG, JPG, WebP up to 50MB</p>
+        <div className="text-stone-300 text-3xl">&#x2191;</div>
+        <p className="text-sm text-stone-500 font-medium">{uploading ? "Uploading..." : label}</p>
+        <p className="text-xs text-stone-400">PNG, JPG, WebP up to 50MB</p>
       </div>
     </div>
   );

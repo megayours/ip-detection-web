@@ -149,8 +149,8 @@ export default function TestSubmission() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Test against brand guidelines</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-black text-stone-900 tracking-tight">Test against brand guidelines</h1>
+        <p className="mt-1 text-sm text-stone-500">
           Upload your design and get an instant approval check against the registered IP guidelines.
           A passing result earns an approval certificate you can attach to your submission.
         </p>
@@ -158,16 +158,16 @@ export default function TestSubmission() {
 
       {/* Trademark selector */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Trademark</label>
+        <label className="block text-sm font-medium text-stone-700 mb-1.5">Trademark</label>
         {trademarks.length === 0 ? (
-          <div className="text-sm text-slate-400 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+          <div className="text-sm text-stone-400 bg-stone-50 rounded-xl px-4 py-3 border border-stone-100">
             No trademarks registered yet.
           </div>
         ) : (
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-white transition-all"
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white transition-all"
           >
             {trademarks.map((tm) => (
               <option key={tm.id} value={tm.id}>
@@ -181,21 +181,21 @@ export default function TestSubmission() {
       {/* Submitter info */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Submitter email (optional)</label>
+          <label className="block text-sm font-medium text-stone-700 mb-1.5">Submitter email (optional)</label>
           <input
             value={submitterEmail}
             onChange={(e) => setSubmitterEmail(e.target.value)}
             placeholder="licensee@partner.com"
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Note (optional)</label>
+          <label className="block text-sm font-medium text-stone-700 mb-1.5">Note (optional)</label>
           <input
             value={submitterNote}
             onChange={(e) => setSubmitterNote(e.target.value)}
             placeholder="e.g. Spring 2026 collection mockup"
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+            className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
           />
         </div>
       </div>
@@ -210,14 +210,14 @@ export default function TestSubmission() {
       ) : (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 font-medium">{file.name}</span>
-            <button onClick={handleReset} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+            <span className="text-sm text-stone-600 font-medium">{file.name}</span>
+            <button onClick={handleReset} className="text-xs text-stone-400 hover:text-stone-600 transition-colors">
               Clear
             </button>
           </div>
 
           {previewUrl && (
-            <img src={previewUrl} alt="Preview" className="max-w-full h-auto rounded-xl border border-slate-200" />
+            <img src={previewUrl} alt="Preview" className="max-w-full h-auto rounded-xl border border-stone-200" />
           )}
 
           {/* Verdict */}
@@ -271,7 +271,7 @@ export default function TestSubmission() {
             <button
               onClick={handleSubmit}
               disabled={submitting || !selectedId || trademarks.length === 0}
-              className="px-6 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+              className="px-6 py-3 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all shadow-lg"
             >
               {submitting ? "Submitting…" : submissionId ? "Re-test" : "Check approval"}
             </button>
@@ -318,7 +318,7 @@ function VerdictBlock({
 
       {ruleResults.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-2">Approval checks</h3>
+          <h3 className="text-sm font-semibold text-stone-700 mb-2">Approval checks</h3>
           <ul className="space-y-2">
             {ruleResults.map((rr, idx) => (
               <RuleResultRow key={idx} rr={rr} submissionImageUrl={submissionImageUrl} />
@@ -351,9 +351,9 @@ function ApprovalStamp({ verdict, trademarkName }: { verdict: Verdict; trademark
         <div className="text-xs font-semibold text-emerald-700 uppercase tracking-widest">
           Approval Certificate
         </div>
-        <div className="mt-1 text-lg font-black text-slate-900">{stamp}</div>
+        <div className="mt-1 text-lg font-black text-stone-900">{stamp}</div>
         {trademarkName && (
-          <div className="text-sm text-slate-600 mt-0.5">
+          <div className="text-sm text-stone-600 mt-0.5">
             Cleared against <strong>{trademarkName}</strong> brand guidelines.
           </div>
         )}
@@ -402,20 +402,20 @@ function RuleResultRow({
     explanationDebug !== null;
 
   return (
-    <li className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderColor} overflow-hidden`}>
+    <li className={`bg-white rounded-xl border border-stone-200 border-l-4 ${borderColor} overflow-hidden`}>
       <div
-        className={`flex items-center justify-between px-4 py-3 ${hasDetail ? "cursor-pointer hover:bg-slate-50/50" : ""}`}
+        className={`flex items-center justify-between px-4 py-3 ${hasDetail ? "cursor-pointer hover:bg-stone-50/50" : ""}`}
         onClick={() => hasDetail && setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3 min-w-0">
           {hasDetail ? (
-            <span className="text-slate-300 text-xs">{expanded ? "▾" : "▸"}</span>
+            <span className="text-stone-300 text-xs">{expanded ? "▾" : "▸"}</span>
           ) : (
-            <span className="text-slate-200 text-xs">·</span>
+            <span className="text-stone-200 text-xs">·</span>
           )}
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate">{title}</div>
-            <div className="text-xs text-slate-400">{severityCopy(rr.on_fail)} check</div>
+            <div className="text-sm font-semibold text-stone-900 truncate">{title}</div>
+            <div className="text-xs text-stone-400">{severityCopy(rr.on_fail)} check</div>
           </div>
         </div>
         <span
@@ -426,19 +426,19 @@ function RuleResultRow({
         </span>
       </div>
       {expanded && hasDetail && (
-        <div className="border-t border-slate-100 px-4 py-4 bg-slate-50/30 space-y-4 text-sm">
+        <div className="border-t border-stone-100 px-4 py-4 bg-stone-50/30 space-y-4 text-sm">
           {facts.length > 0 && (
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
               {facts.map((f, i) => (
                 <div key={i} className="flex items-baseline justify-between gap-3">
-                  <dt className="text-xs text-slate-500">{f.label}</dt>
+                  <dt className="text-xs text-stone-500">{f.label}</dt>
                   <dd
                     className={`text-sm font-semibold ${
                       f.tone === "good"
                         ? "text-emerald-700"
                         : f.tone === "bad"
                           ? "text-red-700"
-                          : "text-slate-800"
+                          : "text-stone-800"
                     }`}
                   >
                     {f.value}
@@ -459,7 +459,7 @@ function RuleResultRow({
           )}
           {violations.length > 0 && (
             <div className="space-y-2">
-              <div className="font-semibold text-slate-700 text-xs uppercase tracking-wider">
+              <div className="font-semibold text-stone-700 text-xs uppercase tracking-wider">
                 What didn't match
               </div>
               <ul className="space-y-2">
@@ -517,11 +517,11 @@ function ProximityExplanationBlock({ explanation }: { explanation: ProximityExpl
  */
 function ProximityExplanationDebugBlock({ reason }: { reason: string }) {
   return (
-    <div className="bg-slate-50 border-l-2 border-slate-300 rounded px-4 py-2.5">
-      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-0.5">
+    <div className="bg-stone-50 border-l-2 border-stone-300 rounded px-4 py-2.5">
+      <div className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-0.5">
         Suggested changes unavailable
       </div>
-      <div className="text-xs text-slate-600 font-mono">{reason}</div>
+      <div className="text-xs text-stone-600 font-mono">{reason}</div>
     </div>
   );
 }
@@ -554,12 +554,12 @@ function CalibrationStrip({
 
   return (
     <div>
-      <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+      <div className="text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
         Where you sit vs the brand
       </div>
       <div className="relative h-8">
         {/* axis */}
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-slate-200" />
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-stone-200" />
         {/* canonical band (min → p50) */}
         <div
           className="absolute top-1/2 -translate-y-1/2 h-2 bg-emerald-200/70 rounded"
@@ -580,11 +580,11 @@ function CalibrationStrip({
           title={`Your score: ${Math.round(score * 100)}%`}
         />
       </div>
-      <div className="mt-2 text-xs text-slate-500">
+      <div className="mt-2 text-xs text-stone-500">
         Brand canonicals score{" "}
-        <strong className="text-slate-700">{Math.round(calibration.min * 100)}–{Math.round(calibration.p50 * 100)}%</strong>{" "}
+        <strong className="text-stone-700">{Math.round(calibration.min * 100)}–{Math.round(calibration.p50 * 100)}%</strong>{" "}
         against each other (median{" "}
-        <strong className="text-slate-700">{Math.round(calibration.p50 * 100)}%</strong>
+        <strong className="text-stone-700">{Math.round(calibration.p50 * 100)}%</strong>
         {calibration.sampleSize > 0 ? `, n=${calibration.sampleSize}` : ""}). Your submission landed at{" "}
         <strong className={passed ? "text-emerald-700" : "text-red-700"}>
           {Math.round(score * 100)}%
@@ -619,7 +619,7 @@ function ClosestReferences({
   if (!submissionImageUrl) {
     return (
       <div>
-        <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+        <div className="text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
           Closest references
         </div>
         <div className="flex gap-3">
@@ -646,7 +646,7 @@ function ClosestReferences({
 
   return (
     <div>
-      <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+      <div className="text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">
         Closest reference
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -673,7 +673,7 @@ function ClosestReferences({
       </div>
       {runnersUp.length > 0 && (
         <div className="mt-3">
-          <div className="text-xs text-slate-500 mb-1.5">Also similar to</div>
+          <div className="text-xs text-stone-500 mb-1.5">Also similar to</div>
           <div className="flex gap-2">
             {runnersUp.map((ref, i) => (
               <ReferenceThumbnail
@@ -713,18 +713,18 @@ function HeroPanel({
         type="button"
         onClick={onZoom}
         disabled={!onZoom || !src}
-        className="block w-full aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 hover:border-rose-400 hover:shadow-md transition-all disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:shadow-none"
+        className="block w-full aspect-square rounded-xl overflow-hidden border border-stone-200 bg-stone-100 hover:border-amber-500 hover:shadow-md transition-all disabled:cursor-not-allowed disabled:hover:border-stone-200 disabled:hover:shadow-none"
         title={onZoom ? "Click to enlarge" : undefined}
       >
         {src ? (
           <img src={src} alt={label} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">
+          <div className="w-full h-full flex items-center justify-center text-stone-300 text-xs">
             n/a
           </div>
         )}
       </button>
-      <div className="text-xs font-semibold text-slate-700 text-center">{label}</div>
+      <div className="text-xs font-semibold text-stone-700 text-center">{label}</div>
     </div>
   );
 }
@@ -753,7 +753,7 @@ function ReferenceThumbnail({
       style={{ width: size }}
     >
       <div
-        className="rounded-lg overflow-hidden border border-slate-200 bg-slate-100 group-hover:border-rose-400 group-hover:shadow-md transition-all"
+        className="rounded-lg overflow-hidden border border-stone-200 bg-stone-100 group-hover:border-amber-500 group-hover:shadow-md transition-all"
         style={{ width: size, height: size }}
       >
         {ref.image_url ? (
@@ -763,12 +763,12 @@ function ReferenceThumbnail({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300 text-xs">
+          <div className="w-full h-full flex items-center justify-center text-stone-300 text-xs">
             n/a
           </div>
         )}
       </div>
-      <span className="text-xs font-semibold text-slate-700">{pct}%</span>
+      <span className="text-xs font-semibold text-stone-700">{pct}%</span>
     </button>
   );
 }

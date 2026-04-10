@@ -123,19 +123,19 @@ export default function MonitoredSources() {
     <section className="space-y-5">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">
+          <h2 className="text-lg font-black text-stone-900 tracking-tight">
             Monitored Sources
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-stone-500">
             Platforms and pages we continuously scrape for infringements.
           </p>
         </div>
         <div className="text-right">
-          <div className="text-xs text-slate-500">
-            <span className="font-bold text-slate-900">{sources.length}</span>
-            <span className="text-slate-400"> / {TIER_LIMIT}</span> sources · Basic plan
+          <div className="text-xs text-stone-500">
+            <span className="font-bold text-stone-900">{sources.length}</span>
+            <span className="text-stone-400"> / {TIER_LIMIT}</span> sources · Basic plan
           </div>
-          <button className="text-xs font-semibold text-rose-600 hover:text-rose-700 mt-0.5">
+          <button className="text-xs font-semibold text-amber-700 hover:text-amber-800 mt-0.5">
             Upgrade →
           </button>
         </div>
@@ -147,10 +147,10 @@ export default function MonitoredSources() {
           disabled={atLimit && !showAdd}
           className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
             showAdd
-              ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              ? "bg-stone-100 text-stone-600 hover:bg-stone-200"
               : atLimit
-              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-lg shadow-rose-500/20 hover:from-rose-600 hover:to-rose-700"
+              ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+              : "bg-stone-900 text-white hover:bg-stone-800"
           }`}
         >
           {showAdd ? "Cancel" : atLimit ? "Upgrade to add more sources" : "Add source"}
@@ -160,63 +160,63 @@ export default function MonitoredSources() {
       {showAdd && !atLimit && (
         <form
           onSubmit={handleAdd}
-          className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 shadow-sm"
+          className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4 shadow-sm"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">URL</label>
+            <label className="block text-sm font-medium text-stone-700 mb-1.5">URL</label>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://www.ebay.com/usr/..."
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            <label className="block text-sm font-medium text-stone-700 mb-1.5">
               Label (optional)
             </label>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Suspicious eBay seller"
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Type</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Type</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as SourceType)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
               >
                 <option>Marketplace</option>
                 <option>Social account</option>
                 <option>Website</option>
                 <option>Forum</option>
               </select>
-              <p className="text-xs text-slate-400 mt-1">Auto-detected from URL when possible.</p>
+              <p className="text-xs text-stone-400 mt-1">Auto-detected from URL when possible.</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">
                 Scan frequency
               </label>
               <select
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 transition-all"
               >
                 <option>Daily</option>
                 <option disabled>Hourly — Pro</option>
                 <option disabled>Realtime — Pro</option>
               </select>
-              <p className="text-xs text-slate-400 mt-1">Hourly & realtime require Pro plan.</p>
+              <p className="text-xs text-stone-400 mt-1">Hourly & realtime require Pro plan.</p>
             </div>
           </div>
           <button
             type="submit"
             disabled={!url.trim()}
-            className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-xl text-sm font-semibold hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20"
+            className="px-5 py-2.5 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
           >
             Add source
           </button>
@@ -225,11 +225,11 @@ export default function MonitoredSources() {
 
       {sources.length === 0 ? (
         <div className="text-center py-16 space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-stone-100 flex items-center justify-center mx-auto text-2xl">
             🔭
           </div>
-          <p className="text-slate-500 text-sm">No sources yet.</p>
-          <p className="text-slate-400 text-xs">
+          <p className="text-stone-500 text-sm">No sources yet.</p>
+          <p className="text-stone-400 text-xs">
             Add a URL to start monitoring it for infringements.
           </p>
         </div>
@@ -268,42 +268,42 @@ function SourceCard({
   const casesHref = `/cases?source_url=${encodeURIComponent(source.url)}`;
 
   return (
-    <div className="group bg-white rounded-2xl border border-slate-200 p-4 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-100 transition-all">
+    <div className="group bg-white rounded-2xl border border-stone-200 p-4 hover:border-stone-300 hover:shadow-lg hover:shadow-stone-100 transition-all">
       <div className="flex items-center gap-4">
-        <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-500 font-black text-sm">
+        <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center text-stone-500 font-black text-sm">
           {host.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900 text-sm truncate">{source.label}</span>
+            <span className="font-bold text-stone-900 text-sm truncate">{source.label}</span>
             <span
               className={`shrink-0 w-1.5 h-1.5 rounded-full ${
                 source.status === "active" ? "bg-emerald-500" : "bg-amber-500"
               }`}
             />
           </div>
-          <div className="text-xs text-slate-500 truncate">{source.url}</div>
+          <div className="text-xs text-stone-500 truncate">{source.url}</div>
         </div>
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
             {source.type}
           </span>
           <Link
             to={casesHref}
             className={`text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
               caseCount > 0
-                ? "text-rose-700 bg-rose-50 hover:bg-rose-100"
-                : "text-slate-400 bg-slate-50 hover:bg-slate-100"
+                ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                : "text-stone-400 bg-stone-50 hover:bg-stone-100"
             }`}
             title="Open cases for this source"
           >
             {caseCount} case{caseCount !== 1 ? "s" : ""}
           </Link>
-          <span className="text-[10px] text-slate-400">{source.lastScan}</span>
+          <span className="text-[10px] text-stone-400">{source.lastScan}</span>
         </div>
         <button
           onClick={onRemove}
-          className="shrink-0 text-slate-300 hover:text-red-500 transition-colors p-1"
+          className="shrink-0 text-stone-300 hover:text-red-500 transition-colors p-1"
           title="Remove source"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
