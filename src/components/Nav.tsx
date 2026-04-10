@@ -37,11 +37,16 @@ export default function Nav() {
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex gap-0.5">
-              <div className="w-2.5 h-6 rounded-sm bg-stone-900" />
-              <div className="w-2.5 h-6 rounded-sm bg-stone-900" />
-              <div className="w-2.5 h-6 rounded-sm bg-amber-500" />
-            </div>
+            <svg width="28" height="18" viewBox="0 0 56 36" className="shrink-0">
+              <path d="M2,10 L2,4 L8,4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
+              <path d="M48,4 L54,4 L54,10" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
+              <path d="M2,26 L2,32 L8,32" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
+              <path d="M48,32 L54,32 L54,26" stroke="#b91c1c" strokeWidth="1.5" fill="none" opacity="0.5" strokeLinecap="round"/>
+              <rect x="8" y="8" width="8" height="20" rx="2" fill="currentColor"/>
+              <rect x="19" y="8" width="8" height="20" rx="2" fill="currentColor"/>
+              <rect x="30" y="8" width="8" height="20" rx="2" fill="currentColor"/>
+              <rect x="41" y="8" width="8" height="20" rx="2" fill="#b91c1c"/>
+            </svg>
             <span className="text-sm font-bold tracking-tight text-stone-900">MegaYours</span>
           </Link>
           {user && (

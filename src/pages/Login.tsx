@@ -15,11 +15,16 @@ export default function Login() {
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <div className="flex gap-1 justify-center mb-4">
-            <div className="w-3.5 h-8 rounded-sm bg-stone-900" />
-            <div className="w-3.5 h-8 rounded-sm bg-stone-900" />
-            <div className="w-3.5 h-8 rounded-sm bg-amber-500" />
-          </div>
+          <svg width="42" height="27" viewBox="0 0 56 36" className="mx-auto mb-4">
+            <path d="M2,10 L2,4 L8,4" stroke="#1c1917" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
+            <path d="M48,4 L54,4 L54,10" stroke="#1c1917" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
+            <path d="M2,26 L2,32 L8,32" stroke="#1c1917" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round"/>
+            <path d="M48,32 L54,32 L54,26" stroke="#b91c1c" strokeWidth="1.5" fill="none" opacity="0.5" strokeLinecap="round"/>
+            <rect x="8" y="8" width="8" height="20" rx="2" fill="#1c1917"/>
+            <rect x="19" y="8" width="8" height="20" rx="2" fill="#1c1917"/>
+            <rect x="30" y="8" width="8" height="20" rx="2" fill="#1c1917"/>
+            <rect x="41" y="8" width="8" height="20" rx="2" fill="#b91c1c"/>
+          </svg>
           <h1 className="text-2xl font-bold text-stone-900">Welcome</h1>
           <p className="mt-2 text-sm text-stone-500">
             Sign in to access your IP registry, cases and monitored sources.
