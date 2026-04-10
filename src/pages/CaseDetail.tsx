@@ -542,7 +542,7 @@ function ReviewButton({
   current: CaseReviewStatus;
   target: CaseReviewStatus;
   label: string;
-  tone: "red" | "slate" | "red";
+  tone: "red" | "slate";
   onClick: () => void;
 }) {
   const active = current === target;
@@ -553,9 +553,6 @@ function ReviewButton({
     slate: active
       ? "bg-stone-900 text-white border-stone-900"
       : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50",
-    red: active
-      ? "bg-red-500 text-white border-red-500"
-      : "bg-white text-red-700 border-red-200 hover:bg-red-50",
   };
   return (
     <button
