@@ -80,7 +80,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How the scoring works */}
+      {/* The Algorithm — courtroom framing */}
       <section id="how-it-works" className="bg-stone-900 text-white scroll-mt-16">
         <div className="max-w-6xl mx-auto px-6 py-20">
           <div className="text-center mb-12">
@@ -88,88 +88,97 @@ export default function Landing() {
               The Algorithm
             </div>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-              How the Scoring Works
+              Gather Evidence. Reach a Verdict.
             </h2>
             <p className="mt-3 text-white/50 max-w-2xl mx-auto">
-              Three steps from raw images to a semantic similarity score.
+              Like building a case — independent evidence stages each produce a signal.
+              When the evidence is strong enough, a vision-language model examines the
+              full picture and delivers a verdict with reasoning.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card
-              step="01"
-              title="Upload References"
-              description="Provide reference images. The pipeline extracts a multi-dimensional visual fingerprint that captures both structure and meaning."
-            />
-            <Card
-              step="02"
-              title="Index & Embed"
-              description="Multiple algorithms work in concert — structural analysis, semantic understanding, template matching, and OCR — to build a comprehensive signature."
-            />
-            <Card
-              step="03"
-              title="Score & Report"
-              description="Submit any image and get a similarity score in seconds. Results include per-stage confidence, matched regions, and a breakdown by detection method."
-            />
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Phase 1 */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-black">1</div>
+                <h3 className="text-xl font-black">Gather the Evidence</h3>
+              </div>
+              <p className="text-sm text-white/50 mb-6">
+                Four independent detection stages run in parallel, each producing its own
+                similarity signal and evidence payload. Fast, cheap, and domain-agnostic.
+              </p>
+              <div className="space-y-3">
+                <EvidenceRow icon="eye" title="Structural Analysis" description="Shapes, spatial composition, distinctive anatomy" />
+                <EvidenceRow icon="brain" title="Semantic Understanding" description="Concept identity, associations, style fingerprinting" />
+                <EvidenceRow icon="scan" title="Template Matching" description="Direct visual comparison across scales and orientations" />
+                <EvidenceRow icon="type" title="Text Recognition" description="Word marks, names, typographic elements via OCR" />
+              </div>
+            </div>
+
+            {/* Phase 2 */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-black">2</div>
+                <h3 className="text-xl font-black">Reach a Verdict</h3>
+              </div>
+              <p className="text-sm text-white/50 mb-6">
+                When the evidence is strong enough, a vision-language model receives the input image,
+                the closest canonical reference, and all gathered evidence — then delivers a verdict
+                with detailed reasoning.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
+                  <div>
+                    <div className="text-sm font-semibold text-white/80">Evidence threshold met?</div>
+                    <div className="text-xs text-white/40">Calibrated per reference set, not per use-case</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
+                  <div>
+                    <div className="text-sm font-semibold text-white/80">VLM examines the full picture</div>
+                    <div className="text-xs text-white/40">Input image + closest reference + all stage evidence</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
+                  <div>
+                    <div className="text-sm font-semibold text-white/80">Verdict with reasoning</div>
+                    <div className="text-xs text-white/40">Confidence score, explanation, and per-stage breakdown</div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-white/10">
+                <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">The prompt is the variable</div>
+                <p className="text-xs text-white/40 leading-relaxed">
+                  Same evidence pipeline, different question to the model — IP infringement,
+                  content policy, licensing compliance, deduplication confidence.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Pipeline detail */}
+      {/* Why semantic */}
       <section className="border-b border-stone-200">
         <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-black text-stone-900 tracking-tight">
-                Semantic Similarity,<br />Not Pixel Matching
-              </h2>
-              <p className="mt-4 text-stone-500 leading-relaxed">
-                Traditional tools rely on perceptual hashing — they check if two images are pixel-identical.
-                When an image is <em>conceptually similar</em> but shares no pixels with the reference,
-                hash-based tools see nothing.
-              </p>
-              <p className="mt-3 text-stone-500 leading-relaxed">
-                Our multi-stage pipeline combines structural analysis with semantic understanding,
-                template matching, and optical character recognition to detect visual similarity
-                across contexts, styles, and transformations.
-              </p>
-            </div>
-            <div className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4">
-              <PipelineRow
-                icon="eye"
-                title="Structural Analysis"
-                description="Visual structure — shapes, spatial composition, distinctive anatomy"
-              />
-              <PipelineRow
-                icon="brain"
-                title="Semantic Understanding"
-                description="Concept identity — associations, recognition, style fingerprinting"
-              />
-              <PipelineRow
-                icon="scan"
-                title="Template Matching"
-                description="Direct visual comparison — detection across scales and orientations"
-              />
-              <PipelineRow
-                icon="type"
-                title="Text Recognition"
-                description="Optical character recognition — word marks, names, typographic elements"
-              />
-              <div className="pt-4 border-t border-stone-100">
-                <div className="text-xs text-stone-400 uppercase tracking-wider mb-2">Confidence Levels</div>
-                <div className="flex gap-3 text-xs font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> HIGH
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" /> MEDIUM
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-red-500" /> LOW
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div className="max-w-3xl">
+            <h2 className="text-3xl font-black text-stone-900 tracking-tight">
+              Semantic Similarity, Not Pixel Matching
+            </h2>
+            <p className="mt-4 text-stone-500 leading-relaxed">
+              Traditional tools rely on perceptual hashing — they check if two images are pixel-identical.
+              When an image is <em>conceptually similar</em> but shares no pixels with the reference,
+              hash-based tools see nothing.
+            </p>
+            <p className="mt-3 text-stone-500 leading-relaxed">
+              Our pipeline combines structural analysis with semantic understanding, template matching,
+              and OCR to detect similarity across contexts, styles, and transformations — then lets
+              a VLM interpret what the scores mean for your specific use-case.
+            </p>
           </div>
         </div>
       </section>
@@ -243,15 +252,17 @@ export default function Landing() {
   );
 }
 
-function Card({ step, title, description }: { step: string; title: string; description: string }) {
+function EvidenceRow({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (
-    <div className="group relative bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all">
-      <div className="absolute top-5 right-5 text-5xl font-black text-white/5 group-hover:text-white/10 transition-colors">
-        {step}
+    <div className="flex items-start gap-3">
+      <div className="shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+        <svg className="w-4 h-4 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[icon]} />
+        </svg>
       </div>
-      <div className="relative">
-        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
-        <p className="text-sm text-white/50 leading-relaxed">{description}</p>
+      <div>
+        <div className="text-sm font-semibold text-white/80">{title}</div>
+        <div className="text-xs text-white/40">{description}</div>
       </div>
     </div>
   );
@@ -285,18 +296,3 @@ const ICONS: Record<string, string> = {
   type: "M4 6h16M4 12h8m-8 6h16",
 };
 
-function PipelineRow({ icon, title, description }: { icon: string; title: string; description: string }) {
-  return (
-    <div className="flex items-start gap-4">
-      <div className="shrink-0 w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center">
-        <svg className="w-5 h-5 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[icon]} />
-        </svg>
-      </div>
-      <div>
-        <div className="font-semibold text-stone-900 text-sm">{title}</div>
-        <div className="text-xs text-stone-500">{description}</div>
-      </div>
-    </div>
-  );
-}
