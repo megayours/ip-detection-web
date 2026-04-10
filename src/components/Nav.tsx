@@ -3,6 +3,9 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
 
+const DEMO_MAILTO =
+  "mailto:antonio.palma@megayours.com?subject=MegaYours%20Demo%20Request";
+
 export default function Nav() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -107,12 +110,12 @@ export default function Nav() {
               )}
             </div>
           ) : (
-            <Link
-              to="/login"
+            <a
+              href={DEMO_MAILTO}
               className="px-4 py-1.5 bg-stone-900 text-white text-sm font-semibold rounded-full hover:bg-stone-800 transition-colors"
             >
-              Sign in
-            </Link>
+              Request a demo
+            </a>
           )}
         </div>
       </div>
