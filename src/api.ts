@@ -486,3 +486,78 @@ export function postReview(submissionId: string, action: ReviewAction, note?: st
     body: JSON.stringify({ action, note }),
   });
 }
+
+// --- Monitored Sources ---
+
+export type SourceType = "Marketplace" | "Social account" | "Website" | "Forum";
+export type SourceStatus = "active" | "paused";
+
+export interface MonitoredSource {
+  id: string;
+  url: string;
+  label: string;
+  source_type: SourceType;
+  status: SourceStatus;
+  scan_frequency: string;
+  created_at: string;
+  updated_at: string;
+  last_crawl: {
+    status: string;
+    created_at: string;
+    cases_created: number;
+  } | null;
+}
+
+export interface CrawlRun {
+  id: string;
+  source_id: string;
+  status: string;
+  pages_discovered: number;
+  images_discovered: number;
+  images_scanned: number;
+  cases_created: number;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export function listSources() {
+  return request<{ sources: MonitoredSource[] }>("/api/sources");
+}
+
+export function createSource(data: {
+  url: string;
+  label: string;
+  source_type: SourceType;
+  scan_frequency?: string;
+}) {
+  return request<{ source: MonitoredSource }>("/api/sources", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateSource(
+  id: string,
+  patch: { label?: string; status?: SourceStatus; source_type?: SourceType; scan_frequency?: string }
+) {
+  return request<{ source: MonitoredSource }>(`/api/sources/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteSource(id: string) {
+  return request<{ ok: boolean }>(`/api/sources/${id}`, { method: "DELETE" });
+}
+
+export function triggerCrawl(sourceId: string) {
+  return request<{ job_id: string; crawl_run_id: string }>(`/api/sources/${sourceId}/crawl`, {
+    method: "POST",
+  });
+}
+
+export function listCrawlRuns(sourceId: string) {
+  return request<{ runs: CrawlRun[] }>(`/api/sources/${sourceId}/runs`);
+}

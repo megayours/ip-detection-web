@@ -1,69 +1,38 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { listCases } from "../api";
-
-type SourceType = "Marketplace" | "Social account" | "Website" | "Forum";
-type SourceStatus = "active" | "paused";
-
-interface Source {
-  id: string;
-  url: string;
-  label: string;
-  type: SourceType;
-  lastScan: string;
-  status: SourceStatus;
-}
+import {
+  listSources,
+  createSource,
+  deleteSource,
+  triggerCrawl,
+  listCases,
+  type MonitoredSource,
+  type SourceType,
+} from "../api";
 
 const TIER_LIMIT = 5;
-const STORAGE_KEY = "monitored_sources_v1";
-
-const SEED: Source[] = [
-  {
-    id: "s1",
-    url: "https://www.ebay.com/sch/i.html?_nkw=acme+plush",
-    label: "Suspicious eBay seller",
-    type: "Marketplace",
-    lastScan: "2h ago",
-    status: "active",
-  },
-  {
-    id: "s2",
-    url: "https://x.com/knockoff_drops",
-    label: "Knockoff drops account",
-    type: "Social account",
-    lastScan: "1d ago",
-    status: "active",
-  },
-];
-
-function loadStoredSources(): Source[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return SEED;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-  } catch {
-    /* ignore */
-  }
-  return SEED;
-}
 
 export default function MonitoredSources() {
-  const [sources, setSources] = useState<Source[]>(loadStoredSources);
+  const [sources, setSources] = useState<MonitoredSource[]>([]);
   const [caseCounts, setCaseCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
 
-  // Persist sources across reloads so the demo stays warm.
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sources));
-    } catch {
-      /* quota / safari private mode — non-fatal */
+      const { sources: rows } = await listSources();
+      setSources(rows);
+    } catch (err) {
+      console.error("Failed to load sources:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [sources]);
+  }, []);
 
-  // Fetch real case counts per source URL. Each scan we run with image_url=
-  // mode persists a case stamped with that URL, so the count comes straight
-  // from the cases table.
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Fetch real case counts per source URL
   useEffect(() => {
     let cancelled = false;
     async function loadCounts() {
@@ -90,33 +59,59 @@ export default function MonitoredSources() {
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
   const [type, setType] = useState<SourceType>("Marketplace");
-  const [frequency, setFrequency] = useState("Daily");
+  const [frequency, setFrequency] = useState("daily");
+  const [submitting, setSubmitting] = useState(false);
 
   const atLimit = sources.length >= TIER_LIMIT;
 
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!url.trim() || atLimit) return;
-    setSources([
-      ...sources,
-      {
-        id: `s${Date.now()}`,
+    if (!url.trim() || atLimit || submitting) return;
+    setSubmitting(true);
+    try {
+      await createSource({
         url: url.trim(),
         label: label.trim() || "Untitled source",
-        type,
-        lastScan: "just now",
-        status: "active",
-      },
-    ]);
-    setUrl("");
-    setLabel("");
-    setType("Marketplace");
-    setFrequency("Daily");
-    setShowAdd(false);
+        source_type: type,
+        scan_frequency: frequency,
+      });
+      setUrl("");
+      setLabel("");
+      setType("Marketplace");
+      setFrequency("daily");
+      setShowAdd(false);
+      await refresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to add source");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function removeSource(id: string) {
-    setSources(sources.filter((s) => s.id !== id));
+  async function handleRemove(id: string) {
+    try {
+      await deleteSource(id);
+      await refresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to remove source");
+    }
+  }
+
+  async function handleScanNow(id: string) {
+    try {
+      await triggerCrawl(id);
+      await refresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to trigger crawl");
+    }
+  }
+
+  if (loading) {
+    return (
+      <section className="space-y-5">
+        <div className="text-center py-16 text-stone-400 text-sm">Loading sources...</div>
+      </section>
+    );
   }
 
   return (
@@ -206,7 +201,8 @@ export default function MonitoredSources() {
                 onChange={(e) => setFrequency(e.target.value)}
                 className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
               >
-                <option>Daily</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
                 <option disabled>Hourly — Pro</option>
                 <option disabled>Realtime — Pro</option>
               </select>
@@ -215,10 +211,10 @@ export default function MonitoredSources() {
           </div>
           <button
             type="submit"
-            disabled={!url.trim()}
+            disabled={!url.trim() || submitting}
             className="px-5 py-2.5 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
           >
-            Add source
+            {submitting ? "Adding..." : "Add source"}
           </button>
         </form>
       )}
@@ -240,7 +236,8 @@ export default function MonitoredSources() {
               key={s.id}
               source={s}
               caseCount={caseCounts[s.url] ?? 0}
-              onRemove={() => removeSource(s.id)}
+              onRemove={() => handleRemove(s.id)}
+              onScanNow={() => handleScanNow(s.id)}
             />
           ))}
         </div>
@@ -249,14 +246,48 @@ export default function MonitoredSources() {
   );
 }
 
+function formatLastScan(source: MonitoredSource): string {
+  if (!source.last_crawl) return "Never";
+  const d = new Date(source.last_crawl.created_at);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHrs = Math.floor(diffMin / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const diffDays = Math.floor(diffHrs / 24);
+  return `${diffDays}d ago`;
+}
+
+function CrawlStatusBadge({ status }: { status: string }) {
+  if (status === "crawling" || status === "scanning") {
+    return (
+      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full animate-pulse">
+        {status === "crawling" ? "Crawling" : "Scanning"}
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="text-[10px] font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded-full">
+        Failed
+      </span>
+    );
+  }
+  return null;
+}
+
 function SourceCard({
   source,
   caseCount,
   onRemove,
+  onScanNow,
 }: {
-  source: Source;
+  source: MonitoredSource;
   caseCount: number;
   onRemove: () => void;
+  onScanNow: () => void;
 }) {
   let host = source.url;
   try {
@@ -266,6 +297,7 @@ function SourceCard({
   }
 
   const casesHref = `/cases?source_url=${encodeURIComponent(source.url)}`;
+  const isCrawling = source.last_crawl?.status === "crawling" || source.last_crawl?.status === "scanning";
 
   return (
     <div className="group bg-white rounded-2xl border border-stone-200 p-4 hover:border-stone-300 hover:shadow-lg hover:shadow-stone-100 transition-all">
@@ -286,8 +318,9 @@ function SourceCard({
         </div>
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
-            {source.type}
+            {source.source_type}
           </span>
+          {source.last_crawl && <CrawlStatusBadge status={source.last_crawl.status} />}
           <Link
             to={casesHref}
             className={`text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
@@ -299,7 +332,15 @@ function SourceCard({
           >
             {caseCount} case{caseCount !== 1 ? "s" : ""}
           </Link>
-          <span className="text-[10px] text-stone-400">{source.lastScan}</span>
+          <span className="text-[10px] text-stone-400">{formatLastScan(source)}</span>
+          <button
+            onClick={onScanNow}
+            disabled={isCrawling}
+            className="text-[10px] font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full hover:bg-stone-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Trigger a crawl now"
+          >
+            Scan now
+          </button>
         </div>
         <button
           onClick={onRemove}
