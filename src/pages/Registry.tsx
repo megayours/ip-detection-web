@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { listTrademarks, createTrademark, type Trademark } from "../api";
 import BulkIngest from "../components/BulkIngest";
-import MonitoredSources from "../components/MonitoredSources";
+import Monitoring from "../components/Monitoring";
+
 
 export default function Registry() {
   const [ips, setIps] = useState<Trademark[]>([]);
@@ -164,8 +165,7 @@ export default function Registry() {
         )}
       </section>
 
-      {/* Section 3 — monitored sources */}
-      <MonitoredSources />
+      <Monitoring />
     </div>
   );
 }
