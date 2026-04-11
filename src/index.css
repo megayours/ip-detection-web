@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+html {
+  font-size: 137.5%;  /* 22px base — scales all rem-based sizing ~1.375x */
+}
+
 @theme {
   --color-cream: #FAF7F2;
   --color-cream-dark: #F3EDE4;
