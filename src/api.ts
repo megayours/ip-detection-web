@@ -494,7 +494,7 @@ export interface MonitoringConfig {
   frequency: string;
 }
 
-export interface WhitelistedDomain {
+export interface MonitoredDomain {
   id: string;
   domain: string;
   created_at: string;
@@ -527,19 +527,19 @@ export function updateMonitoringConfig(patch: { enabled?: boolean; frequency?: s
   });
 }
 
-export function listWhitelistedDomains() {
-  return request<{ domains: WhitelistedDomain[] }>("/api/monitoring/whitelist");
+export function listMonitoredDomains() {
+  return request<{ domains: MonitoredDomain[] }>("/api/monitoring/domains");
 }
 
-export function addWhitelistedDomain(domain: string) {
-  return request<{ domain: WhitelistedDomain }>("/api/monitoring/whitelist", {
+export function addMonitoredDomain(domain: string) {
+  return request<{ domain: MonitoredDomain }>("/api/monitoring/domains", {
     method: "POST",
     body: JSON.stringify({ domain }),
   });
 }
 
-export function removeWhitelistedDomain(id: string) {
-  return request<{ ok: boolean }>(`/api/monitoring/whitelist/${id}`, { method: "DELETE" });
+export function removeMonitoredDomain(id: string) {
+  return request<{ ok: boolean }>(`/api/monitoring/domains/${id}`, { method: "DELETE" });
 }
 
 export function listReverseSearchRuns(trademarkId?: string) {

@@ -2,21 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getMonitoringConfig,
   updateMonitoringConfig,
-  listWhitelistedDomains,
-  addWhitelistedDomain,
-  removeWhitelistedDomain,
+  listMonitoredDomains,
+  addMonitoredDomain,
+  removeMonitoredDomain,
   listReverseSearchRuns,
   triggerReverseSearch,
   listTrademarks,
   type MonitoringConfig,
-  type WhitelistedDomain,
+  type MonitoredDomain,
   type ReverseSearchRun,
   type Trademark,
 } from "../api";
 
 export default function Monitoring() {
   const [config, setConfig] = useState<MonitoringConfig | null>(null);
-  const [domains, setDomains] = useState<WhitelistedDomain[]>([]);
+  const [domains, setDomains] = useState<MonitoredDomain[]>([]);
   const [runs, setRuns] = useState<ReverseSearchRun[]>([]);
   const [trademarks, setTrademarks] = useState<Trademark[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ export default function Monitoring() {
     try {
       const [cfg, wl, r, tms] = await Promise.all([
         getMonitoringConfig(),
-        listWhitelistedDomains(),
+        listMonitoredDomains(),
         listReverseSearchRuns(),
         listTrademarks(),
       ]);
@@ -59,9 +59,9 @@ export default function Monitoring() {
     e.preventDefault();
     if (!newDomain.trim()) return;
     try {
-      await addWhitelistedDomain(newDomain.trim());
+      await addMonitoredDomain(newDomain.trim());
       setNewDomain("");
-      const wl = await listWhitelistedDomains();
+      const wl = await listMonitoredDomains();
       setDomains(wl.domains);
     } catch (err: any) {
       alert(err.message || "Failed to add domain");
@@ -69,7 +69,7 @@ export default function Monitoring() {
   }
 
   async function handleRemoveDomain(id: string) {
-    await removeWhitelistedDomain(id);
+    await removeMonitoredDomain(id);
     setDomains(domains.filter((d) => d.id !== id));
   }
 
@@ -127,16 +127,16 @@ export default function Monitoring() {
 
       {/* Whitelisted domains */}
       <section className="space-y-3">
-        <h3 className="text-sm font-bold text-stone-900">Whitelisted Domains</h3>
+        <h3 className="text-sm font-bold text-stone-900">Monitored Sources</h3>
         <p className="text-xs text-stone-500">
-          Results from these domains are automatically skipped (licensed retailers, official stores).
+          Only results from these domains will be checked for infringement.
         </p>
 
         <form onSubmit={handleAddDomain} className="flex gap-2">
           <input
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
-            placeholder="e.g. target.com"
+            placeholder="e.g. amazon.com"
             className="flex-1 px-3 py-2 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600"
           />
           <button
