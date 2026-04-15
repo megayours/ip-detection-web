@@ -202,7 +202,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-2 gap-8">
             {/* True positive — we catch, they miss */}
             <ComparisonCard
-              image="/comparison/coca_cola_neon_sign.jpg"
+              image={`${import.meta.env.BASE_URL}comparison/coca_cola_neon_sign.jpg`}
               title="Coca-Cola neon sign"
               subtitle="Real infringement — distorted, glowing, non-standard"
               verdict="match"
@@ -215,7 +215,7 @@ export default function Landing() {
 
             {/* False positive — we reject, they flag */}
             <ComparisonCard
-              image="/comparison/mickey_mouse.webp"
+              image={`${import.meta.env.BASE_URL}comparison/mickey_mouse.webp`}
               title="Mickey Mouse"
               subtitle='Scanned against Donald Duck — similar but not the same IP'
               verdict="no-match"
