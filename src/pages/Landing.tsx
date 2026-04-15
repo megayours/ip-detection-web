@@ -183,6 +183,56 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Head-to-head comparison */}
+      <section className="bg-stone-900 text-white">
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          <div className="text-center mb-12">
+            <div className="inline-block bg-white/10 text-white/70 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4">
+              Real Benchmark Results
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+              Similarity Search Hits a Ceiling
+            </h2>
+            <p className="mt-3 text-white/50 max-w-2xl mx-auto">
+              "Looks similar" and "is actually infringing" are two different questions.
+              Here's how leading approaches perform on real images — same references, same queries.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* True positive — we catch, they miss */}
+            <ComparisonCard
+              image="/comparison/coca_cola_neon_sign.jpg"
+              title="Coca-Cola neon sign"
+              subtitle="Real infringement — distorted, glowing, non-standard"
+              verdict="match"
+              rows={[
+                { name: "Vertex AI Search", score: 0.601, result: "miss" },
+                { name: "Google Vision API", score: 0.693, result: "match" },
+                { name: "MegaYours", score: 0.769, result: "match" },
+              ]}
+            />
+
+            {/* False positive — we reject, they flag */}
+            <ComparisonCard
+              image="/comparison/mickey_mouse.webp"
+              title="Mickey Mouse"
+              subtitle='Scanned against Donald Duck — similar but not the same IP'
+              verdict="no-match"
+              rows={[
+                { name: "Vertex AI Search", score: 0.875, result: "false-alarm" },
+                { name: "Google Vision API", score: null, result: "miss" },
+                { name: "MegaYours", score: null, result: "no-match" },
+              ]}
+            />
+          </div>
+
+          <p className="mt-8 text-center text-xs text-white/30">
+            Scores from actual API calls. Vertex AI: multimodalembedding@001, threshold 0.75. Full benchmark: 32 images, 3 IPs, 22 true infringements, 10 hard negatives.
+          </p>
+        </div>
+      </section>
+
       {/* Use-cases tease */}
       <section>
         <div className="max-w-6xl mx-auto px-6 py-20">
@@ -285,6 +335,72 @@ function UseCaseCard({ icon, title, description }: { icon: string; title: string
       </div>
       <h3 className="font-bold text-stone-900 text-sm mb-1.5">{title}</h3>
       <p className="text-xs text-stone-500 leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+type ComparisonRow = {
+  name: string;
+  score: number | null;
+  result: "match" | "miss" | "no-match" | "false-alarm";
+};
+
+const RESULT_STYLES: Record<ComparisonRow["result"], { label: string; bg: string; text: string }> = {
+  match:       { label: "Match",       bg: "bg-emerald-500/20", text: "text-emerald-400" },
+  miss:        { label: "Missed",      bg: "bg-red-500/20",     text: "text-red-400" },
+  "no-match":  { label: "No match",    bg: "bg-emerald-500/20", text: "text-emerald-400" },
+  "false-alarm": { label: "False alarm", bg: "bg-red-500/20",   text: "text-red-400" },
+};
+
+function ComparisonCard({
+  image,
+  title,
+  subtitle,
+  verdict,
+  rows,
+}: {
+  image: string;
+  title: string;
+  subtitle: string;
+  verdict: "match" | "no-match";
+  rows: ComparisonRow[];
+}) {
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+      <div className="aspect-[16/10] bg-black/30 relative overflow-hidden">
+        <img src={image} alt={title} className="w-full h-full object-contain" />
+        <div className="absolute top-3 right-3">
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+            verdict === "match"
+              ? "bg-emerald-500/20 text-emerald-400"
+              : "bg-white/10 text-white/50"
+          }`}>
+            {verdict === "match" ? "Real infringement" : "Not infringing"}
+          </span>
+        </div>
+      </div>
+      <div className="p-6">
+        <h3 className="font-bold text-white text-base">{title}</h3>
+        <p className="text-xs text-white/40 mt-1 mb-5">{subtitle}</p>
+        <div className="space-y-2.5">
+          {rows.map((row) => {
+            const style = RESULT_STYLES[row.result];
+            return (
+              <div key={row.name} className="flex items-center justify-between">
+                <span className="text-sm text-white/70">{row.name}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-white/30 font-mono w-12 text-right">
+                    {row.score != null ? row.score.toFixed(2) : "—"}
+                  </span>
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>
+                    {style.label}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
