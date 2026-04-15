@@ -221,7 +221,7 @@ export default function Landing() {
               verdict="no-match"
               rows={[
                 { name: "Vertex AI Search", score: 0.875, result: "false-alarm" },
-                { name: "Google Vision API", score: null, result: "miss" },
+                { name: "Google Vision API", score: null, result: "miss", note: "Cannot detect characters — only reads text and known logos" },
                 { name: "MegaYours", score: null, result: "no-match" },
               ]}
             />
@@ -343,6 +343,7 @@ type ComparisonRow = {
   name: string;
   score: number | null;
   result: "match" | "miss" | "no-match" | "false-alarm";
+  note?: string;
 };
 
 const RESULT_STYLES: Record<ComparisonRow["result"], { label: string; bg: string; text: string }> = {
@@ -386,16 +387,21 @@ function ComparisonCard({
           {rows.map((row) => {
             const style = RESULT_STYLES[row.result];
             return (
-              <div key={row.name} className="flex items-center justify-between">
-                <span className="text-sm text-white/70">{row.name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-white/30 font-mono w-12 text-right">
-                    {row.score != null ? row.score.toFixed(2) : "—"}
-                  </span>
-                  <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>
-                    {style.label}
-                  </span>
+              <div key={row.name}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/70">{row.name}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-white/30 font-mono w-12 text-right">
+                      {row.score != null ? row.score.toFixed(2) : "—"}
+                    </span>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>
+                      {style.label}
+                    </span>
+                  </div>
                 </div>
+                {row.note && (
+                  <p className="text-[10px] text-white/30 mt-0.5 italic">{row.note}</p>
+                )}
               </div>
             );
           })}
