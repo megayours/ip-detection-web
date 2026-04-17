@@ -199,6 +199,50 @@ export default function Landing() {
             </p>
           </div>
 
+          {/* Quantitative benchmark */}
+          <div className="mb-14">
+            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr className="text-white/40 text-[10px] uppercase tracking-widest">
+                    <th className="text-left px-5 py-4 font-semibold">Approach</th>
+                    <th className="text-right px-3 py-4 font-semibold">
+                      Caught <span className="normal-case tracking-normal text-white/25">↑</span>
+                    </th>
+                    <th className="text-right px-3 py-4 font-semibold">
+                      Correct when flagged <span className="normal-case tracking-normal text-white/25">↑</span>
+                    </th>
+                    <th className="text-right px-5 py-4 font-semibold">
+                      False alarms <span className="normal-case tracking-normal text-white/25">↓</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {BENCHMARK_ROWS.map((row) => (
+                    <BenchmarkRow key={row.name} {...row} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
+              <div>
+                <span className="text-white/60 font-semibold">Caught:</span>{" "}
+                share of real infringements the approach detected.
+              </div>
+              <div>
+                <span className="text-white/60 font-semibold">Correct when flagged:</span>{" "}
+                when it raises an alert, how often it's actually right.
+              </div>
+              <div>
+                <span className="text-white/60 font-semibold">False alarms:</span>{" "}
+                share of legitimate images wrongly flagged.
+              </div>
+            </div>
+            <p className="mt-4 text-[11px] text-white/30 text-center">
+              Evaluated at threshold 0.75 across 32 images and 3 IPs — 22 real infringements, 10 lookalikes that shouldn't match.
+            </p>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-8">
             {/* True positive — we catch, they miss */}
             <ComparisonCard
@@ -228,7 +272,7 @@ export default function Landing() {
           </div>
 
           <p className="mt-8 text-center text-xs text-white/30">
-            Scores from actual API calls. Vertex AI: multimodalembedding@001, threshold 0.75. Full benchmark: 32 images, 3 IPs, 22 true infringements, 10 hard negatives.
+            Scores from actual API calls. Vertex AI: multimodalembedding@001, threshold 0.75.
           </p>
         </div>
       </section>
@@ -408,6 +452,42 @@ function ComparisonCard({
         </div>
       </div>
     </div>
+  );
+}
+
+type BenchmarkRowData = {
+  name: string;
+  description: string;
+  recall: number;
+  precision: number;
+  fpr: number;
+  highlight?: boolean;
+};
+
+const BENCHMARK_ROWS: BenchmarkRowData[] = [
+  { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.8182, precision: 0.6923, fpr: 0.8 },
+  { name: "OpenAI CLIP ViT-L/14 @336px", description: "Higher-resolution variant", recall: 0.8182, precision: 0.72, fpr: 0.7 },
+  { name: "MegaYours", description: "Multi-stage scoring with confidence gating", recall: 0.9545, precision: 0.875, fpr: 0.3, highlight: true },
+];
+
+function fmtPct(n: number) {
+  return `${Math.round(n * 100)}%`;
+}
+
+function BenchmarkRow({ name, description, recall, precision, fpr, highlight }: BenchmarkRowData) {
+  const rowCls = highlight ? "bg-emerald-500/10" : "";
+  const nameCls = highlight ? "text-emerald-200" : "text-white/80";
+  const numCls = highlight ? "text-emerald-300 font-bold" : "text-white/60";
+  return (
+    <tr className={`${rowCls} border-t border-white/5`}>
+      <td className="px-5 py-4">
+        <div className={`text-sm font-semibold ${nameCls}`}>{name}</div>
+        <div className="text-xs text-white/40 mt-0.5">{description}</div>
+      </td>
+      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(recall)}</td>
+      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(precision)}</td>
+      <td className={`text-right px-5 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(fpr)}</td>
+    </tr>
   );
 }
 
