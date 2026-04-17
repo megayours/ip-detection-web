@@ -8,36 +8,55 @@ export default function Landing() {
   const { user } = useAuth();
 
   return (
-    <div>
-      {/* Hero */}
+    <div className="relative">
+      {/* ================= Hero ================= */}
       <section className="relative overflow-hidden">
-        <div className="relative max-w-6xl mx-auto px-6 pt-24 lg:pt-32 pb-20">
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-block bg-stone-900/5 border border-stone-900/10 text-stone-600 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-6">
+        {/* Ambient glow blobs */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="ambient-glow animate-float-slow w-[520px] h-[520px] -top-40 -left-32 bg-red-400/25" />
+          <div className="ambient-glow animate-float-slow-reverse w-[480px] h-[480px] top-20 -right-32 bg-amber-300/30" />
+          <div className="ambient-glow w-[640px] h-[640px] top-40 left-1/2 -translate-x-1/2 bg-orange-200/30" />
+        </div>
+        {/* Grid backdrop with radial fade */}
+        <div className="absolute inset-0 bg-grid mask-radial-top pointer-events-none" aria-hidden />
+
+        <div className="relative max-w-6xl mx-auto px-6 pt-20 lg:pt-24 pb-20">
+          <div className="text-center max-w-3xl mx-auto animate-fade-up">
+            <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-stone-900/10 text-stone-600 text-[11px] font-semibold tracking-[0.18em] uppercase px-3.5 py-1.5 rounded-full mb-7 shadow-sm shadow-stone-900/5">
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="absolute inset-0 bg-red-500 rounded-full animate-pulse-dot" />
+                <span className="relative bg-red-600 rounded-full w-1.5 h-1.5" />
+              </span>
               Multi-Stage Visual Intelligence
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-stone-900">
+            <h1 className="text-4xl sm:text-5xl lg:text-[3.75rem] font-black tracking-[-0.035em] leading-[1.05] text-stone-900 text-balance">
               Visual{" "}
-              <span className="text-red-600">Similarity Scoring</span>
+              <span className="text-gradient-red">Similarity Scoring</span>
               {" "}That Understands Meaning
             </h1>
-            <p className="mt-6 text-lg text-stone-500 max-w-2xl mx-auto leading-relaxed">
-              A proprietary multi-stage algorithm that scores visual similarity at the semantic level —
-              not pixel matching. Structural analysis, concept identity, template detection, and OCR
-              working in concert, returning a confidence score in seconds.
+            <p className="mt-7 text-lg text-stone-500 max-w-2xl mx-auto leading-relaxed text-balance">
+              A proprietary multi-stage algorithm that scores visual similarity at the semantic
+              level — not pixel matching. Structural analysis, concept identity, template detection,
+              and OCR working in concert, returning a confidence score in seconds.
             </p>
-            <div className="mt-10 flex flex-wrap gap-4 justify-center">
+            <div className="mt-10 flex flex-wrap gap-3 justify-center">
               {user ? (
                 <>
                   <Link
                     to="/check"
-                    className="px-6 py-3 bg-stone-900 text-white rounded-full text-sm font-semibold hover:bg-stone-800 transition-all"
+                    className="group relative px-6 py-3 bg-stone-900 text-white rounded-full text-sm font-semibold overflow-hidden shadow-lg shadow-stone-900/20 hover:shadow-xl hover:shadow-stone-900/30 hover:-translate-y-0.5 transition-all"
                   >
-                    Try it now
+                    <span className="relative z-10 flex items-center gap-2">
+                      Try it now
+                      <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
+                    <span className="absolute inset-0 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>
                   <Link
                     to="/registry"
-                    className="px-6 py-3 border border-stone-300 text-stone-700 rounded-full text-sm font-semibold hover:bg-stone-50 transition-all"
+                    className="px-6 py-3 border border-stone-300/80 bg-white/60 backdrop-blur text-stone-700 rounded-full text-sm font-semibold hover:bg-white hover:border-stone-400 transition-all"
                   >
                     Your registry
                   </Link>
@@ -46,69 +65,122 @@ export default function Landing() {
                 <>
                   <a
                     href={DEMO_MAILTO}
-                    className="px-6 py-3 bg-stone-900 text-white rounded-full text-sm font-semibold hover:bg-stone-800 transition-all"
+                    className="group relative px-6 py-3 bg-stone-900 text-white rounded-full text-sm font-semibold overflow-hidden shadow-lg shadow-stone-900/20 hover:shadow-xl hover:shadow-stone-900/30 hover:-translate-y-0.5 transition-all"
                   >
-                    Request a demo
+                    <span className="relative z-10 flex items-center gap-2">
+                      Request a demo
+                      <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
                   </a>
                   <a
                     href="#how-it-works"
-                    className="px-6 py-3 border border-stone-300 text-stone-700 rounded-full text-sm font-semibold hover:bg-stone-50 transition-all"
+                    className="px-6 py-3 border border-stone-300/80 bg-white/60 backdrop-blur text-stone-700 rounded-full text-sm font-semibold hover:bg-white hover:border-stone-400 transition-all"
                   >
                     Learn more
                   </a>
                 </>
               )}
             </div>
+
+            {/* trust ribbon */}
+            <div className="mt-16 flex items-center justify-center gap-6 text-[11px] font-medium text-stone-400 uppercase tracking-[0.2em]">
+              <span className="inline-flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-stone-400" />
+                Sub-10s latency
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-stone-400" />
+                1152d embeddings
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-stone-400" />
+                Reasoned verdicts
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Stats — algorithm credibility */}
-      <section className="max-w-6xl mx-auto px-6 pb-20">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { value: "4", label: "Detection Stages" },
-            { value: "<10s", label: "Scoring Latency" },
-            { value: "1152d", label: "Embedding Dimensions" },
-            { value: "0.75+", label: "High-Confidence Band" },
-          ].map(({ value, label }) => (
-            <div key={label} className="bg-white rounded-2xl border border-stone-200 p-6">
-              <div className="text-3xl sm:text-4xl font-black text-stone-900">{value}</div>
-              <div className="text-xs text-stone-400 uppercase tracking-wider mt-2 font-semibold">{label}</div>
+      {/* ================= Stats ================= */}
+      <section className="relative max-w-6xl mx-auto px-6 pb-24">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {STATS.map(({ value, label, suffix }, i) => (
+            <div
+              key={label}
+              className="group relative bg-white/80 backdrop-blur rounded-2xl border border-stone-200/80 p-6 card-elevated card-elevated-hover transition-all overflow-hidden"
+            >
+              <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-stone-900/10 to-transparent" />
+              <div className="flex items-baseline gap-1">
+                <div className="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight tabular-nums">
+                  {value}
+                </div>
+                {suffix && (
+                  <div className="text-lg font-bold text-stone-400">{suffix}</div>
+                )}
+              </div>
+              <div className="text-[10px] text-stone-400 uppercase tracking-[0.18em] mt-2 font-semibold">
+                {label}
+              </div>
+              <div
+                className="absolute -bottom-1 left-6 h-0.5 w-0 bg-gradient-to-r from-red-500 to-orange-400 group-hover:w-[calc(100%-3rem)] transition-all duration-500"
+                style={{ transitionDelay: `${i * 40}ms` }}
+              />
             </div>
           ))}
         </div>
       </section>
 
-      {/* The Algorithm — courtroom framing */}
-      <section id="how-it-works" className="bg-stone-900 text-white scroll-mt-16">
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="text-center mb-12">
-            <div className="inline-block bg-white/10 text-white/70 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4">
+      {/* ================= Algorithm (dark) ================= */}
+      <section id="how-it-works" className="relative bg-stone-950 text-white scroll-mt-16 overflow-hidden">
+        {/* Glow blobs */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="ambient-glow w-[600px] h-[600px] -top-40 -left-40 bg-red-600/15" />
+          <div className="ambient-glow w-[500px] h-[500px] top-1/3 -right-40 bg-amber-500/10" />
+        </div>
+        <div className="absolute inset-0 bg-grid-dark mask-radial pointer-events-none" aria-hidden />
+
+        <div className="relative max-w-6xl mx-auto px-6 py-24">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-sm text-white/60 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-5">
+              <span className="w-1 h-1 rounded-full bg-red-400" />
               The Algorithm
             </div>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-              Gather Evidence. Reach a Verdict.
+            <h2 className="text-3xl sm:text-[2.75rem] font-black tracking-[-0.03em] leading-[1.05] text-balance">
+              Gather Evidence. <span className="text-gradient-cream">Reach a Verdict.</span>
             </h2>
-            <p className="mt-3 text-white/50 max-w-2xl mx-auto">
+            <p className="mt-4 text-white/50 max-w-2xl mx-auto text-balance leading-relaxed">
               Like building a case — independent evidence stages each produce a signal.
-              When the evidence is strong enough, a vision-language model examines the
+              When the evidence is strong enough, our judgment layer examines the
               full picture and delivers a verdict with reasoning.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Phase 1 */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-sm font-black">1</div>
-                <h3 className="text-xl font-black">Gather the Evidence</h3>
+          <div className="grid md:grid-cols-2 gap-6 relative">
+            {/* Connecting arrow between phases on md+ */}
+            <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+              <div className="w-12 h-12 rounded-full bg-stone-900 border border-white/10 flex items-center justify-center shadow-2xl shadow-black/50">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
               </div>
-              <p className="text-sm text-white/50 mb-6">
+            </div>
+
+            {/* Phase 1 */}
+            <div className="relative isolate bg-white/[0.03] backdrop-blur-sm rounded-3xl p-8 gradient-border">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 text-white flex items-center justify-center text-sm font-black shadow-lg shadow-red-900/40">
+                  1
+                </div>
+                <span className="text-[10px] font-semibold text-red-300/70 uppercase tracking-[0.2em]">Phase One</span>
+              </div>
+              <h3 className="text-2xl font-black tracking-tight mb-3">Gather the Evidence</h3>
+              <p className="text-sm text-white/50 mb-7 leading-relaxed">
                 Four independent detection stages run in parallel, each producing its own
                 similarity signal and evidence payload. Fast, cheap, and domain-agnostic.
               </p>
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 <EvidenceRow icon="eye" title="Structural Analysis" description="Shapes, spatial composition, distinctive anatomy" />
                 <EvidenceRow icon="brain" title="Semantic Understanding" description="Concept identity, associations, style fingerprinting" />
                 <EvidenceRow icon="scan" title="Template Matching" description="Direct visual comparison across scales and orientations" />
@@ -117,43 +189,30 @@ export default function Landing() {
             </div>
 
             {/* Phase 2 */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-sm font-black">2</div>
-                <h3 className="text-xl font-black">Reach a Verdict</h3>
+            <div className="relative isolate bg-white/[0.03] backdrop-blur-sm rounded-3xl p-8 gradient-border">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-700 text-white flex items-center justify-center text-sm font-black shadow-lg shadow-red-900/40">
+                  2
+                </div>
+                <span className="text-[10px] font-semibold text-red-300/70 uppercase tracking-[0.2em]">Phase Two</span>
               </div>
-              <p className="text-sm text-white/50 mb-6">
-                When the evidence is strong enough, a vision-language model receives the input image,
+              <h3 className="text-2xl font-black tracking-tight mb-3">Reach a Verdict</h3>
+              <p className="text-sm text-white/50 mb-7 leading-relaxed">
+                When the evidence is strong enough, our judgment layer receives the input image,
                 the closest canonical reference, and all gathered evidence — then delivers a verdict
                 with detailed reasoning.
               </p>
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
-                  <div>
-                    <div className="text-sm font-semibold text-white/80">Evidence threshold met?</div>
-                    <div className="text-xs text-white/40">Calibrated per reference set, not per use-case</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
-                  <div>
-                    <div className="text-sm font-semibold text-white/80">Examines the full picture</div>
-                    <div className="text-xs text-white/40">Input image + closest reference + all stage evidence</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">→</div>
-                  <div>
-                    <div className="text-sm font-semibold text-white/80">Verdict with reasoning</div>
-                    <div className="text-xs text-white/40">Confidence score, explanation, and per-stage breakdown</div>
-                  </div>
-                </div>
+                <VerdictStep title="Evidence threshold met?" description="Calibrated per reference set, not per use-case" />
+                <VerdictStep title="Examines the full picture" description="Input image + closest reference + all stage evidence" />
+                <VerdictStep title="Verdict with reasoning" description="Confidence score, explanation, and per-stage breakdown" />
               </div>
-              <div className="mt-6 pt-4 border-t border-white/10">
-                <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">The prompt is the variable</div>
-                <p className="text-xs text-white/40 leading-relaxed">
-                  Same evidence pipeline, different question to the model — IP infringement,
+              <div className="mt-7 pt-5 border-t border-white/10">
+                <div className="text-[10px] text-red-300/80 uppercase tracking-[0.22em] font-semibold mb-2">
+                  The question is the variable
+                </div>
+                <p className="text-xs text-white/45 leading-relaxed">
+                  Same evidence pipeline, different question asked — IP infringement,
                   content policy, licensing compliance, deduplication confidence.
                 </p>
               </div>
@@ -162,38 +221,62 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Why semantic */}
-      <section className="border-b border-stone-200">
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-black text-stone-900 tracking-tight">
-              Semantic Similarity, Not Pixel Matching
-            </h2>
-            <p className="mt-4 text-stone-500 leading-relaxed">
-              Traditional tools rely on perceptual hashing — they check if two images are pixel-identical.
-              When an image is <em>conceptually similar</em> but shares no pixels with the reference,
-              hash-based tools see nothing.
-            </p>
-            <p className="mt-3 text-stone-500 leading-relaxed">
-              Our pipeline combines structural analysis with semantic understanding, template matching,
-              and OCR to detect similarity across contexts, styles, and transformations — then lets
-              a VLM interpret what the scores mean for your specific use-case.
-            </p>
+      {/* ================= Semantic pitch ================= */}
+      <section className="relative border-b border-stone-200 overflow-hidden">
+        <div className="absolute inset-0 bg-grid mask-radial opacity-60 pointer-events-none" aria-hidden />
+        <div className="relative max-w-6xl mx-auto px-6 py-24">
+          <div className="grid md:grid-cols-12 gap-10 items-start">
+            <div className="md:col-span-5">
+              <div className="inline-flex items-center gap-2 bg-stone-900/5 border border-stone-900/10 text-stone-600 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-5">
+                <span className="w-1 h-1 rounded-full bg-stone-600" />
+                Why semantic
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black text-stone-900 tracking-[-0.025em] leading-[1.08] text-balance">
+                Semantic similarity, not{" "}
+                <span className="text-stone-400">pixel matching.</span>
+              </h2>
+            </div>
+            <div className="md:col-span-7 space-y-5">
+              <p className="text-stone-600 leading-relaxed text-[1.02rem]">
+                Traditional tools rely on perceptual hashing — they check if two images are pixel-identical.
+                When an image is <em className="text-stone-900 font-medium not-italic">conceptually similar</em> but shares no pixels with the reference,
+                hash-based tools see nothing.
+              </p>
+              <p className="text-stone-600 leading-relaxed text-[1.02rem]">
+                Our pipeline combines structural analysis with semantic understanding, template matching,
+                and OCR to detect similarity across contexts, styles, and transformations — then renders
+                a contextual verdict tuned to your specific use-case.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-2">
+                {["Structural", "Semantic", "Template", "OCR", "Verdict"].map((t) => (
+                  <span key={t} className="text-xs font-semibold text-stone-600 bg-white border border-stone-200 px-3 py-1.5 rounded-full shadow-sm">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Head-to-head comparison */}
-      <section className="bg-stone-900 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="text-center mb-12">
-            <div className="inline-block bg-white/10 text-white/70 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4">
+      {/* ================= Benchmarks (dark) ================= */}
+      <section className="relative bg-stone-950 text-white overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="ambient-glow w-[520px] h-[520px] -top-20 right-1/4 bg-emerald-500/10" />
+          <div className="ambient-glow w-[520px] h-[520px] bottom-0 -left-20 bg-red-500/10" />
+        </div>
+        <div className="absolute inset-0 bg-grid-dark mask-radial pointer-events-none" aria-hidden />
+
+        <div className="relative max-w-6xl mx-auto px-6 py-24">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-sm text-white/60 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-5">
+              <span className="w-1 h-1 rounded-full bg-emerald-400" />
               Real Benchmark Results
             </div>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-              Similarity Search Hits a Ceiling
+            <h2 className="text-3xl sm:text-[2.75rem] font-black tracking-[-0.03em] leading-[1.05] text-balance">
+              Similarity Search <span className="text-gradient-cream">Hits a Ceiling.</span>
             </h2>
-            <p className="mt-3 text-white/50 max-w-2xl mx-auto">
+            <p className="mt-4 text-white/50 max-w-2xl mx-auto text-balance leading-relaxed">
               "Looks similar" and "is actually infringing" are two different questions.
               Here's how leading approaches perform on real images — same references, same queries.
             </p>
@@ -201,50 +284,42 @@ export default function Landing() {
 
           {/* Quantitative benchmark */}
           <div className="mb-14">
-            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr className="text-white/40 text-[10px] uppercase tracking-widest">
-                    <th className="text-left px-5 py-4 font-semibold">Approach</th>
-                    <th className="text-right px-3 py-4 font-semibold">
-                      Caught <span className="normal-case tracking-normal text-white/25">↑</span>
-                    </th>
-                    <th className="text-right px-3 py-4 font-semibold">
-                      Correct when flagged <span className="normal-case tracking-normal text-white/25">↑</span>
-                    </th>
-                    <th className="text-right px-5 py-4 font-semibold">
-                      False alarms <span className="normal-case tracking-normal text-white/25">↓</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {BENCHMARK_ROWS.map((row) => (
-                    <BenchmarkRow key={row.name} {...row} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
-              <div>
-                <span className="text-white/60 font-semibold">Caught:</span>{" "}
-                share of real infringements the approach detected.
-              </div>
-              <div>
-                <span className="text-white/60 font-semibold">Correct when flagged:</span>{" "}
-                when it raises an alert, how often it's actually right.
-              </div>
-              <div>
-                <span className="text-white/60 font-semibold">False alarms:</span>{" "}
-                share of legitimate images wrongly flagged.
+            <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm gradient-border">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-white/40 text-[10px] uppercase tracking-[0.18em] border-b border-white/5">
+                      <th className="text-left px-6 py-5 font-semibold">Approach</th>
+                      <th className="text-right px-4 py-5 font-semibold">
+                        Caught <ArrowUp />
+                      </th>
+                      <th className="text-right px-4 py-5 font-semibold">
+                        Correct when flagged <ArrowUp />
+                      </th>
+                      <th className="text-right px-6 py-5 font-semibold">
+                        False alarms <ArrowDown />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {BENCHMARK_ROWS.map((row) => (
+                      <BenchmarkRow key={row.name} {...row} />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <p className="mt-4 text-[11px] text-white/30 text-center">
+            <div className="mt-5 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
+              <LegendItem label="Caught" text="share of real infringements the approach detected." />
+              <LegendItem label="Correct when flagged" text="when it raises an alert, how often it's actually right." />
+              <LegendItem label="False alarms" text="share of legitimate images wrongly flagged." />
+            </div>
+            <p className="mt-5 text-[11px] text-white/30 text-center">
               Evaluated at threshold 0.75 across 32 images and 3 IPs — 22 real infringements, 10 lookalikes that shouldn't match.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* True positive — we catch, they miss */}
+          <div className="grid md:grid-cols-2 gap-6">
             <ComparisonCard
               image={`${import.meta.env.BASE_URL}comparison/coca_cola_neon_sign.jpg`}
               title="Coca-Cola neon sign"
@@ -256,8 +331,6 @@ export default function Landing() {
                 { name: "MegaYours", score: 0.769, result: "match" },
               ]}
             />
-
-            {/* False positive — we reject, they flag */}
             <ComparisonCard
               image={`${import.meta.env.BASE_URL}comparison/mickey_mouse.webp`}
               title="Mickey Mouse"
@@ -271,20 +344,25 @@ export default function Landing() {
             />
           </div>
 
-          <p className="mt-8 text-center text-xs text-white/30">
+          <p className="mt-8 text-center text-[11px] text-white/30">
             Scores from actual API calls. Vertex AI: multimodalembedding@001, threshold 0.75.
           </p>
         </div>
       </section>
 
-      {/* Use-cases tease */}
-      <section>
-        <div className="max-w-6xl mx-auto px-6 py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black text-stone-900 tracking-tight">
-              Built for Many Applications
+      {/* ================= Use cases ================= */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid mask-radial opacity-50 pointer-events-none" aria-hidden />
+        <div className="relative max-w-6xl mx-auto px-6 py-24">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-stone-900/5 border border-stone-900/10 text-stone-600 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-5">
+              <span className="w-1 h-1 rounded-full bg-stone-600" />
+              Applications
+            </div>
+            <h2 className="text-3xl sm:text-[2.75rem] font-black text-stone-900 tracking-[-0.03em] leading-[1.05] text-balance">
+              Built for <span className="text-gradient-red">many applications.</span>
             </h2>
-            <p className="mt-3 text-stone-500 max-w-2xl mx-auto">
+            <p className="mt-4 text-stone-500 max-w-2xl mx-auto text-balance leading-relaxed">
               Semantic visual scoring is a primitive — the use-cases are broad.
               Here are a few directions we're exploring with early partners.
             </p>
@@ -314,49 +392,108 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-stone-900 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-20 text-center">
-          <h2 className="text-3xl font-black tracking-tight">
-            See it in action
+      {/* ================= CTA ================= */}
+      <section className="relative bg-stone-950 text-white overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden>
+          <div className="ambient-glow w-[700px] h-[700px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600/15" />
+        </div>
+        <div className="absolute inset-0 bg-grid-dark mask-radial pointer-events-none" aria-hidden />
+        <div className="relative max-w-4xl mx-auto px-6 py-24 text-center">
+          <h2 className="text-3xl sm:text-[2.75rem] font-black tracking-[-0.03em] leading-[1.05] text-balance">
+            See it in <span className="text-gradient-cream">action.</span>
           </h2>
-          <p className="mt-3 text-white/50 max-w-lg mx-auto">
+          <p className="mt-5 text-white/55 max-w-lg mx-auto text-balance leading-relaxed">
             Tell us what you're working on and we'll walk you through the algorithm
             with your own images.
           </p>
-          <div className="mt-8">
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
             <a
               href={DEMO_MAILTO}
-              className="inline-block px-8 py-3 bg-white text-stone-900 rounded-full text-sm font-semibold hover:bg-stone-100 transition-all"
+              className="group relative inline-flex items-center gap-2 px-8 py-3.5 bg-white text-stone-900 rounded-full text-sm font-semibold shadow-2xl shadow-black/40 hover:-translate-y-0.5 transition-all"
             >
               Request a demo
+              <svg className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </a>
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-white/5 border border-white/15 backdrop-blur-sm text-white/80 rounded-full text-sm font-semibold hover:bg-white/10 hover:border-white/25 transition-all"
+            >
+              How it works
             </a>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-stone-200 py-8">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-stone-400">
-          <span>MegaYours</span>
-          <span>Visual Similarity Scoring</span>
+      {/* ================= Footer ================= */}
+      <footer className="border-t border-stone-200 py-10">
+        <div className="max-w-6xl mx-auto px-6 flex flex-wrap items-center justify-between gap-4 text-xs text-stone-400">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <span className="font-semibold text-stone-600">MegaYours</span>
+            <span>· Visual Similarity Scoring</span>
+          </div>
+          <span className="tabular-nums">© {new Date().getFullYear()}</span>
         </div>
       </footer>
     </div>
   );
 }
 
-function EvidenceRow({ icon, title, description }: { icon: string; title: string; description: string }) {
+/* ---------- stats data ---------- */
+const STATS: { value: string; label: string; suffix?: string }[] = [
+  { value: "4", label: "Detection stages" },
+  { value: "<10", label: "Scoring latency", suffix: "s" },
+  { value: "1152", label: "Embedding dimensions", suffix: "d" },
+  { value: "0.75", label: "High-confidence band", suffix: "+" },
+];
+
+/* ---------- small bits ---------- */
+function ArrowUp() {
+  return <span className="inline-block text-white/25 font-mono ml-0.5">↑</span>;
+}
+function ArrowDown() {
+  return <span className="inline-block text-white/25 font-mono ml-0.5">↓</span>;
+}
+
+function LegendItem({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="mt-1 w-1 h-1 rounded-full bg-white/30 shrink-0" />
+      <div>
+        <span className="text-white/70 font-semibold">{label}:</span>{" "}
+        <span className="text-white/40">{text}</span>
+      </div>
+    </div>
+  );
+}
+
+function VerdictStep({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="shrink-0 w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-        <svg className="w-4 h-4 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <div className="shrink-0 w-6 h-6 mt-0.5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 text-xs">
+        →
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-white/85">{title}</div>
+        <div className="text-xs text-white/40 mt-0.5">{description}</div>
+      </div>
+    </div>
+  );
+}
+
+function EvidenceRow({ icon, title, description }: { icon: string; title: string; description: string }) {
+  return (
+    <div className="group/row flex items-start gap-3">
+      <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/10 flex items-center justify-center group-hover/row:border-red-400/40 group-hover/row:from-red-500/10 transition-all">
+        <svg className="w-4 h-4 text-white/60 group-hover/row:text-red-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
           <path strokeLinecap="round" strokeLinejoin="round" d={ICONS[icon]} />
         </svg>
       </div>
-      <div>
-        <div className="text-sm font-semibold text-white/80">{title}</div>
-        <div className="text-xs text-white/40">{description}</div>
+      <div className="pt-0.5">
+        <div className="text-sm font-semibold text-white/85">{title}</div>
+        <div className="text-xs text-white/45 mt-0.5 leading-relaxed">{description}</div>
       </div>
     </div>
   );
@@ -371,14 +508,15 @@ const USE_CASE_ICONS: Record<string, string> = {
 
 function UseCaseCard({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-6 hover:border-stone-300 hover:shadow-lg hover:shadow-stone-100 transition-all">
-      <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center mb-4">
-        <svg className="w-5 h-5 text-stone-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <div className="group relative bg-white rounded-2xl border border-stone-200/80 p-6 card-elevated card-elevated-hover transition-all overflow-hidden">
+      <div className="absolute -top-12 -right-12 w-28 h-28 rounded-full bg-gradient-to-br from-red-100 to-orange-100 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl" />
+      <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-stone-100 to-stone-50 border border-stone-200/60 flex items-center justify-center mb-5 group-hover:from-red-50 group-hover:to-orange-50 group-hover:border-red-200/60 transition-colors">
+        <svg className="w-5 h-5 text-stone-500 group-hover:text-red-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
           <path strokeLinecap="round" strokeLinejoin="round" d={USE_CASE_ICONS[icon]} />
         </svg>
       </div>
-      <h3 className="font-bold text-stone-900 text-sm mb-1.5">{title}</h3>
-      <p className="text-xs text-stone-500 leading-relaxed">{description}</p>
+      <h3 className="relative font-bold text-stone-900 text-[0.95rem] mb-1.5 tracking-tight">{title}</h3>
+      <p className="relative text-xs text-stone-500 leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -390,11 +528,11 @@ type ComparisonRow = {
   note?: string;
 };
 
-const RESULT_STYLES: Record<ComparisonRow["result"], { label: string; bg: string; text: string }> = {
-  match:       { label: "Match",       bg: "bg-emerald-500/20", text: "text-emerald-400" },
-  miss:        { label: "Missed",      bg: "bg-red-500/20",     text: "text-red-400" },
-  "no-match":  { label: "No match",    bg: "bg-emerald-500/20", text: "text-emerald-400" },
-  "false-alarm": { label: "False alarm", bg: "bg-red-500/20",   text: "text-red-400" },
+const RESULT_STYLES: Record<ComparisonRow["result"], { label: string; bg: string; text: string; ring: string }> = {
+  match:       { label: "Match",       bg: "bg-emerald-500/15", text: "text-emerald-300", ring: "ring-1 ring-inset ring-emerald-400/20" },
+  miss:        { label: "Missed",      bg: "bg-red-500/15",     text: "text-red-300",     ring: "ring-1 ring-inset ring-red-400/20" },
+  "no-match":  { label: "No match",    bg: "bg-emerald-500/15", text: "text-emerald-300", ring: "ring-1 ring-inset ring-emerald-400/20" },
+  "false-alarm": { label: "False alarm", bg: "bg-red-500/15",   text: "text-red-300",     ring: "ring-1 ring-inset ring-red-400/20" },
 };
 
 function ComparisonCard({
@@ -411,40 +549,74 @@ function ComparisonCard({
   rows: ComparisonRow[];
 }) {
   return (
-    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-      <div className="aspect-[16/10] bg-black/30 relative overflow-hidden">
-        <img src={image} alt={title} className="w-full h-full object-contain" />
-        <div className="absolute top-3 right-3">
-          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+    <div className="relative isolate bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-3xl overflow-hidden gradient-border">
+      <div className="aspect-[4/3] bg-stone-900 relative overflow-hidden">
+        {/* Blurred, darkened backdrop — fills card edge-to-edge regardless of image aspect */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center scale-125"
+          style={{
+            backgroundImage: `url(${image})`,
+            filter: "blur(40px) saturate(1.4) brightness(0.5)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(12,10,9,0.2) 0%, rgba(12,10,9,0.7) 100%)",
+          }}
+        />
+        {/* Centered framed thumbnail — square crop unifies landscape/portrait sources */}
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="relative aspect-square h-full max-h-full rounded-xl overflow-hidden ring-1 ring-white/10 shadow-2xl shadow-black/60">
+            <img
+              src={image}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+        <div className="absolute top-3 right-3 z-10">
+          <span className={`text-[10px] font-bold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full ring-1 ring-inset backdrop-blur-md ${
             verdict === "match"
-              ? "bg-emerald-500/20 text-emerald-400"
-              : "bg-white/10 text-white/50"
+              ? "bg-emerald-500/25 text-emerald-200 ring-emerald-400/40"
+              : "bg-stone-950/70 text-white/85 ring-white/20"
           }`}>
             {verdict === "match" ? "Real infringement" : "Not infringing"}
           </span>
         </div>
       </div>
       <div className="p-6">
-        <h3 className="font-bold text-white text-base">{title}</h3>
-        <p className="text-xs text-white/40 mt-1 mb-5">{subtitle}</p>
+        <h3 className="font-bold text-white text-base tracking-tight">{title}</h3>
+        <p className="text-xs text-white/45 mt-1 mb-5">{subtitle}</p>
         <div className="space-y-2.5">
           {rows.map((row) => {
             const style = RESULT_STYLES[row.result];
+            const isMegaYours = row.name === "MegaYours";
             return (
-              <div key={row.name}>
+              <div
+                key={row.name}
+                className={`relative rounded-xl px-3 py-2.5 ${
+                  isMegaYours ? "bg-white/[0.04] border border-white/10" : ""
+                }`}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/70">{row.name}</span>
+                  <span className={`text-sm ${isMegaYours ? "text-white font-semibold" : "text-white/70"}`}>
+                    {row.name}
+                  </span>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-white/30 font-mono w-12 text-right">
+                    <span className="text-xs text-white/35 font-mono tabular-nums w-12 text-right">
                       {row.score != null ? row.score.toFixed(2) : "—"}
                     </span>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>
+                    <span className={`text-[10px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full ${style.bg} ${style.text} ${style.ring}`}>
                       {style.label}
                     </span>
                   </div>
                 </div>
                 {row.note && (
-                  <p className="text-[10px] text-white/30 mt-0.5 italic">{row.note}</p>
+                  <p className="text-[10px] text-white/35 mt-1 italic">{row.note}</p>
                 )}
               </div>
             );
@@ -474,19 +646,57 @@ function fmtPct(n: number) {
   return `${Math.round(n * 100)}%`;
 }
 
+function BenchmarkCell({
+  value,
+  highlight,
+  inverse = false,
+}: {
+  value: number;
+  highlight?: boolean;
+  inverse?: boolean;
+}) {
+  // For inverse metrics (false alarms), lower is better — so flip the bar direction visually.
+  const pct = Math.round(value * 100);
+  const barColor = highlight
+    ? "bg-gradient-to-r from-emerald-400 to-emerald-300"
+    : inverse
+      ? "bg-red-400/50"
+      : "bg-white/25";
+  const textColor = highlight
+    ? "text-emerald-200 font-bold"
+    : "text-white/70";
+  return (
+    <td className="text-right px-4 py-5 font-mono tabular-nums">
+      <div className="flex items-center justify-end gap-3">
+        <div className="hidden sm:block w-20 h-1.5 rounded-full bg-white/5 overflow-hidden">
+          <div
+            className={`h-full ${barColor} transition-all`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className={`text-sm ${textColor} w-10 text-right`}>{fmtPct(value)}</span>
+      </div>
+    </td>
+  );
+}
+
 function BenchmarkRow({ name, description, recall, precision, fpr, highlight }: BenchmarkRowData) {
-  const rowCls = highlight ? "bg-emerald-500/10" : "";
-  const nameCls = highlight ? "text-emerald-200" : "text-white/80";
-  const numCls = highlight ? "text-emerald-300 font-bold" : "text-white/60";
+  const rowCls = highlight
+    ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent"
+    : "hover:bg-white/[0.02] transition-colors";
+  const nameCls = highlight ? "text-emerald-200" : "text-white/85";
   return (
     <tr className={`${rowCls} border-t border-white/5`}>
-      <td className="px-5 py-4">
-        <div className={`text-sm font-semibold ${nameCls}`}>{name}</div>
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-2">
+          {highlight && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />}
+          <div className={`text-sm font-semibold tracking-tight ${nameCls}`}>{name}</div>
+        </div>
         <div className="text-xs text-white/40 mt-0.5">{description}</div>
       </td>
-      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(recall)}</td>
-      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(precision)}</td>
-      <td className={`text-right px-5 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(fpr)}</td>
+      <BenchmarkCell value={recall} highlight={highlight} />
+      <BenchmarkCell value={precision} highlight={highlight} />
+      <BenchmarkCell value={fpr} highlight={highlight} inverse />
     </tr>
   );
 }
@@ -497,4 +707,3 @@ const ICONS: Record<string, string> = {
   scan: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
   type: "M4 6h16M4 12h8m-8 6h16",
 };
-
