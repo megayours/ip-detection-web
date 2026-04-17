@@ -96,7 +96,7 @@ export default function Landing() {
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-stone-400" />
-                VLM-verified verdicts
+                Reasoned verdicts
               </span>
             </div>
           </div>
@@ -152,7 +152,7 @@ export default function Landing() {
             </h2>
             <p className="mt-4 text-white/50 max-w-2xl mx-auto text-balance leading-relaxed">
               Like building a case — independent evidence stages each produce a signal.
-              When the evidence is strong enough, a vision-language model examines the
+              When the evidence is strong enough, our judgment layer examines the
               full picture and delivers a verdict with reasoning.
             </p>
           </div>
@@ -198,7 +198,7 @@ export default function Landing() {
               </div>
               <h3 className="text-2xl font-black tracking-tight mb-3">Reach a Verdict</h3>
               <p className="text-sm text-white/50 mb-7 leading-relaxed">
-                When the evidence is strong enough, a vision-language model receives the input image,
+                When the evidence is strong enough, our judgment layer receives the input image,
                 the closest canonical reference, and all gathered evidence — then delivers a verdict
                 with detailed reasoning.
               </p>
@@ -209,10 +209,10 @@ export default function Landing() {
               </div>
               <div className="mt-7 pt-5 border-t border-white/10">
                 <div className="text-[10px] text-red-300/80 uppercase tracking-[0.22em] font-semibold mb-2">
-                  The prompt is the variable
+                  The question is the variable
                 </div>
                 <p className="text-xs text-white/45 leading-relaxed">
-                  Same evidence pipeline, different question to the model — IP infringement,
+                  Same evidence pipeline, different question asked — IP infringement,
                   content policy, licensing compliance, deduplication confidence.
                 </p>
               </div>
@@ -244,11 +244,11 @@ export default function Landing() {
               </p>
               <p className="text-stone-600 leading-relaxed text-[1.02rem]">
                 Our pipeline combines structural analysis with semantic understanding, template matching,
-                and OCR to detect similarity across contexts, styles, and transformations — then lets
-                a VLM interpret what the scores mean for your specific use-case.
+                and OCR to detect similarity across contexts, styles, and transformations — then renders
+                a contextual verdict tuned to your specific use-case.
               </p>
               <div className="pt-2 flex flex-wrap gap-2">
-                {["Structural", "Semantic", "Template", "OCR", "VLM verdict"].map((t) => (
+                {["Structural", "Semantic", "Template", "OCR", "Verdict"].map((t) => (
                   <span key={t} className="text-xs font-semibold text-stone-600 bg-white border border-stone-200 px-3 py-1.5 rounded-full shadow-sm">
                     {t}
                   </span>
