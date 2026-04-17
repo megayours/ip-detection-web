@@ -199,6 +199,32 @@ export default function Landing() {
             </p>
           </div>
 
+          {/* Quantitative benchmark */}
+          <div className="mb-14">
+            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead>
+                  <tr className="text-white/40 text-[10px] uppercase tracking-widest">
+                    <th className="text-left px-5 py-4 font-semibold">Approach</th>
+                    <th className="text-right px-3 py-4 font-semibold">Precision</th>
+                    <th className="text-right px-3 py-4 font-semibold">Recall</th>
+                    <th className="text-right px-3 py-4 font-semibold">F1</th>
+                    <th className="text-right px-5 py-4 font-semibold">FPR ↓</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {BENCHMARK_ROWS.map((row) => (
+                    <BenchmarkRow key={row.name} {...row} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[11px] text-white/30 text-center">
+              Evaluated at t=0.75 across 32 images, 3 IPs — 22 true infringements, 10 hard negatives.
+              Lower FPR means fewer wrongful flags.
+            </p>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-8">
             {/* True positive — we catch, they miss */}
             <ComparisonCard
@@ -228,7 +254,7 @@ export default function Landing() {
           </div>
 
           <p className="mt-8 text-center text-xs text-white/30">
-            Scores from actual API calls. Vertex AI: multimodalembedding@001, threshold 0.75. Full benchmark: 32 images, 3 IPs, 22 true infringements, 10 hard negatives.
+            Scores from actual API calls. Vertex AI: multimodalembedding@001, threshold 0.75.
           </p>
         </div>
       </section>
@@ -408,6 +434,45 @@ function ComparisonCard({
         </div>
       </div>
     </div>
+  );
+}
+
+type BenchmarkRowData = {
+  name: string;
+  description: string;
+  precision: number;
+  recall: number;
+  f1: number;
+  fpr: number;
+  highlight?: boolean;
+};
+
+const BENCHMARK_ROWS: BenchmarkRowData[] = [
+  { name: "CLIP ViT-L/14", description: "OpenAI standard, cosine similarity", precision: 0.6923, recall: 0.8182, f1: 0.75, fpr: 0.8 },
+  { name: "CLIP ViT-L/14 @336px", description: "OpenAI highest-resolution model", precision: 0.72, recall: 0.8182, f1: 0.766, fpr: 0.7 },
+  { name: "SigLIP2 embeddings", description: "Our pipeline — embeddings only, no gating", precision: 0.7222, recall: 0.5909, f1: 0.65, fpr: 0.5 },
+  { name: "MegaYours — Full Pipeline", description: "Structural + SigLIP2 + template + VLM gate", precision: 0.875, recall: 0.9545, f1: 0.913, fpr: 0.3, highlight: true },
+];
+
+function fmtPct(n: number) {
+  return `${Math.round(n * 100)}%`;
+}
+
+function BenchmarkRow({ name, description, precision, recall, f1, fpr, highlight }: BenchmarkRowData) {
+  const rowCls = highlight ? "bg-emerald-500/10" : "";
+  const nameCls = highlight ? "text-emerald-200" : "text-white/80";
+  const numCls = highlight ? "text-emerald-300 font-bold" : "text-white/60";
+  return (
+    <tr className={`${rowCls} border-t border-white/5`}>
+      <td className="px-5 py-4">
+        <div className={`text-sm font-semibold ${nameCls}`}>{name}</div>
+        <div className="text-xs text-white/40 mt-0.5">{description}</div>
+      </td>
+      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(precision)}</td>
+      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(recall)}</td>
+      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{f1.toFixed(2)}</td>
+      <td className={`text-right px-5 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(fpr)}</td>
+    </tr>
   );
 }
 
