@@ -206,10 +206,15 @@ export default function Landing() {
                 <thead>
                   <tr className="text-white/40 text-[10px] uppercase tracking-widest">
                     <th className="text-left px-5 py-4 font-semibold">Approach</th>
-                    <th className="text-right px-3 py-4 font-semibold">Precision</th>
-                    <th className="text-right px-3 py-4 font-semibold">Recall</th>
-                    <th className="text-right px-3 py-4 font-semibold">F1</th>
-                    <th className="text-right px-5 py-4 font-semibold">FPR ↓</th>
+                    <th className="text-right px-3 py-4 font-semibold">
+                      Caught <span className="normal-case tracking-normal text-white/25">↑</span>
+                    </th>
+                    <th className="text-right px-3 py-4 font-semibold">
+                      Correct when flagged <span className="normal-case tracking-normal text-white/25">↑</span>
+                    </th>
+                    <th className="text-right px-5 py-4 font-semibold">
+                      False alarms <span className="normal-case tracking-normal text-white/25">↓</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -219,9 +224,22 @@ export default function Landing() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-[11px] text-white/30 text-center">
-              Evaluated at t=0.75 across 32 images, 3 IPs — 22 true infringements, 10 hard negatives.
-              Lower FPR means fewer wrongful flags.
+            <div className="mt-4 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
+              <div>
+                <span className="text-white/60 font-semibold">Caught:</span>{" "}
+                share of real infringements the approach detected.
+              </div>
+              <div>
+                <span className="text-white/60 font-semibold">Correct when flagged:</span>{" "}
+                when it raises an alert, how often it's actually right.
+              </div>
+              <div>
+                <span className="text-white/60 font-semibold">False alarms:</span>{" "}
+                share of legitimate images wrongly flagged.
+              </div>
+            </div>
+            <p className="mt-4 text-[11px] text-white/30 text-center">
+              Evaluated at threshold 0.75 across 32 images and 3 IPs — 22 real infringements, 10 lookalikes that shouldn't match.
             </p>
           </div>
 
@@ -440,25 +458,24 @@ function ComparisonCard({
 type BenchmarkRowData = {
   name: string;
   description: string;
-  precision: number;
   recall: number;
-  f1: number;
+  precision: number;
   fpr: number;
   highlight?: boolean;
 };
 
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
-  { name: "CLIP ViT-L/14", description: "OpenAI standard, cosine similarity", precision: 0.6923, recall: 0.8182, f1: 0.75, fpr: 0.8 },
-  { name: "CLIP ViT-L/14 @336px", description: "OpenAI highest-resolution model", precision: 0.72, recall: 0.8182, f1: 0.766, fpr: 0.7 },
-  { name: "SigLIP2 embeddings", description: "Our pipeline — embeddings only, no gating", precision: 0.7222, recall: 0.5909, f1: 0.65, fpr: 0.5 },
-  { name: "MegaYours — Full Pipeline", description: "Structural + SigLIP2 + template + VLM gate", precision: 0.875, recall: 0.9545, f1: 0.913, fpr: 0.3, highlight: true },
+  { name: "Leading open-source embedding A", description: "General-purpose image/text model", recall: 0.8182, precision: 0.6923, fpr: 0.8 },
+  { name: "Leading open-source embedding B", description: "Higher-resolution variant of the same family", recall: 0.8182, precision: 0.72, fpr: 0.7 },
+  { name: "Similarity search baseline", description: "Pure embedding comparison, no verification layer", recall: 0.5909, precision: 0.7222, fpr: 0.5 },
+  { name: "MegaYours", description: "Full pipeline with confidence gating", recall: 0.9545, precision: 0.875, fpr: 0.3, highlight: true },
 ];
 
 function fmtPct(n: number) {
   return `${Math.round(n * 100)}%`;
 }
 
-function BenchmarkRow({ name, description, precision, recall, f1, fpr, highlight }: BenchmarkRowData) {
+function BenchmarkRow({ name, description, recall, precision, fpr, highlight }: BenchmarkRowData) {
   const rowCls = highlight ? "bg-emerald-500/10" : "";
   const nameCls = highlight ? "text-emerald-200" : "text-white/80";
   const numCls = highlight ? "text-emerald-300 font-bold" : "text-white/60";
@@ -468,9 +485,8 @@ function BenchmarkRow({ name, description, precision, recall, f1, fpr, highlight
         <div className={`text-sm font-semibold ${nameCls}`}>{name}</div>
         <div className="text-xs text-white/40 mt-0.5">{description}</div>
       </td>
-      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(precision)}</td>
       <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(recall)}</td>
-      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{f1.toFixed(2)}</td>
+      <td className={`text-right px-3 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(precision)}</td>
       <td className={`text-right px-5 py-4 font-mono tabular-nums ${numCls}`}>{fmtPct(fpr)}</td>
     </tr>
   );
