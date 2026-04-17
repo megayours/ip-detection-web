@@ -465,8 +465,8 @@ type BenchmarkRowData = {
 };
 
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
-  { name: "Leading open-source embedding A", description: "General-purpose image/text model", recall: 0.8182, precision: 0.6923, fpr: 0.8 },
-  { name: "Leading open-source embedding B", description: "Higher-resolution variant of the same family", recall: 0.8182, precision: 0.72, fpr: 0.7 },
+  { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.8182, precision: 0.6923, fpr: 0.8 },
+  { name: "OpenAI CLIP ViT-L/14 @336px", description: "Higher-resolution variant", recall: 0.8182, precision: 0.72, fpr: 0.7 },
   { name: "Similarity search baseline", description: "Pure embedding comparison, no verification layer", recall: 0.5909, precision: 0.7222, fpr: 0.5 },
   { name: "MegaYours", description: "Full pipeline with confidence gating", recall: 0.9545, precision: 0.875, fpr: 0.3, highlight: true },
 ];
