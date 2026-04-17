@@ -467,8 +467,7 @@ type BenchmarkRowData = {
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
   { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.8182, precision: 0.6923, fpr: 0.8 },
   { name: "OpenAI CLIP ViT-L/14 @336px", description: "Higher-resolution variant", recall: 0.8182, precision: 0.72, fpr: 0.7 },
-  { name: "MegaYours — embeddings only", description: "Our vector-similarity score without the verification layer (the typical image-search approach)", recall: 0.5909, precision: 0.7222, fpr: 0.5 },
-  { name: "MegaYours — full pipeline", description: "Multi-stage scoring with confidence gating", recall: 0.9545, precision: 0.875, fpr: 0.3, highlight: true },
+  { name: "MegaYours", description: "Multi-stage scoring with confidence gating", recall: 0.9545, precision: 0.875, fpr: 0.3, highlight: true },
 ];
 
 function fmtPct(n: number) {
