@@ -550,14 +550,39 @@ function ComparisonCard({
 }) {
   return (
     <div className="relative isolate bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-3xl overflow-hidden gradient-border">
-      <div className="aspect-[16/10] bg-black/40 relative overflow-hidden">
-        <img src={image} alt={title} className="w-full h-full object-contain" />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-stone-950/80 to-transparent pointer-events-none" />
-        <div className="absolute top-3 right-3">
-          <span className={`text-[10px] font-bold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full ring-1 ring-inset backdrop-blur-sm ${
+      <div className="aspect-[4/3] bg-stone-900 relative overflow-hidden">
+        {/* Blurred, darkened backdrop — fills card edge-to-edge regardless of image aspect */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center scale-125"
+          style={{
+            backgroundImage: `url(${image})`,
+            filter: "blur(40px) saturate(1.4) brightness(0.5)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(12,10,9,0.2) 0%, rgba(12,10,9,0.7) 100%)",
+          }}
+        />
+        {/* Centered framed thumbnail — square crop unifies landscape/portrait sources */}
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="relative aspect-square h-full max-h-full rounded-xl overflow-hidden ring-1 ring-white/10 shadow-2xl shadow-black/60">
+            <img
+              src={image}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+        <div className="absolute top-3 right-3 z-10">
+          <span className={`text-[10px] font-bold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full ring-1 ring-inset backdrop-blur-md ${
             verdict === "match"
-              ? "bg-emerald-500/20 text-emerald-300 ring-emerald-400/30"
-              : "bg-white/10 text-white/70 ring-white/20"
+              ? "bg-emerald-500/25 text-emerald-200 ring-emerald-400/40"
+              : "bg-stone-950/70 text-white/85 ring-white/20"
           }`}>
             {verdict === "match" ? "Real infringement" : "Not infringing"}
           </span>
