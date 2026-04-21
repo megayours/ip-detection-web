@@ -6,7 +6,7 @@
     // SPA redirect: rewrite path as query param so index.html can restore it
     var path = window.location.pathname;
     window.location.replace(
-      window.location.origin + '/ip-detection-web/?p=' + encodeURIComponent(path)
+      window.location.origin + '/?p=' + encodeURIComponent(path)
     );
   </script>
 </head>

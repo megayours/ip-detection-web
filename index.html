@@ -10,7 +10,11 @@
       (function(){
         var q = new URLSearchParams(window.location.search);
         var p = q.get('p');
-        if (p) window.history.replaceState(null, '', p);
+        if (p) {
+          // Strip legacy /ip-detection-web/ prefix from old cached URLs
+          p = p.replace(/^\/ip-detection-web/, '');
+          window.history.replaceState(null, '', p);
+        }
       })();
     </script>
     <script type="module" crossorigin src="/assets/index-5F7wc85q.js"></script>
