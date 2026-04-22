@@ -10,6 +10,7 @@ import CaseDetail from "./pages/CaseDetail";
 import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
+import Clearance from "./pages/Clearance";
 
 function RedirectTrademark() {
   const { id } = useParams();
@@ -49,6 +50,10 @@ export default function App() {
         <Route
           path="/check"
           element={<ProtectedRoute><Check /></ProtectedRoute>}
+        />
+        <Route
+          path="/clearance"
+          element={<ProtectedRoute><Clearance /></ProtectedRoute>}
         />
         <Route
           path="/cases"

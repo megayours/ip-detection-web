@@ -552,3 +552,46 @@ export function triggerReverseSearch(trademarkId: string) {
     method: "POST",
   });
 }
+
+// --- Clearance (pre-publication IP screening) ---
+
+export interface ClearanceMatch {
+  ip_name: string;
+  trademark_id: string;
+  score: number;
+  semantic_score: number;
+  structural_score: number;
+  confidence: string;
+  bbox: [number, number, number, number];
+  method: "visual" | "text";
+  closest_ref_url: string;
+  reference_images: Array<{ id: string; image_url: string }>;
+}
+
+export interface ClearanceResult {
+  status: "pending" | "complete" | "failed";
+  error?: string;
+  query_image_url?: string;
+  image_width?: number;
+  image_height?: number;
+  matches?: ClearanceMatch[];
+}
+
+export async function submitClearance(file: File) {
+  const form = new FormData();
+  form.append("image", file);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API}/api/clearance`, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ job_id: string }>;
+}
+
+export function getClearanceResult(jobId: string) {
+  return request<ClearanceResult>(`/api/clearance/${jobId}`);
+}
