@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   getTrademark,
   deleteTrademark,
+  updateTrademark,
   uploadTrademarkImages,
   deleteTrademarkImage,
   type Trademark,
@@ -21,6 +22,9 @@ export default function RegistryDetail() {
   const [uploading, setUploading] = useState(false);
   const [indexJobId, setIndexJobId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState("");
+  const [savingDesc, setSavingDesc] = useState(false);
 
   const indexJob = useJobPoller(indexJobId);
 
@@ -88,7 +92,6 @@ export default function RegistryDetail() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">{ip.name}</h1>
-          {ip.description && <p className="mt-1 text-sm text-stone-500">{ip.description}</p>}
           <div className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-stone-400">{images.length} reference image{images.length !== 1 ? "s" : ""}</span>
             {ip.centroid_dino ? (
@@ -118,19 +121,66 @@ export default function RegistryDetail() {
         </div>
       </div>
 
-      {!ip.description && (
-        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-amber-800">Add a description for better clearance results</p>
-            <p className="text-xs text-amber-600 mt-0.5">
-              Describe the design concept, shape, and distinguishing features — e.g. "egg-shaped smartphone case with smooth organic curves." This helps detect similar designs even when colors or styles differ.
-            </p>
-          </div>
+      {/* Description — inline editable */}
+      <div className="border border-stone-200 rounded-xl bg-white p-4">
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-stone-400 uppercase tracking-wider">Description</label>
+          {!editingDesc && (
+            <button
+              onClick={() => { setDescDraft(ip.description || ""); setEditingDesc(true); }}
+              className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
+            >
+              {ip.description ? "Edit" : "Add"}
+            </button>
+          )}
         </div>
-      )}
+        {editingDesc ? (
+          <div className="space-y-2">
+            <textarea
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              rows={2}
+              autoFocus
+              placeholder="e.g. Egg-shaped smartphone case with smooth organic curves and matte pastel finish"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
+            />
+            <p className="text-xs text-stone-400">
+              Describe the design concept, shape, and distinguishing features. Used for concept-level matching during clearance.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={savingDesc}
+                onClick={async () => {
+                  setSavingDesc(true);
+                  try {
+                    const { trademark } = await updateTrademark(id!, { description: descDraft.trim() || undefined });
+                    setIp(trademark);
+                    setEditingDesc(false);
+                  } catch (e: any) {
+                    setError(e.message);
+                  } finally {
+                    setSavingDesc(false);
+                  }
+                }}
+                className="px-3 py-1.5 bg-stone-900 text-white text-xs font-semibold rounded-lg hover:bg-stone-800 disabled:opacity-50 transition-all"
+              >
+                {savingDesc ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={() => setEditingDesc(false)}
+                className="px-3 py-1.5 text-xs text-stone-500 hover:text-stone-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : ip.description ? (
+          <p className="text-sm text-stone-600">{ip.description}</p>
+        ) : (
+          <p className="text-sm text-stone-400 italic">
+            No description — add one to improve concept-level matching during clearance.
+          </p>
+        )}</div>
 
       {/* Index job status */}
       {indexJob && indexJob.status !== "completed" && (
