@@ -160,6 +160,7 @@ export default function Clearance() {
                             x={m.bbox[0]} y={m.bbox[1]}
                             width={m.bbox[2]} height={m.bbox[3]}
                             fill="none" stroke={color} strokeWidth={sw}
+                            strokeDasharray={m.method === "concept" ? `${sw * 3} ${sw * 2}` : undefined}
                           />
                           <rect
                             x={m.bbox[0]} y={labelY}

@@ -118,6 +118,20 @@ export default function RegistryDetail() {
         </div>
       </div>
 
+      {!ip.description && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-amber-800">Add a description for better clearance results</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Describe the design concept, shape, and distinguishing features — e.g. "egg-shaped smartphone case with smooth organic curves." This helps detect similar designs even when colors or styles differ.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Index job status */}
       {indexJob && indexJob.status !== "completed" && (
         <div className={`rounded-xl px-5 py-4 text-sm ${

@@ -96,13 +96,17 @@ export default function Registry() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-stone-700 mb-1.5">Description (optional)</label>
-              <input
+              <label className="block text-sm font-medium text-stone-700 mb-1.5">Description (recommended)</label>
+              <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of the IP"
-                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
+                rows={2}
+                placeholder="e.g. Egg-shaped smartphone case with smooth organic curves and matte pastel finish"
+                className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
               />
+              <p className="text-xs text-stone-400 mt-1">
+                Describe the design concept, shape, and distinguishing features. Used for concept-level matching during clearance — catches similar designs even when colors or styles differ.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-stone-700 mb-1.5">Guidelines (optional)</label>

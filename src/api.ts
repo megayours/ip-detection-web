@@ -563,7 +563,7 @@ export interface ClearanceMatch {
   structural_score: number;
   confidence: string;
   bbox: [number, number, number, number];
-  method: "visual" | "text";
+  method: "visual" | "text" | "concept";
   closest_ref_url: string;
   reference_images: Array<{ id: string; image_url: string }>;
 }
