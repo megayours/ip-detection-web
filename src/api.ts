@@ -597,12 +597,20 @@ export function getClearanceResult(jobId: string) {
   return request<ClearanceResult>(`/api/clearance/${jobId}`);
 }
 
-// --- Admin (S3-backed IP reference management) ---
+// --- Admin (cross-tenant IP reference management) ---
 
 export interface AdminIpSummary {
+  id: string;                     // trademark_id; "" when unsynced
   name: string;
+  description: string | null;
+  guidelines: string | null;
+  tenant_id: string;
+  tenant_label: string | null;    // email domain or tenant name
   image_count: number;
-  total_size: number;
+  indexed_count: number;
+  centroid_ready: boolean;
+  created_at: string;
+  synced: boolean;                // false = storage only, no DB row yet
 }
 
 export interface AdminIpImage {
@@ -622,8 +630,11 @@ export interface AdminIpMetadata {
 }
 
 export interface AdminIpDetail {
+  id: string | null;              // trademark_id
   name: string;
-  trademark_id: string | null;
+  description: string | null;
+  guidelines: string | null;
+  tenant_id: string | null;
   metadata: AdminIpMetadata | null;
   images: AdminIpImage[];
   summary: {
@@ -661,14 +672,28 @@ export function listAdminIps() {
   return request<{ ips: AdminIpSummary[] }>("/api/admin/ips");
 }
 
+export function createAdminIp(payload: {
+  name: string;
+  description?: string;
+  guidelines?: string;
+}) {
+  return request<{ ip: { id: string; name: string; tenant_id: string } }>(
+    "/api/admin/ips",
+    { method: "POST", body: JSON.stringify(payload) }
+  );
+}
+
 export function getAdminIp(name: string) {
   return request<AdminIpDetail>(`/api/admin/ips/${encodeURIComponent(name)}`);
 }
 
-export function patchAdminIpMetadata(name: string, metadata: AdminIpMetadata) {
-  return request<{ name: string; metadata: AdminIpMetadata }>(
+export function patchAdminIp(
+  name: string,
+  patch: { description?: string | null; guidelines?: string | null }
+) {
+  return request<{ name: string; description?: string; guidelines?: string }>(
     `/api/admin/ips/${encodeURIComponent(name)}`,
-    { method: "PATCH", body: JSON.stringify(metadata) }
+    { method: "PATCH", body: JSON.stringify(patch) }
   );
 }
 

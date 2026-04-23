@@ -1,19 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  createAdminIp,
   getAdminSyncStatus,
   listAdminIps,
   triggerAdminSync,
   type AdminIpSummary,
   type SyncStatus,
 } from "../api";
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 function formatTimeAgo(ts: number | null): string {
   if (!ts) return "never";
@@ -30,6 +24,13 @@ export default function Admin() {
   const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
+
+  // Create form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newGuidelines, setNewGuidelines] = useState("");
+  const [creating, setCreating] = useState(false);
 
   async function load() {
     try {
@@ -63,11 +64,48 @@ export default function Admin() {
     }
   }
 
-  const filtered = ips.filter((ip) =>
-    ip.name.toLowerCase().includes(filter.toLowerCase())
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    setError("");
+    try {
+      await createAdminIp({
+        name,
+        description: newDescription.trim() || undefined,
+        guidelines: newGuidelines.trim() || undefined,
+      });
+      setNewName("");
+      setNewDescription("");
+      setNewGuidelines("");
+      setShowCreate(false);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const filtered = useMemo(
+    () =>
+      ips.filter((ip) => {
+        const q = filter.toLowerCase();
+        return (
+          ip.name.toLowerCase().includes(q) ||
+          (ip.tenant_label ?? "").toLowerCase().includes(q)
+        );
+      }),
+    [ips, filter]
   );
-  const totalImages = ips.reduce((n, ip) => n + ip.image_count, 0);
-  const totalSize = ips.reduce((n, ip) => n + ip.total_size, 0);
+
+  const totals = useMemo(() => {
+    const images = ips.reduce((n, ip) => n + ip.image_count, 0);
+    const tenants = new Set(ips.map((ip) => ip.tenant_label).filter(Boolean));
+    const indexed = ips.filter((ip) => ip.centroid_ready).length;
+    return { images, tenants: tenants.size, indexed };
+  }, [ips]);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 space-y-10">
@@ -76,16 +114,28 @@ export default function Admin() {
         <div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">Admin · IP References</h1>
           <p className="mt-1 text-sm text-stone-500">
-            S3-backed source of truth. Edits here flow into the detection index on the next sync.
+            Manage every IP across the workspace. Edits reindex automatically on the next sync.
           </p>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="px-4 py-2 rounded-xl text-sm font-semibold bg-stone-900 text-white hover:bg-stone-800 disabled:opacity-50 transition-all"
-        >
-          {syncing ? "Syncing..." : "Sync now"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreate((v) => !v)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              showCreate
+                ? "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                : "bg-stone-900 text-white hover:bg-stone-800"
+            }`}
+          >
+            {showCreate ? "Cancel" : "Create IP"}
+          </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 disabled:opacity-50 transition-all"
+          >
+            {syncing ? "Syncing..." : "Sync now"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -94,11 +144,58 @@ export default function Admin() {
         </div>
       )}
 
+      {/* Create form */}
+      {showCreate && (
+        <form
+          onSubmit={handleCreate}
+          className="bg-white rounded-2xl border border-stone-200 p-6 space-y-4 shadow-sm"
+        >
+          <h2 className="text-sm font-bold text-stone-900">New IP</h2>
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-1.5">Name</label>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. ACME CORP"
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
+            />
+            <p className="text-xs text-stone-400 mt-1">
+              Use the canonical uppercase name. Reference images can be added after creating.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-1.5">Description (optional)</label>
+            <textarea
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              rows={2}
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-stone-700 mb-1.5">Guidelines (optional)</label>
+            <textarea
+              value={newGuidelines}
+              onChange={(e) => setNewGuidelines(e.target.value)}
+              rows={4}
+              className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={creating || !newName.trim()}
+            className="px-5 py-2.5 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
+          >
+            {creating ? "Creating..." : "Create IP"}
+          </button>
+        </form>
+      )}
+
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="IP folders" value={ips.length.toString()} />
-        <StatCard label="Total images" value={totalImages.toString()} />
-        <StatCard label="Storage used" value={formatBytes(totalSize)} />
+        <StatCard label="IPs" value={ips.length.toString()} />
+        <StatCard label="Total images" value={totals.images.toString()} />
+        <StatCard label="Tenants" value={totals.tenants.toString()} />
       </div>
 
       {/* Sync status */}
@@ -115,7 +212,9 @@ export default function Admin() {
             <SyncMetric label="Removed" value={syncStatus.last_result.totalRemoved} tone="red" />
           </div>
         ) : (
-          <p className="text-xs text-stone-400">No sync has run yet. Click "Sync now" to populate the index from S3.</p>
+          <p className="text-xs text-stone-400">
+            No sync has run yet. Sync reconciles the reference store with the index.
+          </p>
         )}
         {syncStatus?.last_result && syncStatus.last_result.errors.length > 0 && (
           <div className="text-xs text-red-600 border-t border-stone-100 pt-3">
@@ -130,12 +229,12 @@ export default function Admin() {
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter IP folders..."
+          placeholder="Filter by IP name or tenant..."
           className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all"
         />
       </div>
 
-      {/* IP folder grid */}
+      {/* IP list */}
       {loading ? (
         <div className="py-12 flex justify-center">
           <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
@@ -143,39 +242,46 @@ export default function Admin() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 space-y-2">
           <p className="text-stone-500 text-sm">
-            {ips.length === 0
-              ? "No IP folders in S3 yet."
-              : "No IPs match that filter."}
+            {ips.length === 0 ? "No IPs yet." : "No IPs match that filter."}
           </p>
           {ips.length === 0 && (
-            <p className="text-stone-400 text-xs">
-              Upload images via the scraper (<code>--s3</code>) or directly into
-              an IP folder below to get started.
-            </p>
+            <p className="text-stone-400 text-xs">Click "Create IP" to add your first.</p>
           )}
         </div>
       ) : (
         <div className="grid gap-2">
           {filtered.map((ip) => (
             <Link
-              key={ip.name}
+              key={ip.id || ip.name}
               to={`/admin/ips/${encodeURIComponent(ip.name)}`}
-              className="group bg-white rounded-xl border border-stone-200 px-5 py-4 hover:border-stone-300 hover:shadow-md hover:shadow-stone-100 transition-all flex items-center justify-between"
+              className="group bg-white rounded-xl border border-stone-200 px-5 py-4 hover:border-stone-300 hover:shadow-md hover:shadow-stone-100 transition-all flex items-center justify-between gap-4"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-stone-300 text-lg">📁</span>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-stone-900 group-hover:text-red-700 transition-colors truncate">
-                    {ip.name}
-                  </h3>
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    {ip.image_count} image{ip.image_count !== 1 ? "s" : ""} · {formatBytes(ip.total_size)}
-                  </p>
+              <div className="min-w-0">
+                <h3 className="font-bold text-stone-900 group-hover:text-red-700 transition-colors truncate">
+                  {ip.name}
+                </h3>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-stone-500">
+                  <span>
+                    {ip.image_count} image{ip.image_count !== 1 ? "s" : ""}
+                  </span>
+                  {ip.tenant_label && (
+                    <>
+                      <span className="text-stone-300">·</span>
+                      <span className="truncate">{ip.tenant_label}</span>
+                    </>
+                  )}
+                  {!ip.synced && (
+                    <>
+                      <span className="text-stone-300">·</span>
+                      <span className="text-amber-600">unsynced</span>
+                    </>
+                  )}
                 </div>
               </div>
-              <span className="text-stone-300 group-hover:text-stone-500 transition-colors">
-                →
-              </span>
+              <div className="flex items-center gap-3 shrink-0">
+                <IpStatusBadge ip={ip} />
+                <span className="text-stone-300 group-hover:text-stone-500 transition-colors">→</span>
+              </div>
             </Link>
           ))}
         </div>
@@ -215,5 +321,27 @@ function SyncMetric({
       <div className="text-xs text-stone-500">{label}</div>
       <div className={`text-lg font-bold ${toneColor}`}>{value}</div>
     </div>
+  );
+}
+
+function IpStatusBadge({ ip }: { ip: AdminIpSummary }) {
+  if (ip.centroid_ready) {
+    return (
+      <span className="inline-block text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+        Indexed
+      </span>
+    );
+  }
+  if (ip.indexed_count > 0) {
+    return (
+      <span className="inline-block text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full">
+        Partial
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block text-xs font-semibold text-stone-400 bg-stone-50 px-2.5 py-0.5 rounded-full">
+      Pending
+    </span>
   );
 }

@@ -4,7 +4,7 @@ import {
   deleteAdminImage,
   deleteAdminIp,
   getAdminIp,
-  patchAdminIpMetadata,
+  patchAdminIp,
   uploadAdminImages,
   type AdminIpDetail,
   type AdminIpImage,
@@ -34,8 +34,8 @@ export default function AdminIpDetailPage() {
     try {
       const detail = await getAdminIp(name);
       setData(detail);
-      setDescription(detail.metadata?.description ?? "");
-      setGuidelines(detail.metadata?.guidelines ?? "");
+      setDescription(detail.description ?? detail.metadata?.description ?? "");
+      setGuidelines(detail.guidelines ?? detail.metadata?.guidelines ?? "");
       setMetaDirty(false);
     } catch (e: any) {
       setError(e.message);
@@ -65,7 +65,7 @@ export default function AdminIpDetailPage() {
 
   async function handleDelete(img: AdminIpImage) {
     if (!name) return;
-    if (!confirm(`Delete this image?\n\n${img.key}`)) return;
+    if (!confirm(`Delete this image?`)) return;
     setDeletingKey(img.key);
     setError("");
     try {
@@ -80,7 +80,7 @@ export default function AdminIpDetailPage() {
 
   async function handleDeleteIp() {
     if (!name) return;
-    if (!confirm(`Delete entire IP folder "${name}" and all its images? This cannot be undone.`)) return;
+    if (!confirm(`Delete IP "${name}" and all its reference images? This cannot be undone.`)) return;
     setDeletingAll(true);
     setError("");
     try {
@@ -97,11 +97,12 @@ export default function AdminIpDetailPage() {
     setSavingMeta(true);
     setError("");
     try {
-      await patchAdminIpMetadata(name, {
-        description: description || undefined,
-        guidelines: guidelines || undefined,
+      await patchAdminIp(name, {
+        description: description.trim() || null,
+        guidelines: guidelines.trim() || null,
       });
       setMetaDirty(false);
+      await load();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -136,8 +137,10 @@ export default function AdminIpDetailPage() {
           <div>
             <h1 className="text-2xl font-black text-stone-900 tracking-tight">{data.name}</h1>
             <p className="mt-1 text-sm text-stone-500">
-              {data.summary.s3_count} in S3 · {data.summary.indexed_count}/{data.summary.db_count} indexed
-              {data.trademark_id && <> · <span className="text-stone-400">tm {data.trademark_id.slice(0, 8)}</span></>}
+              {data.images.length} reference image{data.images.length !== 1 ? "s" : ""}
+              {data.summary.indexed_count > 0 && (
+                <> · {data.summary.indexed_count} indexed</>
+              )}
             </p>
           </div>
           <button
@@ -170,7 +173,7 @@ export default function AdminIpDetailPage() {
           </h2>
         </div>
         {data.images.length === 0 ? (
-          <p className="text-sm text-stone-400 py-8 text-center">No images in this folder.</p>
+          <p className="text-sm text-stone-400 py-8 text-center">No reference images yet.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {data.images.map((img) => (
@@ -185,11 +188,8 @@ export default function AdminIpDetailPage() {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <div className="p-2 text-xs space-y-1">
+                <div className="p-2 text-xs">
                   <StatusBadge img={img} />
-                  <p className="text-stone-400 truncate" title={img.key}>
-                    {img.key.split("/").pop()}
-                  </p>
                 </div>
                 <button
                   onClick={() => handleDelete(img)}
@@ -204,9 +204,9 @@ export default function AdminIpDetailPage() {
         )}
       </section>
 
-      {/* Metadata editor */}
+      {/* Description + guidelines */}
       <section className="space-y-3">
-        <h2 className="text-sm font-bold text-stone-900">Metadata (_metadata.json)</h2>
+        <h2 className="text-sm font-bold text-stone-900">Details</h2>
         <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1.5">Description</label>
@@ -214,6 +214,7 @@ export default function AdminIpDetailPage() {
               value={description}
               onChange={(e) => { setDescription(e.target.value); setMetaDirty(true); }}
               rows={2}
+              placeholder="Short description of the IP."
               className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
             />
           </div>
@@ -223,6 +224,7 @@ export default function AdminIpDetailPage() {
               value={guidelines}
               onChange={(e) => { setGuidelines(e.target.value); setMetaDirty(true); }}
               rows={4}
+              placeholder="Plain-English rules checked on every submission."
               className="w-full px-4 py-2.5 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 transition-all resize-y"
             />
           </div>
@@ -231,7 +233,7 @@ export default function AdminIpDetailPage() {
             disabled={!metaDirty || savingMeta}
             className="px-5 py-2.5 bg-stone-900 text-white rounded-xl text-sm font-semibold hover:bg-stone-800 disabled:opacity-50 transition-all"
           >
-            {savingMeta ? "Saving..." : metaDirty ? "Save metadata" : "Saved"}
+            {savingMeta ? "Saving..." : metaDirty ? "Save changes" : "Saved"}
           </button>
         </div>
       </section>
@@ -240,11 +242,11 @@ export default function AdminIpDetailPage() {
 }
 
 function StatusBadge({ img }: { img: AdminIpImage }) {
-  if (img.db_status === "indexed") {
+  if (img.indexed || img.db_status === "indexed") {
     return <span className="inline-block text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">indexed</span>;
   }
-  if (img.db_status === "unsynced") {
-    return <span className="inline-block text-[10px] font-semibold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">unsynced</span>;
+  if (img.db_status === "pending") {
+    return <span className="inline-block text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">pending</span>;
   }
-  return <span className="inline-block text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{img.db_status}</span>;
+  return <span className="inline-block text-[10px] font-semibold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">{img.db_status || "pending"}</span>;
 }
