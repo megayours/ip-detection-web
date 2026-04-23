@@ -11,6 +11,8 @@ import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
+import Admin from "./pages/Admin";
+import AdminIpDetail from "./pages/AdminIpDetail";
 
 function RedirectTrademark() {
   const { id } = useParams();
@@ -27,6 +29,32 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/login" />;
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== "admin") {
+    return (
+      <div className="max-w-xl mx-auto px-6 py-16 text-center">
+        <h1 className="text-xl font-black text-stone-900">Admin access required</h1>
+        <p className="mt-2 text-sm text-stone-500">
+          Your account doesn't have the admin role. Ask your workspace owner to
+          promote you, or run <code className="px-1 rounded bg-stone-100">
+            scripts/promote_admin.sh
+          </code> against the API.
+        </p>
+      </div>
+    );
+  }
   return <>{children}</>;
 }
 
@@ -70,6 +98,14 @@ export default function App() {
         <Route
           path="/reviews"
           element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>}
+        />
+        <Route
+          path="/admin"
+          element={<AdminRoute><Admin /></AdminRoute>}
+        />
+        <Route
+          path="/admin/ips/:name"
+          element={<AdminRoute><AdminIpDetail /></AdminRoute>}
         />
       </Routes>
     </div>

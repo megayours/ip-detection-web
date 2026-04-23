@@ -69,6 +69,11 @@ export default function Nav() {
               <Link to="/reviews" className={linkClass("/reviews")}>
                 Reviews
               </Link>
+              {user.role === "admin" && (
+                <Link to="/admin" className={linkClass("/admin")}>
+                  Admin
+                </Link>
+              )}
             </div>
           )}
         </div>

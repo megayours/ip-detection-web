@@ -33,6 +33,7 @@ export interface AuthUser {
   display_name: string | null;
   picture_url: string | null;
   tenant_id: string;
+  role?: "user" | "admin";
 }
 
 /** URL the browser navigates to in order to start a WorkOS AuthKit sign-in. */
@@ -594,4 +595,122 @@ export async function submitClearance(file: File) {
 
 export function getClearanceResult(jobId: string) {
   return request<ClearanceResult>(`/api/clearance/${jobId}`);
+}
+
+// --- Admin (S3-backed IP reference management) ---
+
+export interface AdminIpSummary {
+  name: string;
+  image_count: number;
+  total_size: number;
+}
+
+export interface AdminIpImage {
+  key: string;
+  url: string;
+  size: number;
+  etag: string;
+  last_modified: string | null;
+  db_status: string;
+  indexed: boolean;
+}
+
+export interface AdminIpMetadata {
+  description?: string;
+  guidelines?: string;
+  [key: string]: unknown;
+}
+
+export interface AdminIpDetail {
+  name: string;
+  trademark_id: string | null;
+  metadata: AdminIpMetadata | null;
+  images: AdminIpImage[];
+  summary: {
+    s3_count: number;
+    db_count: number;
+    indexed_count: number;
+  };
+}
+
+export interface IpSyncResult {
+  ip: string;
+  trademark_id: string;
+  added: number;
+  changed: number;
+  removed: number;
+  unchanged: number;
+}
+
+export interface SyncResult {
+  scannedIps: number;
+  totalAdded: number;
+  totalChanged: number;
+  totalRemoved: number;
+  perIp: IpSyncResult[];
+  errors: { ip: string; error: string }[];
+  durationMs: number;
+}
+
+export interface SyncStatus {
+  last_run_at: number | null;
+  last_result: SyncResult | null;
+}
+
+export function listAdminIps() {
+  return request<{ ips: AdminIpSummary[] }>("/api/admin/ips");
+}
+
+export function getAdminIp(name: string) {
+  return request<AdminIpDetail>(`/api/admin/ips/${encodeURIComponent(name)}`);
+}
+
+export function patchAdminIpMetadata(name: string, metadata: AdminIpMetadata) {
+  return request<{ name: string; metadata: AdminIpMetadata }>(
+    `/api/admin/ips/${encodeURIComponent(name)}`,
+    { method: "PATCH", body: JSON.stringify(metadata) }
+  );
+}
+
+export function deleteAdminIp(name: string) {
+  return request<{ ok: boolean; deleted: number }>(
+    `/api/admin/ips/${encodeURIComponent(name)}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function uploadAdminImages(name: string, files: File[]) {
+  const form = new FormData();
+  for (const f of files) form.append("images", f);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(
+    `${API}/api/admin/ips/${encodeURIComponent(name)}/images`,
+    { method: "POST", headers, body: form }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{
+    uploaded: { key: string; etag: string }[];
+    sync: IpSyncResult | null;
+  }>;
+}
+
+export function deleteAdminImage(name: string, key: string) {
+  return request<{ ok: boolean; sync: IpSyncResult | null }>(
+    `/api/admin/ips/${encodeURIComponent(name)}/images`,
+    { method: "DELETE", body: JSON.stringify({ key }) }
+  );
+}
+
+export function triggerAdminSync() {
+  return request<SyncResult>("/api/admin/sync", { method: "POST" });
+}
+
+export function getAdminSyncStatus() {
+  return request<SyncStatus>("/api/admin/sync/status");
 }
