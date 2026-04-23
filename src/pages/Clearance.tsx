@@ -13,6 +13,8 @@ export default function Clearance() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [result, setResult] = useState<ClearanceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Click a sidebar card to focus on one IP; click again (or outside) to clear.
+  const [selectedIp, setSelectedIp] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function Clearance() {
     setJobId(null);
     setResult(null);
     setError(null);
+    setSelectedIp(null);
     clearInterval(timerRef.current);
   }
 
@@ -146,7 +149,9 @@ export default function Clearance() {
                     preserveAspectRatio="xMidYMid meet"
                     className="absolute inset-0 w-full h-full pointer-events-none"
                   >
-                    {matches.map((m, i) => {
+                    {matches
+                      .filter((m) => !selectedIp || m.ip_name === selectedIp)
+                      .map((m, i) => {
                       const color = ipColorMap.get(m.ip_name) || MATCH_COLORS[0];
                       const sw = Math.max(2, result!.image_width! / 250);
                       const fontSize = Math.max(result!.image_width! / 60, 12);
@@ -185,14 +190,34 @@ export default function Clearance() {
               </div>
             </div>
 
-            {/* Match list — compact cards */}
+            {/* Match list — compact cards; click to filter overlay */}
             {matches.length > 0 && (
               <div className="w-72 shrink-0 space-y-2 max-h-[60vh] overflow-y-auto">
+                {selectedIp && (
+                  <button
+                    onClick={() => setSelectedIp(null)}
+                    className="w-full text-xs font-medium text-stone-500 hover:text-stone-900 py-1 transition-colors"
+                  >
+                    ← Show all
+                  </button>
+                )}
                 {Array.from(ipColorMap.entries()).map(([ipName, color]) => {
                   const ipMatches = matches.filter((m) => m.ip_name === ipName);
                   const best = ipMatches.reduce((a, b) => a.score > b.score ? a : b);
+                  const isSelected = selectedIp === ipName;
+                  const isDimmed = selectedIp !== null && !isSelected;
                   return (
-                    <div key={ipName} className="border border-stone-200 rounded-xl bg-white p-3">
+                    <button
+                      key={ipName}
+                      type="button"
+                      onClick={() => setSelectedIp(isSelected ? null : ipName)}
+                      className={`w-full text-left border rounded-xl bg-white p-3 transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-stone-900 shadow-md"
+                          : "border-stone-200 hover:border-stone-300 hover:shadow-sm"
+                      } ${isDimmed ? "opacity-40" : ""}`}
+                      style={isSelected ? { boxShadow: `0 0 0 2px ${color}33` } : undefined}
+                    >
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                         <span className="text-sm font-bold text-stone-900 truncate">{ipName}</span>
@@ -229,7 +254,7 @@ export default function Clearance() {
                             ))}
                         </div>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
