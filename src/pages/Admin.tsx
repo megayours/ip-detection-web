@@ -4,8 +4,10 @@ import {
   createAdminIp,
   getAdminSyncStatus,
   listAdminIps,
+  triggerAdminReindex,
   triggerAdminSync,
   type AdminIpSummary,
+  type ReindexResult,
   type SyncStatus,
 } from "../api";
 
@@ -31,6 +33,12 @@ export default function Admin() {
   const [newDescription, setNewDescription] = useState("");
   const [newGuidelines, setNewGuidelines] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Reindex confirm dialog + last-run summary
+  const [showReindex, setShowReindex] = useState(false);
+  const [reindexAllTenants, setReindexAllTenants] = useState(false);
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexResult, setReindexResult] = useState<ReindexResult | null>(null);
 
   async function load() {
     try {
@@ -61,6 +69,21 @@ export default function Admin() {
       setError(e.message);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleReindex() {
+    setReindexing(true);
+    setError("");
+    try {
+      const res = await triggerAdminReindex({ all_tenants: reindexAllTenants });
+      setReindexResult(res);
+      setShowReindex(false);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setReindexing(false);
     }
   }
 
@@ -135,6 +158,13 @@ export default function Admin() {
           >
             {syncing ? "Syncing..." : "Sync now"}
           </button>
+          <button
+            onClick={() => setShowReindex(true)}
+            disabled={reindexing}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-all"
+          >
+            {reindexing ? "Reindexing..." : "Re-index"}
+          </button>
         </div>
       </div>
 
@@ -189,6 +219,84 @@ export default function Admin() {
             {creating ? "Creating..." : "Create IP"}
           </button>
         </form>
+      )}
+
+      {/* Re-index confirm modal */}
+      {showReindex && (
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-stone-200 shadow-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-lg font-bold">!</div>
+              <h2 className="text-lg font-black text-stone-900">Re-index every IP</h2>
+            </div>
+
+            <div className="text-sm text-stone-600 space-y-2">
+              <p>
+                This regenerates embeddings and auto-augmented variants for every indexed IP.
+                It's the right move after changes to the pipeline, reference sets, or the
+                augmentation classifier — but it's expensive.
+              </p>
+              <ul className="list-disc list-inside text-stone-500 space-y-1 text-xs">
+                <li>Every reference image gets re-embedded from scratch.</li>
+                <li>Existing augmented variants are <strong>deleted and regenerated</strong>.</li>
+                <li>Centroids + proximity thresholds reset — affected IPs briefly return no matches until their index job finishes.</li>
+                <li>
+                  On Apple Silicon this takes roughly <strong>2 hours</strong> for the full set;
+                  on GPU workers (RunPod A100) closer to <strong>15–20 minutes</strong>.
+                </li>
+                <li>Jobs run FIFO in the worker queue — in-flight scan/clearance queries will queue behind the re-index jobs.</li>
+              </ul>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-stone-700 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2">
+              <input
+                type="checkbox"
+                checked={reindexAllTenants}
+                onChange={(e) => setReindexAllTenants(e.target.checked)}
+                className="rounded"
+              />
+              <span>Include every tenant's IPs (not just yours)</span>
+            </label>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => setShowReindex(false)}
+                disabled={reindexing}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200 disabled:opacity-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReindex}
+                disabled={reindexing}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-all ml-auto"
+              >
+                {reindexing ? "Enqueueing..." : "Start re-index"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-index result summary */}
+      {reindexResult && !showReindex && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="font-bold text-amber-800">
+              Re-index enqueued — {reindexResult.enqueued} / {reindexResult.target_count} IPs
+            </p>
+            <button
+              onClick={() => setReindexResult(null)}
+              className="text-amber-600 hover:text-amber-800 text-xs"
+            >
+              dismiss
+            </button>
+          </div>
+          <p className="text-amber-700 text-xs">
+            {reindexResult.total_reset} originals reset · {reindexResult.total_removed_augmented} augmented variants cleared.
+            Worker will process jobs FIFO; centroids come back online as each job completes.
+          </p>
+        </div>
       )}
 
       {/* Stats strip */}

@@ -739,3 +739,27 @@ export function triggerAdminSync() {
 export function getAdminSyncStatus() {
   return request<SyncStatus>("/api/admin/sync/status");
 }
+
+export interface ReindexResult {
+  target_count: number;
+  enqueued: number;
+  total_reset: number;
+  total_removed_augmented: number;
+  results: Array<{
+    trademark_id: string;
+    reset: number;
+    removed_augmented: number;
+    job_id: string | null;
+    error?: string;
+  }>;
+}
+
+export function triggerAdminReindex(opts: {
+  all_tenants?: boolean;
+  trademark_ids?: string[];
+} = {}) {
+  return request<ReindexResult>("/api/admin/reindex", {
+    method: "POST",
+    body: JSON.stringify(opts),
+  });
+}
