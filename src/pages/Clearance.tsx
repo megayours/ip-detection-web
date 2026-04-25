@@ -149,39 +149,53 @@ export default function Clearance() {
                     preserveAspectRatio="xMidYMid meet"
                     className="absolute inset-0 w-full h-full pointer-events-none"
                   >
-                    {matches
-                      .filter((m) => !selectedIp || m.ip_name === selectedIp)
-                      .map((m, i) => {
-                      const color = ipColorMap.get(m.ip_name) || MATCH_COLORS[0];
-                      const sw = Math.max(2, result!.image_width! / 250);
-                      const fontSize = Math.max(result!.image_width! / 60, 12);
-                      const labelH = fontSize + 6;
-                      const labelY = Math.max(0, m.bbox[1] - labelH);
-                      const label = `${m.ip_name} ${(m.score * 100).toFixed(0)}%`;
-                      const labelW = Math.max(label.length * fontSize * 0.55 + 12, 60);
+                    {/* Soft radial-gradient halos. Coarse spatial cue — no
+                        false precision. Selected IP renders at full opacity;
+                        others fade to a faint hint until selected. */}
+                    <defs>
+                      {Array.from(ipColorMap.entries()).map(([ipName, color]) => (
+                        <radialGradient key={ipName} id={`halo-${ipName.replace(/[^a-zA-Z0-9]/g, "_")}`} cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor={color} stopOpacity="0.55" />
+                          <stop offset="55%" stopColor={color} stopOpacity="0.20" />
+                          <stop offset="100%" stopColor={color} stopOpacity="0" />
+                        </radialGradient>
+                      ))}
+                    </defs>
+                    {matches.map((m, i) => {
+                      const isSelected = selectedIp === m.ip_name;
+                      const isDimmed = selectedIp !== null && !isSelected;
+                      const opacity = isDimmed ? 0.10 : (isSelected ? 1.0 : 0.55);
+                      // Halo center = bbox center; radius = ~larger half-dimension
+                      // of the coarse region cell (regions are 1/3 of the image).
+                      const cx = m.bbox[0] + m.bbox[2] / 2;
+                      const cy = m.bbox[1] + m.bbox[3] / 2;
+                      const r = Math.max(m.bbox[2], m.bbox[3]) * 0.62;
+                      const fontSize = Math.max(result!.image_width! / 50, 14);
+                      const gradientId = `halo-${m.ip_name.replace(/[^a-zA-Z0-9]/g, "_")}`;
+                      const showLabel = isSelected || (!selectedIp && matches.length <= 6);
                       return (
-                        <g key={i}>
-                          <rect
-                            x={m.bbox[0]} y={m.bbox[1]}
-                            width={m.bbox[2]} height={m.bbox[3]}
-                            fill="none" stroke={color} strokeWidth={sw}
-                            strokeDasharray={m.method === "concept" ? `${sw * 3} ${sw * 2}` : undefined}
-                          />
-                          <rect
-                            x={m.bbox[0]} y={labelY}
-                            width={labelW} height={labelH}
-                            fill={color} rx={2}
-                          />
-                          <text
-                            x={m.bbox[0] + 6}
-                            y={labelY + fontSize}
-                            fill="#fff"
-                            fontSize={fontSize}
-                            fontWeight="bold"
-                            fontFamily="Inter, system-ui, sans-serif"
-                          >
-                            {label}
-                          </text>
+                        <g key={i} opacity={opacity}>
+                          <circle cx={cx} cy={cy} r={r} fill={`url(#${gradientId})`} />
+                          {showLabel && (
+                            <>
+                              <rect
+                                x={cx - fontSize * m.ip_name.length * 0.30 - 8}
+                                y={cy - fontSize * 0.9}
+                                width={fontSize * m.ip_name.length * 0.60 + 16}
+                                height={fontSize * 1.6}
+                                fill="rgba(15, 15, 15, 0.85)"
+                                rx={fontSize * 0.4}
+                              />
+                              <text
+                                x={cx} y={cy + fontSize * 0.35}
+                                fill="#fff" fontSize={fontSize}
+                                fontWeight="600" textAnchor="middle"
+                                fontFamily="Inter, system-ui, sans-serif"
+                              >
+                                {m.ip_name}
+                              </text>
+                            </>
+                          )}
                         </g>
                       );
                     })}
@@ -228,10 +242,16 @@ export default function Clearance() {
                           {(best.score * 100).toFixed(0)}%
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-stone-400 mb-2">
+                      <div className="flex items-center gap-1.5 text-xs text-stone-400 mb-2 flex-wrap">
                         <span>{best.confidence}</span>
                         <span>&middot;</span>
                         <span>{best.method}</span>
+                        {best.region && best.region !== "full-image" && (
+                          <>
+                            <span>&middot;</span>
+                            <span className="font-medium text-stone-500">{best.region.replace("-", " ")}</span>
+                          </>
+                        )}
                         {ipMatches.length > 1 && (
                           <>
                             <span>&middot;</span>
@@ -239,6 +259,11 @@ export default function Clearance() {
                           </>
                         )}
                       </div>
+                      {best.justification && (
+                        <p className="text-xs text-stone-600 mb-2 leading-snug line-clamp-2">
+                          {best.justification}
+                        </p>
+                      )}
                       {best.closest_ref_url && (
                         <div className="flex gap-1.5">
                           <div className="border border-stone-100 rounded-lg overflow-hidden bg-stone-50 w-16 h-16 shrink-0">

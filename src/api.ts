@@ -556,6 +556,12 @@ export function triggerReverseSearch(trademarkId: string) {
 
 // --- Clearance (pre-publication IP screening) ---
 
+export type ClearanceRegion =
+  | "top-left" | "top-center" | "top-right"
+  | "middle-left" | "center" | "middle-right"
+  | "bottom-left" | "bottom-center" | "bottom-right"
+  | "full-image";
+
 export interface ClearanceMatch {
   ip_name: string;
   trademark_id: string;
@@ -564,9 +570,12 @@ export interface ClearanceMatch {
   structural_score: number;
   confidence: string;
   bbox: [number, number, number, number];
+  region?: ClearanceRegion;          // coarse spatial cue from the VLM (3×3 grid)
+  justification?: string;             // VLM's one-line rationale
   method: "visual" | "text" | "concept";
   closest_ref_url: string;
   reference_images: Array<{ id: string; image_url: string }>;
+  in_catalog?: boolean;
 }
 
 export interface ClearanceResult {
