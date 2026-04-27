@@ -31,12 +31,12 @@ function MatchCard({ m, dim }: { m: DesignMatch; dim: boolean }) {
           </div>
           {m.product_class && <div className="text-xs text-stone-500 mb-0.5 truncate">{m.product_class}</div>}
           {m.status && <div className="text-xs text-stone-400 mb-1 truncate">{m.status}</div>}
-          {m.inliers !== undefined && m.inliers >= 5 && (
+          {m.inliers !== undefined && m.inliers >= 2 && (
             <div className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mb-2">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              {m.inliers} keypoint matches
+              {m.inliers} structural match{m.inliers === 1 ? "" : "es"} (deformation-aware)
             </div>
           )}
           {m.wipo_link && (

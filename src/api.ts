@@ -617,7 +617,7 @@ export interface DesignMatch {
   wipo_link: string | null;      // official record URL
   preview_url: string;           // signed URL to the design's R2 image
   score: number;                 // cosine similarity 0..1
-  inliers?: number;              // RANSAC inliers from keypoint verifier (≥5 = strong structural match)
+  inliers?: number;              // DALF RANSAC inliers — ≥2 = structurally verified non-rigid match
   bbox?: [number, number, number, number];   // best-tile region (x, y, w, h)
 }
 
