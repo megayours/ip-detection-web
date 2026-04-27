@@ -1,6 +1,62 @@
 import { useState, useEffect, useRef } from "react";
 import ImageUploader from "../components/ImageUploader";
-import { submitDesignMatch, getDesignMatchResult, type DesignMatchResult } from "../api";
+import { submitDesignMatch, getDesignMatchResult, type DesignMatch, type DesignMatchResult } from "../api";
+
+function MatchCard({ m, dim }: { m: DesignMatch; dim: boolean }) {
+  return (
+    <div
+      className={`border border-stone-200 rounded-xl bg-white p-3 hover:border-stone-300 hover:shadow-sm transition-all ${
+        dim ? "opacity-70" : ""
+      }`}
+    >
+      <div className="flex gap-3">
+        <div className="w-20 h-20 shrink-0 border border-stone-100 rounded-lg overflow-hidden bg-stone-50">
+          {m.preview_url ? (
+            <img src={m.preview_url} alt="" className="w-full h-full object-contain" />
+          ) : null}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-bold text-stone-900 truncate">{m.registration_id}</span>
+            <span
+              className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                m.score >= 0.80 ? "bg-red-50 text-red-700" :
+                m.score >= 0.65 ? "bg-amber-50 text-amber-700" :
+                m.score >= 0.50 ? "bg-stone-100 text-stone-700" :
+                "bg-stone-50 text-stone-500"
+              }`}
+            >
+              {(m.score * 100).toFixed(0)}%
+            </span>
+          </div>
+          {m.product_class && <div className="text-xs text-stone-500 mb-0.5 truncate">{m.product_class}</div>}
+          {m.status && <div className="text-xs text-stone-400 mb-1 truncate">{m.status}</div>}
+          {m.inliers !== undefined && m.inliers >= 5 && (
+            <div className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mb-2">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              {m.inliers} keypoint matches
+            </div>
+          )}
+          {m.wipo_link && (
+            <a
+              href={m.wipo_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-stone-700 hover:text-stone-900"
+            >
+              View on WIPO
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Design Match — find registered design patents (WIPO Global Design Database)
@@ -71,6 +127,7 @@ export default function DesignMatch() {
   const isProcessing = !!jobId && (!result || result.status === "pending");
   const isDone = result?.status === "complete";
   const matches = result?.matches ?? [];
+  const weakMatches = result?.weak_matches ?? [];
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -114,7 +171,7 @@ export default function DesignMatch() {
 
       {isDone && (
         <div className="space-y-4">
-          {matches.length === 0 ? (
+          {matches.length === 0 && weakMatches.length === 0 ? (
             <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
               <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -123,11 +180,18 @@ export default function DesignMatch() {
                 No similar registered designs found in the catalog
               </p>
             </div>
-          ) : (
+          ) : matches.length > 0 ? (
             <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
               <span className="text-sm font-medium text-amber-700">
                 {matches.length} potentially-similar registered design{matches.length === 1 ? "" : "s"} found —
                 review the official WIPO record for each
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3 bg-stone-50 border border-stone-200 rounded-xl">
+              <span className="text-sm font-medium text-stone-700">
+                No strong matches, but {weakMatches.length} weaker candidate{weakMatches.length === 1 ? "" : "s"} below threshold —
+                review them below if relevant
               </span>
             </div>
           )}
@@ -147,59 +211,25 @@ export default function DesignMatch() {
               </div>
             </div>
 
-            {matches.length > 0 && (
-              <div className="w-80 shrink-0 space-y-2 max-h-[60vh] overflow-y-auto">
-                {matches.map((m) => (
-                  <div
-                    key={m.design_id}
-                    className="border border-stone-200 rounded-xl bg-white p-3 hover:border-stone-300 hover:shadow-sm transition-all"
-                  >
-                    <div className="flex gap-3">
-                      <div className="w-20 h-20 shrink-0 border border-stone-100 rounded-lg overflow-hidden bg-stone-50">
-                        {m.preview_url ? (
-                          <img src={m.preview_url} alt="" className="w-full h-full object-contain" />
-                        ) : null}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-bold text-stone-900 truncate">
-                            {m.registration_id}
-                          </span>
-                          <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                            m.score >= 0.80 ? "bg-red-50 text-red-700" :
-                            m.score >= 0.65 ? "bg-amber-50 text-amber-700" :
-                            "bg-stone-100 text-stone-600"
-                          }`}>
-                            {(m.score * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                        {m.product_class && (
-                          <div className="text-xs text-stone-500 mb-0.5 truncate">
-                            {m.product_class}
-                          </div>
-                        )}
-                        {m.status && (
-                          <div className="text-xs text-stone-400 mb-2 truncate">
-                            {m.status}
-                          </div>
-                        )}
-                        {m.wipo_link && (
-                          <a
-                            href={m.wipo_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-medium text-stone-700 hover:text-stone-900"
-                          >
-                            View on WIPO
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                            </svg>
-                          </a>
-                        )}
-                      </div>
-                    </div>
+            {(matches.length > 0 || weakMatches.length > 0) && (
+              <div className="w-80 shrink-0 space-y-3 max-h-[60vh] overflow-y-auto">
+                {matches.length > 0 && (
+                  <div className="space-y-2">
+                    {matches.map((m) => (
+                      <MatchCard key={m.design_id} m={m} dim={false} />
+                    ))}
                   </div>
-                ))}
+                )}
+                {weakMatches.length > 0 && (
+                  <div className="space-y-2 pt-3 border-t border-stone-200">
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide pb-1">
+                      Potential matches (below threshold)
+                    </p>
+                    {weakMatches.map((m) => (
+                      <MatchCard key={m.design_id} m={m} dim={true} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -617,6 +617,8 @@ export interface DesignMatch {
   wipo_link: string | null;      // official record URL
   preview_url: string;           // signed URL to the design's R2 image
   score: number;                 // cosine similarity 0..1
+  inliers?: number;              // RANSAC inliers from keypoint verifier (≥5 = strong structural match)
+  bbox?: [number, number, number, number];   // best-tile region (x, y, w, h)
 }
 
 export interface DesignMatchResult {
@@ -626,6 +628,7 @@ export interface DesignMatchResult {
   image_width?: number;
   image_height?: number;
   matches?: DesignMatch[];
+  weak_matches?: DesignMatch[];   // below threshold but above noise — UI can show as "Potential matches"
 }
 
 export async function submitDesignMatch(file: File) {
