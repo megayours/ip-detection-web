@@ -11,6 +11,7 @@ import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
+import DesignMatch from "./pages/DesignMatch";
 import Admin from "./pages/Admin";
 import AdminIpDetail from "./pages/AdminIpDetail";
 
@@ -82,6 +83,10 @@ export default function App() {
         <Route
           path="/clearance"
           element={<ProtectedRoute><Clearance /></ProtectedRoute>}
+        />
+        <Route
+          path="/design-match"
+          element={<ProtectedRoute><DesignMatch /></ProtectedRoute>}
         />
         <Route
           path="/cases"

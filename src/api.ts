@@ -606,6 +606,47 @@ export function getClearanceResult(jobId: string) {
   return request<ClearanceResult>(`/api/clearance/${jobId}`);
 }
 
+// --- Design Match (visual similarity vs WIPO design-patent catalog) ---
+
+export interface DesignMatch {
+  design_id: string;
+  registration_id: string;       // e.g. "015093157-0009"
+  product_class: string | null;  // e.g. "Logos", "Graphic symbols"
+  status: string | null;         // e.g. "Registered and fully published"
+  design_office: string | null;  // e.g. "European Designs"
+  wipo_link: string | null;      // official record URL
+  preview_url: string;           // signed URL to the design's R2 image
+  score: number;                 // cosine similarity 0..1
+}
+
+export interface DesignMatchResult {
+  status: "pending" | "complete" | "failed";
+  error?: string;
+  query_image_url?: string;
+  image_width?: number;
+  image_height?: number;
+  matches?: DesignMatch[];
+}
+
+export async function submitDesignMatch(file: File) {
+  const form = new FormData();
+  form.append("image", file);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API}/api/design-match`, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ job_id: string }>;
+}
+
+export function getDesignMatchResult(jobId: string) {
+  return request<DesignMatchResult>(`/api/design-match/${jobId}`);
+}
+
 // --- Admin (cross-tenant IP reference management) ---
 
 export interface AdminIpSummary {
