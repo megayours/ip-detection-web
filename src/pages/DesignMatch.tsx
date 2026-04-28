@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ImageUploader from "../components/ImageUploader";
-import { submitDesignMatch, getDesignMatchResult, type DesignMatch, type DesignMatchResult } from "../api";
+import { submitDesignMatch, getDesignMatchResult, fetchDesignCategories, type DesignMatch, type DesignMatchResult, type DesignCategory } from "../api";
 
 /**
  * Group sibling designs (same base registration, different design views)
@@ -37,10 +37,21 @@ function MatchCard({ m, dim }: { m: GroupedMatch; dim: boolean }) {
       }`}
     >
       <div className="flex gap-3">
-        <div className="w-20 h-20 shrink-0 border border-stone-100 rounded-lg overflow-hidden bg-stone-50">
-          {m.preview_url ? (
-            <img src={m.preview_url} alt="" className="w-full h-full object-contain" />
-          ) : null}
+        <div className="shrink-0 flex flex-wrap gap-1 max-w-[164px]">
+          {(m.siblings.length > 0 ? m.siblings : [m]).map((s) => (
+            <a
+              key={s.registration_id}
+              href={s.wipo_link || undefined}
+              target={s.wipo_link ? "_blank" : undefined}
+              rel={s.wipo_link ? "noopener noreferrer" : undefined}
+              title={s.registration_id}
+              className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50 hover:border-stone-300 transition"
+            >
+              {s.preview_url ? (
+                <img src={s.preview_url} alt={s.registration_id} className="w-full h-full object-contain" />
+              ) : null}
+            </a>
+          ))}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -116,7 +127,17 @@ export default function DesignMatch() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [result, setResult] = useState<DesignMatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<DesignCategory[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  // Load category list once on mount — populated dynamically from the
+  // indexed catalog so the dropdown reflects what's actually searchable.
+  useEffect(() => {
+    fetchDesignCategories()
+      .then((r) => setCategories(r.categories))
+      .catch(() => { /* non-fatal — selector just stays empty */ });
+  }, []);
 
   useEffect(() => {
     if (!jobId) return;
@@ -149,11 +170,20 @@ export default function DesignMatch() {
     setError(null);
     setResult(null);
     try {
-      const { job_id } = await submitDesignMatch(f);
+      const { job_id } = await submitDesignMatch(f, Array.from(selectedCategories));
       setJobId(job_id);
     } catch (e: any) {
       setError(e.message);
     }
+  }
+
+  function toggleCategory(name: string) {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
   }
 
   function reset() {
@@ -194,11 +224,54 @@ export default function DesignMatch() {
       </div>
 
       {!file && (
-        <ImageUploader
-          onUpload={handleUpload}
-          multiple={false}
-          label="Drop a design to find similar registered designs"
-        />
+        <>
+          {categories.length > 0 && (
+            <div className="mb-4 p-3 border border-stone-200 rounded-xl bg-white">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-stone-700">
+                  Narrow search by category
+                  <span className="ml-1.5 font-normal text-stone-400">
+                    (optional — leave empty to search the whole catalog)
+                  </span>
+                </div>
+                {selectedCategories.size > 0 && (
+                  <button
+                    onClick={() => setSelectedCategories(new Set())}
+                    className="text-xs text-stone-500 hover:text-stone-900"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map((cat) => {
+                  const active = selectedCategories.has(cat.name);
+                  return (
+                    <button
+                      key={cat.name}
+                      onClick={() => toggleCategory(cat.name)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                        active
+                          ? "bg-stone-900 border-stone-900 text-white"
+                          : "bg-white border-stone-200 text-stone-700 hover:border-stone-400"
+                      }`}
+                    >
+                      {cat.name}
+                      <span className={`ml-1.5 ${active ? "text-stone-300" : "text-stone-400"}`}>
+                        {cat.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <ImageUploader
+            onUpload={handleUpload}
+            multiple={false}
+            label="Drop a design to find similar registered designs"
+          />
+        </>
       )}
 
       {error && (
