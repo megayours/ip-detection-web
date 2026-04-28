@@ -121,7 +121,7 @@ function MatchCard({ m, dim }: { m: GroupedMatch; dim: boolean }) {
  * because that's where applicant / filing date / status live — we don't have
  * that locally.
  */
-export default function DesignMatch() {
+export default function ClearanceDesigns() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -216,23 +216,17 @@ export default function DesignMatch() {
   const weakMatches = allWeakMatches.filter(passesFilter);
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Design Match</h1>
-          <p className="text-xs text-stone-400 mt-0.5">
-            Visual search against the WIPO Global Design Database
-          </p>
-        </div>
-        {file && (
+    <div>
+      {file && (
+        <div className="flex justify-end mb-3">
           <button
             onClick={reset}
             className="px-3 py-1 text-xs font-medium border border-stone-200 rounded-full hover:bg-stone-50 transition-colors"
           >
             Check another
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {!file && (
         <ImageUploader

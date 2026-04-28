@@ -60,9 +60,6 @@ export default function Nav() {
               <Link to="/clearance" className={linkClass("/clearance")}>
                 Clearance
               </Link>
-              <Link to="/design-match" className={linkClass("/design-match")}>
-                Design Match
-              </Link>
               <Link to="/cases" className={linkClass("/cases")}>
                 Cases
               </Link>
