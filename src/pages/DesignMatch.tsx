@@ -2,7 +2,34 @@ import { useState, useEffect, useRef } from "react";
 import ImageUploader from "../components/ImageUploader";
 import { submitDesignMatch, getDesignMatchResult, type DesignMatch, type DesignMatchResult } from "../api";
 
-function MatchCard({ m, dim }: { m: DesignMatch; dim: boolean }) {
+/**
+ * Group sibling designs (same base registration, different design views)
+ * into a single result. EUIPO designs split one filing into N views with
+ * suffix -0001, -0002, etc. — to a clearance reviewer they're all the
+ * same registered design and should display as one card. Within each
+ * group we keep the highest-scoring view as the representative.
+ */
+type GroupedMatch = DesignMatch & { sibling_count: number; siblings: DesignMatch[] };
+
+function groupByBaseId(matches: DesignMatch[]): GroupedMatch[] {
+  const buckets = new Map<string, DesignMatch[]>();
+  for (const m of matches) {
+    const key = m.base_id || m.registration_id;
+    const arr = buckets.get(key) ?? [];
+    arr.push(m);
+    buckets.set(key, arr);
+  }
+  const grouped: GroupedMatch[] = [];
+  for (const arr of buckets.values()) {
+    arr.sort((a, b) => b.score - a.score);
+    const best = arr[0];
+    grouped.push({ ...best, sibling_count: arr.length, siblings: arr });
+  }
+  grouped.sort((a, b) => b.score - a.score);
+  return grouped;
+}
+
+function MatchCard({ m, dim }: { m: GroupedMatch; dim: boolean }) {
   return (
     <div
       className={`border border-stone-200 rounded-xl bg-white p-3 hover:border-stone-300 hover:shadow-sm transition-all ${
@@ -17,7 +44,14 @@ function MatchCard({ m, dim }: { m: DesignMatch; dim: boolean }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-bold text-stone-900 truncate">{m.registration_id}</span>
+            <span className="text-sm font-bold text-stone-900 truncate">
+              {m.base_id || m.registration_id}
+              {m.sibling_count > 1 && (
+                <span className="ml-1.5 text-xs font-normal text-stone-500">
+                  · {m.sibling_count} views
+                </span>
+              )}
+            </span>
             <span
               className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
                 m.score >= 0.80 ? "bg-red-50 text-red-700" :
@@ -31,12 +65,20 @@ function MatchCard({ m, dim }: { m: DesignMatch; dim: boolean }) {
           </div>
           {m.product_class && <div className="text-xs text-stone-500 mb-0.5 truncate">{m.product_class}</div>}
           {m.status && <div className="text-xs text-stone-400 mb-1 truncate">{m.status}</div>}
-          {m.inliers !== undefined && m.inliers >= 2 && (
+          {/* Only show the structural-match badge when BOTH signals agree:
+              cosine ≥ 0.55 (DINOv2 says these are similar) AND inliers ≥ 5
+              (DALF found enough corroborating local features). Either signal
+              alone is unreliable: low-cosine + high-inliers happens between
+              any two visually-rich abstract designs that share generic
+              curve/edge fragments (e.g. a dental logo's swirl vs. helmet
+              biomorphic pattern), and high-cosine + zero-inliers is just
+              ordinary embedding similarity without structural verification. */}
+          {m.inliers !== undefined && m.inliers >= 5 && m.score >= 0.55 && (
             <div className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mb-2">
               <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              {m.inliers} structural match{m.inliers === 1 ? "" : "es"} (deformation-aware)
+              Structural match confirmed
             </div>
           )}
           {m.wipo_link && (
@@ -126,8 +168,11 @@ export default function DesignMatch() {
 
   const isProcessing = !!jobId && (!result || result.status === "pending");
   const isDone = result?.status === "complete";
-  const matches = result?.matches ?? [];
-  const weakMatches = result?.weak_matches ?? [];
+  const rawMatches = result?.matches ?? [];
+  const rawWeakMatches = result?.weak_matches ?? [];
+  // Group sibling design views (same registration) into one card each.
+  const matches = groupByBaseId(rawMatches);
+  const weakMatches = groupByBaseId(rawWeakMatches);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">

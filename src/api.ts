@@ -611,6 +611,7 @@ export function getClearanceResult(jobId: string) {
 export interface DesignMatch {
   design_id: string;
   registration_id: string;       // e.g. "015093157-0009"
+  base_id?: string;              // e.g. "015093157" — same registration, used to group sibling design views
   product_class: string | null;  // e.g. "Logos", "Graphic symbols"
   status: string | null;         // e.g. "Registered and fully published"
   design_office: string | null;  // e.g. "European Designs"
