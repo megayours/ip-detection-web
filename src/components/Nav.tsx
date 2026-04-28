@@ -54,20 +54,8 @@ export default function Nav() {
               <Link to="/registry" className={linkClass("/registry")}>
                 Registry
               </Link>
-              <Link to="/check" className={linkClass("/check")}>
-                Scan
-              </Link>
               <Link to="/clearance" className={linkClass("/clearance")}>
                 Clearance
-              </Link>
-              <Link to="/cases" className={linkClass("/cases")}>
-                Cases
-              </Link>
-              <Link to="/test" className={linkClass("/test")}>
-                Test
-              </Link>
-              <Link to="/reviews" className={linkClass("/reviews")}>
-                Reviews
               </Link>
               {user.role === "admin" && (
                 <Link to="/admin" className={linkClass("/admin")}>
