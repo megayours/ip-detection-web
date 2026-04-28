@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import ImageUploader from "../components/ImageUploader";
-import { submitDesignMatch, getDesignMatchResult, fetchDesignCategories, type DesignMatch, type DesignMatchResult, type DesignCategory } from "../api";
+import { submitDesignMatch, getDesignMatchResult, type DesignMatch, type DesignMatchResult } from "../api";
 
 /**
  * Group sibling designs (same base registration, different design views)
@@ -127,17 +127,8 @@ export default function DesignMatch() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [result, setResult] = useState<DesignMatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<DesignCategory[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
-
-  // Load category list once on mount — populated dynamically from the
-  // indexed catalog so the dropdown reflects what's actually searchable.
-  useEffect(() => {
-    fetchDesignCategories()
-      .then((r) => setCategories(r.categories))
-      .catch(() => { /* non-fatal — selector just stays empty */ });
-  }, []);
 
   useEffect(() => {
     if (!jobId) return;
@@ -169,8 +160,9 @@ export default function DesignMatch() {
     setPreview(URL.createObjectURL(f));
     setError(null);
     setResult(null);
+    setActiveCategories(new Set());
     try {
-      const { job_id } = await submitDesignMatch(f, Array.from(selectedCategories));
+      const { job_id } = await submitDesignMatch(f);
       setJobId(job_id);
     } catch (e: any) {
       setError(e.message);
@@ -178,7 +170,7 @@ export default function DesignMatch() {
   }
 
   function toggleCategory(name: string) {
-    setSelectedCategories((prev) => {
+    setActiveCategories((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -201,8 +193,27 @@ export default function DesignMatch() {
   const rawMatches = result?.matches ?? [];
   const rawWeakMatches = result?.weak_matches ?? [];
   // Group sibling design views (same registration) into one card each.
-  const matches = groupByBaseId(rawMatches);
-  const weakMatches = groupByBaseId(rawWeakMatches);
+  const allMatches = groupByBaseId(rawMatches);
+  const allWeakMatches = groupByBaseId(rawWeakMatches);
+
+  // Categories are derived from the actual returned hits — only the classes
+  // that show up in this query's results, so the filter is always relevant.
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of [...allMatches, ...allWeakMatches]) {
+      const c = m.product_class;
+      if (!c) continue;
+      counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [allMatches, allWeakMatches]);
+
+  const passesFilter = (m: { product_class: string | null }) =>
+    activeCategories.size === 0 || (m.product_class !== null && activeCategories.has(m.product_class));
+  const matches = allMatches.filter(passesFilter);
+  const weakMatches = allWeakMatches.filter(passesFilter);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -224,54 +235,11 @@ export default function DesignMatch() {
       </div>
 
       {!file && (
-        <>
-          {categories.length > 0 && (
-            <div className="mb-4 p-3 border border-stone-200 rounded-xl bg-white">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-medium text-stone-700">
-                  Narrow search by category
-                  <span className="ml-1.5 font-normal text-stone-400">
-                    (optional — leave empty to search the whole catalog)
-                  </span>
-                </div>
-                {selectedCategories.size > 0 && (
-                  <button
-                    onClick={() => setSelectedCategories(new Set())}
-                    className="text-xs text-stone-500 hover:text-stone-900"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map((cat) => {
-                  const active = selectedCategories.has(cat.name);
-                  return (
-                    <button
-                      key={cat.name}
-                      onClick={() => toggleCategory(cat.name)}
-                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                        active
-                          ? "bg-stone-900 border-stone-900 text-white"
-                          : "bg-white border-stone-200 text-stone-700 hover:border-stone-400"
-                      }`}
-                    >
-                      {cat.name}
-                      <span className={`ml-1.5 ${active ? "text-stone-300" : "text-stone-400"}`}>
-                        {cat.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <ImageUploader
-            onUpload={handleUpload}
-            multiple={false}
-            label="Drop a design to find similar registered designs"
-          />
-        </>
+        <ImageUploader
+          onUpload={handleUpload}
+          multiple={false}
+          label="Drop a design to find similar registered designs"
+        />
       )}
 
       {error && (
@@ -329,8 +297,46 @@ export default function DesignMatch() {
               </div>
             </div>
 
-            {(matches.length > 0 || weakMatches.length > 0) && (
+            {(allMatches.length > 0 || allWeakMatches.length > 0) && (
               <div className="w-80 shrink-0 space-y-3 max-h-[60vh] overflow-y-auto">
+                {categoryCounts.length > 1 && (
+                  <div className="pb-2 border-b border-stone-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wide">
+                        Filter by category
+                      </span>
+                      {activeCategories.size > 0 && (
+                        <button
+                          onClick={() => setActiveCategories(new Set())}
+                          className="text-[11px] text-stone-500 hover:text-stone-900"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {categoryCounts.map((cat) => {
+                        const active = activeCategories.has(cat.name);
+                        return (
+                          <button
+                            key={cat.name}
+                            onClick={() => toggleCategory(cat.name)}
+                            className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                              active
+                                ? "bg-stone-900 border-stone-900 text-white"
+                                : "bg-white border-stone-200 text-stone-700 hover:border-stone-400"
+                            }`}
+                          >
+                            {cat.name}
+                            <span className={`ml-1 ${active ? "text-stone-300" : "text-stone-400"}`}>
+                              {cat.count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 {matches.length > 0 && (
                   <div className="space-y-2">
                     {matches.map((m) => (
@@ -346,6 +352,11 @@ export default function DesignMatch() {
                     {weakMatches.map((m) => (
                       <MatchCard key={m.design_id} m={m} dim={true} />
                     ))}
+                  </div>
+                )}
+                {matches.length === 0 && weakMatches.length === 0 && activeCategories.size > 0 && (
+                  <div className="text-xs text-stone-500 p-3 bg-stone-50 rounded-lg">
+                    No matches in the selected categor{activeCategories.size === 1 ? "y" : "ies"}.
                   </div>
                 )}
               </div>

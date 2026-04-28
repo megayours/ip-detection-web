@@ -632,12 +632,9 @@ export interface DesignMatchResult {
   weak_matches?: DesignMatch[];   // below threshold but above noise — UI can show as "Potential matches"
 }
 
-export async function submitDesignMatch(file: File, productClasses: string[] = []) {
+export async function submitDesignMatch(file: File) {
   const form = new FormData();
   form.append("image", file);
-  if (productClasses.length > 0) {
-    form.append("product_classes", productClasses.join(","));
-  }
 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -652,15 +649,6 @@ export async function submitDesignMatch(file: File, productClasses: string[] = [
 
 export function getDesignMatchResult(jobId: string) {
   return request<DesignMatchResult>(`/api/design-match/${jobId}`);
-}
-
-export interface DesignCategory {
-  name: string;
-  count: number;
-}
-
-export function fetchDesignCategories() {
-  return request<{ categories: DesignCategory[] }>("/api/design-match/categories");
 }
 
 // --- Admin (cross-tenant IP reference management) ---
