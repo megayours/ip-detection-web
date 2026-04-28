@@ -145,47 +145,46 @@ export default function ClearanceBrands() {
                     preserveAspectRatio="xMidYMid meet"
                     className="absolute inset-0 w-full h-full pointer-events-none"
                   >
-                    {/* Soft radial-gradient halos. Coarse spatial cue — no
-                        false precision. Selected IP renders at full opacity;
-                        others fade to a faint hint until selected. */}
-                    <defs>
-                      {Array.from(ipColorMap.entries()).map(([ipName, color]) => (
-                        <radialGradient key={ipName} id={`halo-${ipName.replace(/[^a-zA-Z0-9]/g, "_")}`} cx="50%" cy="50%" r="50%">
-                          <stop offset="0%" stopColor={color} stopOpacity="0.55" />
-                          <stop offset="55%" stopColor={color} stopOpacity="0.20" />
-                          <stop offset="100%" stopColor={color} stopOpacity="0" />
-                        </radialGradient>
-                      ))}
-                    </defs>
+                    {/* Tight rectangle outlines around the VLM-detected bbox.
+                        Double-stroked (white halo + colored core) so the box
+                        stays visible against both light and dark backgrounds. */}
                     {matches.map((m, i) => {
                       const isSelected = selectedIp === m.ip_name;
                       const isDimmed = selectedIp !== null && !isSelected;
-                      const opacity = isDimmed ? 0.10 : (isSelected ? 1.0 : 0.55);
-                      // Halo center = bbox center; radius = ~larger half-dimension
-                      // of the coarse region cell (regions are 1/3 of the image).
-                      const cx = m.bbox[0] + m.bbox[2] / 2;
-                      const cy = m.bbox[1] + m.bbox[3] / 2;
-                      const r = Math.max(m.bbox[2], m.bbox[3]) * 0.62;
-                      const fontSize = Math.max(result!.image_width! / 50, 14);
-                      const gradientId = `halo-${m.ip_name.replace(/[^a-zA-Z0-9]/g, "_")}`;
-                      const showLabel = isSelected || (!selectedIp && matches.length <= 6);
+                      const opacity = isDimmed ? 0.15 : 1.0;
+                      const color = ipColorMap.get(m.ip_name) || "#ef4444";
+                      const [bx, by, bw, bh] = m.bbox;
+                      const fontSize = Math.max(result!.image_width! / 60, 12);
+                      const strokeWidth = Math.max(result!.image_width! / 400, 2);
+                      const showLabel = isSelected || (!selectedIp && matches.length <= 8);
+                      const labelW = fontSize * m.ip_name.length * 0.6 + 16;
+                      const labelH = fontSize * 1.6;
+                      // Anchor the label above the box; flip below if too close to top.
+                      const labelY = by - labelH - 4 < 0 ? by + 4 : by - labelH - 4;
                       return (
                         <g key={i} opacity={opacity}>
-                          <circle cx={cx} cy={cy} r={r} fill={`url(#${gradientId})`} />
+                          {/* white halo behind the colored stroke for contrast */}
+                          <rect
+                            x={bx} y={by} width={bw} height={bh}
+                            fill="none" stroke="#ffffff" strokeWidth={strokeWidth * 2}
+                            strokeOpacity={0.85} rx={strokeWidth}
+                          />
+                          <rect
+                            x={bx} y={by} width={bw} height={bh}
+                            fill={color} fillOpacity={0.06}
+                            stroke={color} strokeWidth={strokeWidth} rx={strokeWidth}
+                          />
                           {showLabel && (
                             <>
                               <rect
-                                x={cx - fontSize * m.ip_name.length * 0.30 - 8}
-                                y={cy - fontSize * 0.9}
-                                width={fontSize * m.ip_name.length * 0.60 + 16}
-                                height={fontSize * 1.6}
-                                fill="rgba(15, 15, 15, 0.85)"
-                                rx={fontSize * 0.4}
+                                x={bx} y={labelY}
+                                width={labelW} height={labelH}
+                                fill={color} rx={fontSize * 0.3}
                               />
                               <text
-                                x={cx} y={cy + fontSize * 0.35}
-                                fill="#fff" fontSize={fontSize}
-                                fontWeight="600" textAnchor="middle"
+                                x={bx + 8} y={labelY + labelH * 0.7}
+                                fill="#ffffff" fontSize={fontSize}
+                                fontWeight="600" textAnchor="start"
                                 fontFamily="Inter, system-ui, sans-serif"
                               >
                                 {m.ip_name}

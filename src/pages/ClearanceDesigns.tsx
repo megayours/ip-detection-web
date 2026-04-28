@@ -76,6 +76,19 @@ function MatchCard({ m, dim }: { m: GroupedMatch; dim: boolean }) {
           </div>
           {m.product_class && <div className="text-xs text-stone-500 mb-0.5 truncate">{m.product_class}</div>}
           {m.status && <div className="text-xs text-stone-400 mb-1 truncate">{m.status}</div>}
+          {m.vlm_reasoning && (
+            <div
+              className={`text-xs mb-1 px-2 py-1 rounded leading-snug ${
+                m.vlm_verdict === "present"
+                  ? "bg-emerald-50 text-emerald-800"
+                  : m.vlm_verdict === "unclear"
+                  ? "bg-amber-50 text-amber-800"
+                  : "bg-stone-50 text-stone-600"
+              }`}
+            >
+              {m.vlm_reasoning}
+            </div>
+          )}
           {/* Only show the structural-match badge when BOTH signals agree:
               cosine ≥ 0.55 (DINOv2 says these are similar) AND inliers ≥ 5
               (DALF found enough corroborating local features). Either signal

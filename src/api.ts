@@ -617,9 +617,12 @@ export interface DesignMatch {
   design_office: string | null;  // e.g. "European Designs"
   wipo_link: string | null;      // official record URL
   preview_url: string;           // signed URL to the design's R2 image
-  score: number;                 // cosine similarity 0..1
+  score: number;                 // displayed confidence — VLM confidence when reranked, else cosine similarity 0..1
   inliers?: number;              // DALF RANSAC inliers — ≥2 = structurally verified non-rigid match
   bbox?: [number, number, number, number];   // best-tile region (x, y, w, h)
+  vlm_verdict?: "present" | "absent" | "unclear";   // Gemini precision filter — absent matches are dropped server-side
+  vlm_confidence?: number;       // 0..1 — VLM's calibrated confidence; replaces `score` when present
+  vlm_reasoning?: string;        // one-line human-readable rationale from the VLM
 }
 
 export interface DesignMatchResult {

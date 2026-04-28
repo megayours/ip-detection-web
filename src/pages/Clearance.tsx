@@ -18,7 +18,7 @@ type Mode = "brands" | "designs";
 const MODE_COPY: Record<Mode, { title: string; subtitle: string }> = {
   brands: {
     title: "Detect Brands",
-    subtitle: "Pre-screen images against your registered trademarks",
+    subtitle: "Pre-screen images against known brands",
   },
   designs: {
     title: "Detect Similar Designs",
