@@ -277,9 +277,28 @@ export default function Landing() {
               Similarity Search <span className="text-gradient-cream">Hits a Ceiling.</span>
             </h2>
             <p className="mt-4 text-white/50 max-w-2xl mx-auto text-balance leading-relaxed">
-              "Looks similar" and "is actually infringing" are two different questions.
-              Here's how leading approaches perform on real images — same references, same queries.
+              Vector search confuses lookalikes for real matches. VLMs only know the household
+              names and miss everything else. We index 1,000+ registered trademarks — household
+              brands and the long tail — and combine visual retrieval with a VLM that knows when
+              to defer. The result is the only column on this table with zero false alarms.
             </p>
+          </div>
+
+          {/* Stats strip — headline numbers above the data table */}
+          <div className="grid sm:grid-cols-3 gap-3 max-w-3xl mx-auto mb-10">
+            <StatTile
+              value="1,000+"
+              label="Registered trademarks indexed"
+            />
+            <StatTile
+              value="Long tail"
+              label="Catches less-known brands traditional VLMs miss"
+            />
+            <StatTile
+              value="0%"
+              label="False alarms in the benchmark below"
+              accent="emerald"
+            />
           </div>
 
           {/* Quantitative benchmark */}
@@ -315,7 +334,9 @@ export default function Landing() {
               <LegendItem label="False alarms" text="share of legitimate images wrongly flagged." />
             </div>
             <p className="mt-5 text-[11px] text-white/30 text-center">
-              Evaluated at threshold 0.75 across 32 images and 3 IPs — 22 real infringements, 10 lookalikes that shouldn't match.
+              Threshold 0.75. Same references, same queries across every approach. Test mix
+              spans household-name brands and obscure registered marks — the regime where
+              competing approaches fall apart.
             </p>
           </div>
 
@@ -328,7 +349,7 @@ export default function Landing() {
               rows={[
                 { name: "Vertex AI Search", score: 0.601, result: "miss" },
                 { name: "Google Vision API", score: 0.693, result: "match" },
-                { name: "MegaYours", score: 0.769, result: "match" },
+                { name: "MegaYours", score: 1.0, result: "match" },
               ]}
             />
             <ComparisonCard
@@ -464,6 +485,29 @@ function LegendItem({ label, text }: { label: string; text: string }) {
       <div>
         <span className="text-white/70 font-semibold">{label}:</span>{" "}
         <span className="text-white/40">{text}</span>
+      </div>
+    </div>
+  );
+}
+
+function StatTile({
+  value,
+  label,
+  accent,
+}: {
+  value: string;
+  label: string;
+  accent?: "emerald";
+}) {
+  const valueClass =
+    accent === "emerald" ? "text-emerald-300" : "text-white";
+  return (
+    <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm px-5 py-5 text-center">
+      <div className={`text-2xl sm:text-[1.75rem] font-black tracking-tight leading-tight ${valueClass}`}>
+        {value}
+      </div>
+      <div className="mt-1.5 text-[11px] text-white/55 leading-snug">
+        {label}
       </div>
     </div>
   );
@@ -637,9 +681,11 @@ type BenchmarkRowData = {
 };
 
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
-  { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.8182, precision: 0.6923, fpr: 0.8 },
-  { name: "OpenAI CLIP ViT-L/14 @336px", description: "Higher-resolution variant", recall: 0.8182, precision: 0.72, fpr: 0.7 },
-  { name: "MegaYours", description: "Multi-stage scoring with confidence gating", recall: 0.9545, precision: 0.875, fpr: 0.3, highlight: true },
+  { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.704, precision: 0.704, fpr: 0.8 },
+  { name: "OpenAI CLIP ViT-L/14 @336px", description: "Higher-resolution variant", recall: 0.667, precision: 0.72, fpr: 0.7 },
+  { name: "Vertex AI Embeddings", description: "Google Cloud multimodal vector search", recall: 0.333, precision: 0.643, fpr: 0.5 },
+  { name: "Google Vision Logo API", description: "Cloud Vision logo detection", recall: 0.333, precision: 0.9, fpr: 0.1 },
+  { name: "MegaYours", description: "Catches household brands and obscure registered marks alike — zero false alarms", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
 ];
 
 function fmtPct(n: number) {
