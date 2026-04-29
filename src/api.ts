@@ -562,6 +562,8 @@ export type ClearanceRegion =
   | "bottom-left" | "bottom-center" | "bottom-right"
   | "full-image";
 
+export type ClearanceEvidence = "embedding" | "vlm";
+
 export interface ClearanceMatch {
   ip_name: string;
   trademark_id: string;
@@ -576,6 +578,9 @@ export interface ClearanceMatch {
   closest_ref_url: string;
   reference_images: Array<{ id: string; image_url: string }>;
   in_catalog?: boolean;
+  // Hybrid-mode signal: which pipelines found this match. ["embedding","vlm"]
+  // means both agreed; missing/empty means single-pipeline mode (legacy).
+  evidence?: ClearanceEvidence[];
 }
 
 export interface ClearanceResult {

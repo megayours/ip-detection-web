@@ -1,11 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import ImageUploader from "../components/ImageUploader";
-import { submitClearance, getClearanceResult, type ClearanceResult } from "../api";
+import { submitClearance, getClearanceResult, type ClearanceResult, type ClearanceMatch } from "../api";
 
 const MATCH_COLORS = [
   "#ef4444", "#f59e0b", "#8b5cf6", "#06b6d4",
   "#10b981", "#ec4899", "#f97316", "#6366f1",
 ];
+
+// Hybrid-mode badge: surfaces which pipelines (DINOv3 embedding vs Gemini VLM)
+// found a given match. Cross-corroboration ("VLM + embedding") is the strongest
+// signal; VLM-only with no trademark_id flags brands the catalog doesn't cover.
+function evidenceBadge(m: ClearanceMatch): { label: string; cls: string } | null {
+  const ev = m.evidence ?? [];
+  if (ev.length === 0) return null;
+  const hasEmbed = ev.includes("embedding");
+  const hasVlm = ev.includes("vlm");
+  const hasId = !!m.trademark_id;
+  if (hasEmbed && hasVlm) return { label: "VLM + embedding", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  if (hasEmbed) return { label: "Embedding", cls: "bg-blue-50 text-blue-700 border-blue-200" };
+  if (hasVlm && !hasId) return { label: "VLM · unverified", cls: "bg-amber-50 text-amber-700 border-amber-200" };
+  if (hasVlm) return { label: "VLM", cls: "bg-violet-50 text-violet-700 border-violet-200" };
+  return null;
+}
 
 export default function ClearanceBrands() {
   const [file, setFile] = useState<File | null>(null);
@@ -237,6 +253,16 @@ export default function ClearanceBrands() {
                           {(best.score * 100).toFixed(0)}%
                         </span>
                       </div>
+                      {(() => {
+                        const badge = evidenceBadge(best);
+                        return badge ? (
+                          <div className="mb-2">
+                            <span className={`inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="flex items-center gap-1.5 text-xs text-stone-400 mb-2 flex-wrap">
                         <span>{best.confidence}</span>
                         <span>&middot;</span>
