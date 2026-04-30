@@ -274,15 +274,15 @@ export default function Landing() {
               Real Benchmark Results
             </div>
             <h2 className="text-3xl sm:text-[2.75rem] font-black tracking-[-0.03em] leading-[1.05] text-balance">
-              Pure VLMs Are <span className="text-gradient-cream">Blind to the Long Tail.</span>
+              Every Other Approach <span className="text-gradient-cream">Picks a Side.</span>
             </h2>
             <p className="mt-4 text-white/50 max-w-2xl mx-auto text-balance leading-relaxed">
-              Ask Gemini or GPT-4.1 to identify every brand in an image and they'll nail the
-              household names — Coca-Cola, Donald Duck, Gucci. Show them an obscure EUIPO-registered
-              mark they've never been trained on and they go silent. Vector search confuses
-              lookalikes for real matches. We index 1,000+ registered trademarks — household
-              brands and the long tail — and combine visual retrieval with a VLM that knows when
-              to defer.
+              Vector-search services like <span className="text-white/80">Clarifai</span> catch the
+              long tail — but flag Daffy as Donald, Pepsi as Coca-Cola, Prada as Gucci. Pure VLMs
+              like <span className="text-white/80">Gemini</span> and <span className="text-white/80">GPT-4.1</span>
+              don't hallucinate, but they go silent on registered marks they've never been trained on.
+              We index 1,000+ trademarks and combine visual retrieval with a VLM verifier — recall
+              of the embedding services, precision of the VLMs.
             </p>
           </div>
 
@@ -293,8 +293,8 @@ export default function Landing() {
               label="Registered trademarks indexed — including the long tail"
             />
             <StatTile
-              value="Where VLMs go silent"
-              label="Gemini & GPT-4.1 return no detections on less-known brands"
+              value="Two failure modes"
+              label="VLMs miss less-known brands · vector search flags every lookalike"
             />
             <StatTile
               value="0%"
@@ -342,41 +342,53 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* Long-tail callout — the specific cases where VLMs fail */}
-          <div className="mb-14 max-w-4xl mx-auto rounded-3xl border border-amber-300/15 bg-amber-300/[0.04] backdrop-blur-sm p-7 sm:p-8">
-            <div className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.22em] uppercase text-amber-300/80 mb-3">
+          {/* Two failure modes callout — the core differentiator */}
+          <div className="mb-14 max-w-5xl mx-auto rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-sm p-7 sm:p-8">
+            <div className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.22em] uppercase text-white/50 mb-3">
               <span className="w-1 h-1 rounded-full bg-amber-300" />
-              Where the VLMs go silent
+              Two opposing failure modes — we sit at the intersection
             </div>
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-4 text-balance">
-              On EUIPO-registered marks outside their training set,
-              <span className="text-amber-200/90"> the VLMs return no detections at all.</span>
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-6 text-balance">
+              Vector search flags every lookalike. Pure VLMs go silent on the long tail.
+              <span className="text-emerald-200/90"> Our pipeline does neither.</span>
             </h3>
-            <div className="grid sm:grid-cols-2 gap-5 text-sm">
-              <div>
-                <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-white/40 mb-2">
-                  Gemini missed
+            <div className="grid md:grid-cols-2 gap-5 text-sm">
+              {/* Vector-search failure mode */}
+              <div className="rounded-2xl border border-red-300/15 bg-red-500/[0.04] p-5">
+                <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-red-200/70 mb-3">
+                  Clarifai · Vertex · CLIP — flagged as match
                 </div>
-                <ul className="space-y-1.5 text-white/75">
-                  <li>· <span className="font-semibold text-white">Arctic Berry</span> — advertisement banner</li>
-                  <li>· <span className="font-semibold text-white">EcoFloor</span> — cropped logo variant</li>
+                <ul className="space-y-1.5 text-white/75 mb-3">
+                  <li>· <span className="font-semibold text-white">Daffy Duck</span>, <span className="font-semibold text-white">Howard the Duck</span>, <span className="font-semibold text-white">Mickey Mouse</span>, <span className="font-semibold text-white">Rubber Duck</span> → all "Donald Duck"</li>
+                  <li>· <span className="font-semibold text-white">Pepsi</span>, <span className="font-semibold text-white">Virgin Cola</span>, generic red soda → all "Coca-Cola"</li>
+                  <li>· <span className="font-semibold text-white">Prada</span>, <span className="font-semibold text-white">Chanel</span>, <span className="font-semibold text-white">Dolce&nbsp;&amp;&nbsp;Gabbana</span> → all "Gucci"</li>
                 </ul>
+                <p className="text-[11px] text-white/40 leading-relaxed">
+                  Pure visual similarity can't distinguish a brand from its competitors —
+                  Clarifai posts <span className="text-red-200/80 font-semibold">80% false-alarm rate</span> on this benchmark.
+                </p>
               </div>
-              <div>
-                <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-white/40 mb-2">
-                  GPT-4.1 missed
+              {/* VLM failure mode */}
+              <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.04] p-5">
+                <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-amber-200/70 mb-3">
+                  Gemini · GPT-4.1 — returned nothing
                 </div>
-                <ul className="space-y-1.5 text-white/75">
-                  <li>· <span className="font-semibold text-white">Arctic Berry</span>, <span className="font-semibold text-white">RILLOS</span>, <span className="font-semibold text-white">EcoFloor</span> — all three less-known marks</li>
-                  <li>· Two stylised <span className="font-semibold text-white">Donald Duck</span> renderings (AI-generated, hand-drawn)</li>
+                <ul className="space-y-1.5 text-white/75 mb-3">
+                  <li>· <span className="font-semibold text-white">Arctic Berry</span> — both VLMs silent</li>
+                  <li>· <span className="font-semibold text-white">EcoFloor</span>, <span className="font-semibold text-white">RILLOS</span> — outside the household-name training set</li>
+                  <li>· Stylised <span className="font-semibold text-white">Donald Duck</span> renderings (AI-generated, hand-drawn) — GPT-4.1 didn't recognise them</li>
                 </ul>
+                <p className="text-[11px] text-white/40 leading-relaxed">
+                  VLMs score <span className="text-amber-200/80 font-semibold">100% precision</span>
+                  when they answer — they don't hallucinate. They just go quiet on the long tail.
+                </p>
               </div>
             </div>
-            <p className="mt-5 text-xs text-white/45 leading-relaxed">
-              Both models score <span className="text-white/70 font-semibold">100% precision</span> when
-              they answer — they don't hallucinate brand names. The failure mode is recall, not noise.
-              That's why our pipeline pairs a VLM with visual retrieval: if the model has never heard of
-              the mark, retrieval against the indexed catalog still finds it.
+            <p className="mt-6 text-xs text-white/55 leading-relaxed text-center max-w-3xl mx-auto">
+              Our pipeline <span className="text-emerald-200/90 font-semibold">retrieves first, verifies second</span>.
+              Visual retrieval against 1,000+ indexed marks catches the long tail like Clarifai does.
+              A VLM verifier on top suppresses the lookalikes that retrieval false-positives on. Net result:
+              the recall of the embedding services, the precision of the VLMs.
             </p>
           </div>
 
@@ -388,7 +400,7 @@ export default function Landing() {
               verdict="match"
               rows={[
                 { name: "Vertex AI Search", score: 0.601, result: "miss" },
-                { name: "Google Vision API", score: 0.693, result: "match" },
+                { name: "Clarifai Visual Search", score: 0.779, result: "match" },
                 { name: "Gemini (no pipeline)", score: 1.0, result: "match" },
                 { name: "MegaYours", score: 1.0, result: "match" },
               ]}
@@ -400,7 +412,7 @@ export default function Landing() {
               verdict="no-match"
               rows={[
                 { name: "Vertex AI Search", score: 0.875, result: "false-alarm" },
-                { name: "Google Vision API", score: null, result: "miss", note: "Cannot detect characters" },
+                { name: "Clarifai Visual Search", score: 0.882, result: "false-alarm", note: "Top hit was a Donald Duck reference" },
                 { name: "Gemini (no pipeline)", score: null, result: "no-match" },
                 { name: "MegaYours", score: null, result: "no-match" },
               ]}
@@ -408,9 +420,10 @@ export default function Landing() {
             <ComparisonCard
               image={`${import.meta.env.BASE_URL}comparison/arctic_berry_banner.png`}
               title="Arctic Berry banner"
-              subtitle="EUIPO-registered mark outside the household-name VLM training set"
+              subtitle="EUIPO-registered mark — outside the household-name VLM training set"
               verdict="match"
               rows={[
+                { name: "Clarifai Visual Search", score: 0.733, result: "match" },
                 { name: "Gemini (no pipeline)", score: null, result: "miss", note: "Returned no detections — doesn't recognise the brand" },
                 { name: "GPT-4.1 (no pipeline)", score: null, result: "miss", note: "Returned no detections — doesn't recognise the brand" },
                 { name: "MegaYours", score: 0.95, result: "match" },
@@ -419,8 +432,9 @@ export default function Landing() {
           </div>
 
           <p className="mt-8 text-center text-[11px] text-white/30">
-            Scores from actual API calls. Gemini 2.5 Flash and GPT-4.1 in open-vocab mode —
-            no candidate list passed (it doesn't scale to 1,000+ trademarks).
+            Scores from actual API calls. Gemini 2.5 Flash and GPT-4.1 in open-vocab mode (no
+            candidate list — it doesn't scale to 1,000+ trademarks). Clarifai Visual Search
+            against the indexed reference set, threshold 0.75.
           </p>
         </div>
       </section>
@@ -737,10 +751,11 @@ type BenchmarkRowData = {
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
   { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.704, precision: 0.704, fpr: 0.8 },
   { name: "Vertex AI Embeddings", description: "Google Cloud multimodal vector search", recall: 0.333, precision: 0.643, fpr: 0.5 },
+  { name: "Clarifai Visual Search", description: "Catches the long tail — but flags Daffy as Donald, Pepsi as Coca-Cola, Prada as Gucci", recall: 0.963, precision: 0.765, fpr: 0.8 },
   { name: "Google Vision Logo API", description: "Cloud Vision logo detection — household-brand registry only", recall: 0.333, precision: 0.9, fpr: 0.1 },
   { name: "Gemini 2.5 Flash (no pipeline)", description: "Asked to name every brand it sees — silent on long-tail registered marks", recall: 0.926, precision: 1.0, fpr: 0.0 },
   { name: "GPT-4.1 (no pipeline)", description: "Asked to name every brand it sees — silent on long-tail and stylised renderings", recall: 0.815, precision: 1.0, fpr: 0.0 },
-  { name: "MegaYours", description: "Visual retrieval + VLM verification — catches household brands AND the long tail", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
+  { name: "MegaYours", description: "Visual retrieval + VLM verification — catches the long tail without flagging lookalikes", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
 ];
 
 function fmtPct(n: number) {
