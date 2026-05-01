@@ -11,6 +11,8 @@ import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
+import BrandsCatalog from "./pages/BrandsCatalog";
+import DesignsCatalog from "./pages/DesignsCatalog";
 import Admin from "./pages/Admin";
 import AdminIpDetail from "./pages/AdminIpDetail";
 
@@ -84,6 +86,14 @@ export default function App() {
           element={<ProtectedRoute><Clearance /></ProtectedRoute>}
         />
         <Route path="/design-match" element={<Navigate to="/clearance?mode=designs" replace />} />
+        <Route
+          path="/clearance/brands/catalog"
+          element={<ProtectedRoute><BrandsCatalog /></ProtectedRoute>}
+        />
+        <Route
+          path="/clearance/designs/catalog"
+          element={<ProtectedRoute><DesignsCatalog /></ProtectedRoute>}
+        />
         <Route
           path="/cases"
           element={<ProtectedRoute><Cases /></ProtectedRoute>}

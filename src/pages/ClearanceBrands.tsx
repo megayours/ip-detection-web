@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import ImageUploader from "../components/ImageUploader";
 import { submitClearance, getClearanceResult, type ClearanceResult, type ClearanceMatch } from "../api";
 
@@ -95,16 +96,25 @@ export default function ClearanceBrands() {
 
   return (
     <div>
-      {file && (
-        <div className="flex justify-end mb-3">
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <Link
+          to="/clearance/brands/catalog"
+          className="text-xs font-medium text-stone-500 hover:text-stone-900 inline-flex items-center gap-1"
+        >
+          Browse all indexed trademarks
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </Link>
+        {file && (
           <button
             onClick={reset}
             className="px-3 py-1 text-xs font-medium border border-stone-200 rounded-full hover:bg-stone-50 transition-colors"
           >
             Check another
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {!file && (
         <ImageUploader

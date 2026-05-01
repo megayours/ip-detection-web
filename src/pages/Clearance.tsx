@@ -62,8 +62,15 @@ export default function Clearance() {
         ))}
       </div>
 
-      {/* Re-mount on mode switch so each mode's local state (file, jobId, results) resets cleanly. */}
-      {mode === "brands" ? <ClearanceBrands key="brands" /> : <ClearanceDesigns key="designs" />}
+      {/* Both modes stay mounted across tab switches so an in-flight job
+          keeps polling and the uploaded file / preview survive a mode toggle.
+          We just hide the inactive one with CSS instead of unmounting. */}
+      <div className={mode === "brands" ? "" : "hidden"}>
+        <ClearanceBrands />
+      </div>
+      <div className={mode === "designs" ? "" : "hidden"}>
+        <ClearanceDesigns />
+      </div>
     </div>
   );
 }

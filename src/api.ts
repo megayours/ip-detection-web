@@ -91,6 +91,60 @@ export function listPublicTrademarks() {
   return request<{ trademarks: Trademark[] }>("/api/trademarks/public");
 }
 
+// --- Catalog browse (paginated + searchable) ---
+
+export interface TrademarkCatalogItem {
+  id: string;
+  application_number: string;
+  source: string;
+  verbal_element: string | null;
+  mark_kind: string | null;
+  status: string | null;
+  application_date: string | null;
+  registration_date: string | null;
+  nice_classes: number[];
+  image_count: number;
+  detail_url: string | null;
+  image_url: string | null;
+}
+
+export interface DesignCatalogItem {
+  id: string;
+  registration_id: string;
+  base_id: string;
+  design_office: string | null;
+  product_class: string | null;
+  status: string | null;
+  wipo_link: string | null;
+  image_count: number;
+  image_url: string | null;
+}
+
+export interface CatalogPage<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export function browseTrademarkCatalog(opts: { q?: string; limit?: number; offset?: number } = {}) {
+  const p = new URLSearchParams();
+  if (opts.q) p.set("q", opts.q);
+  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
+  const qs = p.toString();
+  return request<CatalogPage<TrademarkCatalogItem>>(`/api/trademarks/catalog/browse${qs ? `?${qs}` : ""}`);
+}
+
+export function browseDesignCatalog(opts: { q?: string; limit?: number; offset?: number } = {}) {
+  const p = new URLSearchParams();
+  if (opts.q) p.set("q", opts.q);
+  if (opts.limit !== undefined) p.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) p.set("offset", String(opts.offset));
+  const qs = p.toString();
+  return request<CatalogPage<DesignCatalogItem>>(`/api/design-match/catalog/browse${qs ? `?${qs}` : ""}`);
+}
+
 export function createTrademark(
   name: string,
   description?: string,
