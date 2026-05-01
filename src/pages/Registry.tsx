@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { listTrademarks, createTrademark, type Trademark } from "../api";
 import BulkIngest from "../components/BulkIngest";
-import Monitoring from "../components/Monitoring";
 
 
 export default function Registry() {
@@ -168,8 +167,6 @@ export default function Registry() {
           </div>
         )}
       </section>
-
-      <Monitoring />
     </div>
   );
 }
