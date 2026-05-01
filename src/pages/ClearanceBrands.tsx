@@ -32,6 +32,10 @@ export default function ClearanceBrands() {
   const [error, setError] = useState<string | null>(null);
   // Click a sidebar card to focus on one IP; click again (or outside) to clear.
   const [selectedIp, setSelectedIp] = useState<string | null>(null);
+  // "Max mode" — checked = full hybrid (visual retrieval + VLM verification),
+  // unchecked = v2-only (visual retrieval, skip VLM). Default-on so users get
+  // the strongest pipeline unless they explicitly opt out.
+  const [maxMode, setMaxMode] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
@@ -65,7 +69,9 @@ export default function ClearanceBrands() {
     setError(null);
     setResult(null);
     try {
-      const { job_id } = await submitClearance(f);
+      // Only send the override when Max mode is OFF — otherwise let the server
+      // pick its default so we don't hard-code the prod mode in the client.
+      const { job_id } = await submitClearance(f, maxMode ? undefined : { mode: "v2" });
       setJobId(job_id);
     } catch (e: any) {
       setError(e.message);
@@ -117,11 +123,28 @@ export default function ClearanceBrands() {
       </div>
 
       {!file && (
-        <ImageUploader
-          onUpload={handleUpload}
-          multiple={false}
-          label="Drop an image to check for IP conflicts"
-        />
+        <>
+          <ImageUploader
+            onUpload={handleUpload}
+            multiple={false}
+            label="Drop an image to check for IP conflicts"
+          />
+          <label className="mt-3 flex items-start gap-2 text-xs text-stone-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={maxMode}
+              onChange={(e) => setMaxMode(e.target.checked)}
+              className="mt-0.5 w-3.5 h-3.5 rounded border-stone-300 text-stone-900 focus:ring-1 focus:ring-stone-900 focus:ring-offset-0 cursor-pointer"
+            />
+            <span>
+              <span className="font-medium text-stone-900">Max mode</span>
+              <span className="ml-1 text-stone-500">
+                — visual retrieval + VLM verification (slower, higher accuracy on
+                well-known brands). Uncheck for v2 retrieval only.
+              </span>
+            </span>
+          </label>
+        </>
       )}
 
       {error && (

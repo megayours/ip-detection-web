@@ -580,9 +580,14 @@ export interface ClearanceResult {
   matches?: ClearanceMatch[];
 }
 
-export async function submitClearance(file: File) {
+/** Detector mode override. Omit to take the server's default (hybrid in prod).
+ * "v2" disables the VLM stage — the "Max mode" toggle off-state. */
+export type ClearanceMode = "hybrid" | "v2";
+
+export async function submitClearance(file: File, opts?: { mode?: ClearanceMode }) {
   const form = new FormData();
   form.append("image", file);
+  if (opts?.mode) form.append("mode", opts.mode);
 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
