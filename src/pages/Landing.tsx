@@ -342,6 +342,61 @@ export default function Landing() {
             </p>
           </div>
 
+          {/* Famous vs long-tail split — drilldown by brand familiarity */}
+          <div className="mb-14">
+            <div className="text-center mb-7">
+              <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-sm text-white/60 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-4">
+                <span className="w-1 h-1 rounded-full bg-amber-300" />
+                Famous brands vs the long tail
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-black tracking-[-0.03em] leading-[1.1] text-balance">
+                Each baseline is strong on <span className="text-gradient-cream">one half</span>.
+                <br className="hidden sm:block" /> Our pipeline wins both.
+              </h3>
+              <p className="mt-3 text-white/50 max-w-2xl mx-auto text-[13px] leading-relaxed">
+                Same evaluation, split by brand familiarity. <span className="text-white/75">Famous</span> =
+                household names with rich in-the-wild references. <span className="text-white/75">Long-tail</span> =
+                EUIPO-registered marks the open web rarely depicts.
+              </p>
+            </div>
+            <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm gradient-border">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-white/40 text-[10px] uppercase tracking-[0.18em] border-b border-white/5">
+                      <th className="text-left px-6 py-5 font-semibold">Approach</th>
+                      <th className="text-right px-4 py-5 font-semibold">
+                        Famous brands <ArrowUp />
+                      </th>
+                      <th className="text-right px-4 py-5 font-semibold">
+                        Long-tail brands <ArrowUp />
+                      </th>
+                      <th className="text-right px-6 py-5 font-semibold">
+                        Time / query
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SPLIT_ROWS.map((row) => (
+                      <SplitRow key={row.name} {...row} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="mt-5 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
+              <LegendItem label="Famous brands" text="F1 score on household names with rich in-the-wild references." />
+              <LegendItem label="Long-tail brands" text="F1 score on registered marks the open web doesn't depict." />
+              <LegendItem label="Time / query" text="end-to-end latency per detection (Apple Silicon, MPS)." />
+            </div>
+            <p className="mt-5 text-[11px] text-white/30 text-center max-w-3xl mx-auto">
+              Notice the diagonal. Pure embedding models score on what they've seen — silent on
+              the long tail. Pure VLMs know the household names — quieter on the obscure.
+              Catalog-only retrieval gets the long tail but mismatches the famous brands' real-world
+              renderings. Combining catalog retrieval with a VLM verifier covers both halves at once.
+            </p>
+          </div>
+
           {/* Two failure modes callout — the core differentiator */}
           <div className="mb-14 max-w-5xl mx-auto rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-sm p-7 sm:p-8">
             <div className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.22em] uppercase text-white/50 mb-3">
@@ -748,6 +803,26 @@ type BenchmarkRowData = {
   highlight?: boolean;
 };
 
+// Known/unknown split table — populated from compare_vlm.py + compare_clip.py
+// against a 50/50 mix of famous brands and obscure EUIPO marks (synthetic
+// queries). F1 at the operating threshold each approach was tuned for.
+type SplitRowData = {
+  name: string;
+  description: string;
+  f1Known: number;
+  f1Unknown: number;
+  timeSec: number;
+  highlight?: boolean;
+};
+
+const SPLIT_ROWS: SplitRowData[] = [
+  { name: "OpenAI CLIP ViT-L/14", description: "Pure embedding retrieval — works on what it's seen, blank on the rest", f1Known: 0.704, f1Unknown: 0.0, timeSec: 0.1 },
+  { name: "SigLIP2 (embedding only)", description: "Stronger semantic embeddings — same long-tail blind spot", f1Known: 0.609, f1Unknown: 0.0, timeSec: 0.1 },
+  { name: "Gemini 2.5 Flash (no pipeline)", description: "Open-vocab judge — knows household names, silent on registered-but-obscure", f1Known: 0.962, f1Unknown: 0.895, timeSec: 2.6 },
+  { name: "Visual retrieval only (no VLM)", description: "Indexed catalog hit-or-miss — perfect on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
+  { name: "MegaYours", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, timeSec: 16.3, highlight: true },
+];
+
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
   { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.704, precision: 0.704, fpr: 0.8 },
   { name: "Vertex AI Embeddings", description: "Google Cloud multimodal vector search", recall: 0.333, precision: 0.643, fpr: 0.5 },
@@ -813,6 +888,40 @@ function BenchmarkRow({ name, description, recall, precision, fpr, highlight }: 
       <BenchmarkCell value={recall} highlight={highlight} />
       <BenchmarkCell value={precision} highlight={highlight} />
       <BenchmarkCell value={fpr} highlight={highlight} inverse />
+    </tr>
+  );
+}
+
+function fmtTime(seconds: number) {
+  if (seconds < 1) return `${Math.round(seconds * 1000)} ms`;
+  return `${seconds.toFixed(1)} s`;
+}
+
+function SplitTimeCell({ value }: { value: number }) {
+  return (
+    <td className="text-right px-4 py-5 font-mono tabular-nums">
+      <span className="text-sm text-white/55">{fmtTime(value)}</span>
+    </td>
+  );
+}
+
+function SplitRow({ name, description, f1Known, f1Unknown, timeSec, highlight }: SplitRowData) {
+  const rowCls = highlight
+    ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent"
+    : "hover:bg-white/[0.02] transition-colors";
+  const nameCls = highlight ? "text-emerald-200" : "text-white/85";
+  return (
+    <tr className={`${rowCls} border-t border-white/5`}>
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-2">
+          {highlight && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />}
+          <div className={`text-sm font-semibold tracking-tight ${nameCls}`}>{name}</div>
+        </div>
+        <div className="text-xs text-white/40 mt-0.5">{description}</div>
+      </td>
+      <BenchmarkCell value={f1Known} highlight={highlight} />
+      <BenchmarkCell value={f1Unknown} highlight={highlight} />
+      <SplitTimeCell value={timeSec} />
     </tr>
   );
 }
