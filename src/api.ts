@@ -652,6 +652,73 @@ export function getDesignMatchResult(jobId: string) {
   return request<DesignMatchResult>(`/api/design-match/${jobId}`);
 }
 
+// --- Giantbomb Match (visual similarity vs pop-culture catalog) ---
+
+export type GiantbombEntityType =
+  | "character" | "concept" | "person" | "location" | "thing" | "franchise" | "game";
+
+export interface GiantbombMatch {
+  entity_id: string;
+  giantbomb_id: string;
+  source_id: string;
+  entity_type: GiantbombEntityType | string;
+  name: string;
+  aliases: string[];
+  summary: string | null;
+  source_url: string | null;
+  preview_url: string;            // signed URL to the entity's R2 image
+  score: number;                  // displayed confidence; VLM-blended cosine 0..1
+  cosine_score?: number;          // raw retrieval signal
+  inliers?: number;               // DALF RANSAC inliers
+  bbox?: [number, number, number, number];
+  vlm_verdict?: "present" | "absent" | "unclear";
+  vlm_confidence?: number;
+  vlm_reasoning?: string;
+}
+
+export interface GiantbombMatchResult {
+  status: "pending" | "complete" | "failed";
+  error?: string;
+  entity_type?: string | null;     // category that was searched, if any
+  query_image_url?: string;
+  image_width?: number;
+  image_height?: number;
+  matches?: GiantbombMatch[];
+  weak_matches?: GiantbombMatch[];
+}
+
+export async function submitGiantbombMatch(
+  file: File,
+  opts?: { entityType?: GiantbombEntityType },
+) {
+  const form = new FormData();
+  form.append("image", file);
+  if (opts?.entityType) form.append("entity_type", opts.entityType);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API}/api/giantbomb-match`, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ job_id: string }>;
+}
+
+export function getGiantbombMatchResult(jobId: string) {
+  return request<GiantbombMatchResult>(`/api/giantbomb-match/${jobId}`);
+}
+
+/** Indexed entity types + counts. UI uses this to drive chip availability. */
+export interface GiantbombCategory {
+  entity_type: string;
+  count: number;
+}
+export function getGiantbombCategories() {
+  return request<{ categories: GiantbombCategory[] }>("/api/giantbomb-match/categories");
+}
+
 // --- Admin (cross-tenant IP reference management) ---
 
 export interface AdminIpSummary {
