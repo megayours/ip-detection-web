@@ -819,8 +819,8 @@ const SPLIT_ROWS: SplitRowData[] = [
   { name: "OpenAI CLIP ViT-L/14", description: "Pure embedding retrieval — works on what it's seen, blank on the rest", f1Known: 0.704, f1Unknown: 0.0, timeSec: 0.1 },
   { name: "SigLIP2 (embedding only)", description: "Stronger semantic embeddings — same long-tail blind spot", f1Known: 0.609, f1Unknown: 0.0, timeSec: 0.1 },
   { name: "Gemini 2.5 Flash (no pipeline)", description: "Open-vocab judge — knows household names, silent on registered-but-obscure", f1Known: 0.962, f1Unknown: 0.895, timeSec: 2.6 },
-  { name: "Visual retrieval only (no VLM)", description: "Indexed catalog hit-or-miss — perfect on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
-  { name: "MegaYours", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, timeSec: 16.3, highlight: true },
+  { name: "MegaYours (Light)", description: "Indexed catalog hit-or-miss — perfect on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
+  { name: "MegaYours (Max)", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, timeSec: 16.3, highlight: true },
 ];
 
 const BENCHMARK_ROWS: BenchmarkRowData[] = [
@@ -830,7 +830,7 @@ const BENCHMARK_ROWS: BenchmarkRowData[] = [
   { name: "Google Vision Logo API", description: "Cloud Vision logo detection — household-brand registry only", recall: 0.333, precision: 0.9, fpr: 0.1 },
   { name: "Gemini 2.5 Flash (no pipeline)", description: "Asked to name every brand it sees — silent on long-tail registered marks", recall: 0.926, precision: 1.0, fpr: 0.0 },
   { name: "GPT-4.1 (no pipeline)", description: "Asked to name every brand it sees — silent on long-tail and stylised renderings", recall: 0.815, precision: 1.0, fpr: 0.0 },
-  { name: "MegaYours", description: "Visual retrieval + VLM verification — catches the long tail without flagging lookalikes", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
+  { name: "MegaYours (Max)", description: "Visual retrieval + VLM verification — catches the long tail without flagging lookalikes", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
 ];
 
 function fmtPct(n: number) {
