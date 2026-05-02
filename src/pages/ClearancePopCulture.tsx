@@ -230,7 +230,7 @@ export default function ClearancePopCulture() {
         <ImageUploader
           onUpload={handleUpload}
           multiple={false}
-          label={`Drop an image to find similar ${CATEGORIES.find((c) => c.value === category)?.label.toLowerCase() || category}`}
+          label={`Drop an image to find similar ${KNOWN_CATEGORIES.find((c) => c.value === category)?.label.toLowerCase() || category}`}
         />
       )}
 
