@@ -13,6 +13,7 @@ import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
 import BrandsCatalog from "./pages/BrandsCatalog";
 import DesignsCatalog from "./pages/DesignsCatalog";
+import PopCultureCatalog from "./pages/PopCultureCatalog";
 import Admin from "./pages/Admin";
 import AdminIpDetail from "./pages/AdminIpDetail";
 
@@ -93,6 +94,10 @@ export default function App() {
         <Route
           path="/clearance/designs/catalog"
           element={<ProtectedRoute><DesignsCatalog /></ProtectedRoute>}
+        />
+        <Route
+          path="/clearance/pop/catalog"
+          element={<ProtectedRoute><PopCultureCatalog /></ProtectedRoute>}
         />
         <Route
           path="/cases"

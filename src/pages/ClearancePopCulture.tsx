@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import ImageUploader from "../components/ImageUploader";
 import {
   submitGiantbombMatch,
@@ -173,6 +174,17 @@ export default function ClearancePopCulture() {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <Link
+          to="/clearance/pop/catalog"
+          className="text-xs font-medium text-stone-500 hover:text-stone-900 inline-flex items-center gap-1"
+        >
+          Browse all indexed pop-culture entries
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </Link>
+      </div>
       {/* Category chips — availability + counts come from the API on mount.
           Anything the API returns that's not in KNOWN_CATEGORIES is appended
           at the end so new entity types light up without a frontend deploy. */}
