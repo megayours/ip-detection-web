@@ -39,27 +39,44 @@ function MatchCard({ m, dim, onZoom }: { m: GroupedMatch; dim: boolean; onZoom: 
       }`}
     >
       <div className="flex gap-3">
-        <div className="shrink-0 flex flex-wrap gap-1 max-w-[164px]">
-          {(m.siblings.length > 0 ? m.siblings : [m]).map((s) => (
-            s.preview_url ? (
-              <button
-                key={s.registration_id}
-                type="button"
-                onClick={() => onZoom(s.preview_url!, s.registration_id)}
-                title={s.registration_id}
-                aria-label={`View ${s.registration_id} larger`}
-                className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50 hover:border-stone-300 transition cursor-zoom-in"
-              >
-                <img src={s.preview_url} alt={s.registration_id} className="w-full h-full object-contain" />
-              </button>
-            ) : (
-              <div
-                key={s.registration_id}
-                title={s.registration_id}
-                className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50"
-              />
-            )
-          ))}
+        <div className="shrink-0 flex flex-wrap gap-2 max-w-[168px]">
+          {(() => {
+            const list = m.siblings.length > 0 ? m.siblings : [m];
+            return list.map((s, i) => (
+              <div key={s.registration_id} className="flex flex-col items-center gap-0.5">
+                {s.preview_url ? (
+                  <button
+                    type="button"
+                    onClick={() => onZoom(s.preview_url!, s.registration_id)}
+                    title={s.registration_id}
+                    aria-label={`View ${s.registration_id} larger`}
+                    className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50 hover:border-stone-300 transition cursor-zoom-in"
+                  >
+                    <img src={s.preview_url} alt={s.registration_id} className="w-full h-full object-contain" />
+                  </button>
+                ) : (
+                  <div
+                    title={s.registration_id}
+                    className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50"
+                  />
+                )}
+                {s.wipo_link && (
+                  <a
+                    href={s.wipo_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={s.registration_id}
+                    className="text-[10px] font-medium text-stone-500 hover:text-stone-900 inline-flex items-center gap-0.5 leading-tight"
+                  >
+                    {list.length > 1 ? `WIPO #${i + 1}` : "View on WIPO"}
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            ));
+          })()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -112,19 +129,6 @@ function MatchCard({ m, dim, onZoom }: { m: GroupedMatch; dim: boolean; onZoom: 
               </svg>
               Structural match confirmed
             </div>
-          )}
-          {m.wipo_link && (
-            <a
-              href={m.wipo_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium text-stone-700 hover:text-stone-900"
-            >
-              View on WIPO
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </a>
           )}
         </div>
       </div>
