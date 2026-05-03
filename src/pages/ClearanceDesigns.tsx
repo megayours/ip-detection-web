@@ -242,12 +242,20 @@ export default function ClearanceDesigns() {
           </svg>
         </Link>
         {file && (
-          <button
-            onClick={reset}
-            className="px-3 py-1 text-xs font-medium border border-stone-200 rounded-full hover:bg-stone-50 transition-colors"
-          >
-            Check another
-          </button>
+          <div className="flex items-center gap-2">
+            {preview && (
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg">
+                <img src={preview} alt="Your upload" className="w-10 h-10 object-contain rounded" />
+                <span className="text-xs text-stone-500">Your upload</span>
+              </div>
+            )}
+            <button
+              onClick={reset}
+              className="px-3 py-1 text-xs font-medium border border-stone-200 rounded-full hover:bg-stone-50 transition-colors"
+            >
+              Check another
+            </button>
+          </div>
         )}
       </div>
 
@@ -299,24 +307,9 @@ export default function ClearanceDesigns() {
             </div>
           )}
 
-          {/* Two-column: query image left, matches right */}
-          <div className="flex gap-4 items-start">
-            <div className="flex-1 min-w-0 border border-stone-200 rounded-xl overflow-hidden bg-white">
-              <div className="relative max-h-[60vh] flex items-center justify-center bg-stone-50">
-                <img
-                  src={result!.query_image_url}
-                  alt="Your design"
-                  className="block max-h-[60vh] max-w-full h-auto w-auto object-contain"
-                />
-              </div>
-              <div className="px-3 py-2 text-xs text-stone-500 border-t border-stone-100">
-                Your design ({result?.image_width}×{result?.image_height})
-              </div>
-            </div>
-
-            {(allMatches.length > 0 || allWeakMatches.length > 0) && (
-              <div className="w-80 shrink-0 space-y-3 max-h-[60vh] overflow-y-auto">
-                {categoryCounts.length > 1 && (
+          {(allMatches.length > 0 || allWeakMatches.length > 0) && (
+            <div className="space-y-3">
+              {categoryCounts.length > 1 && (
                   <div className="pb-2 border-b border-stone-100">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wide">
@@ -378,7 +371,6 @@ export default function ClearanceDesigns() {
                 )}
               </div>
             )}
-          </div>
         </div>
       )}
     </div>

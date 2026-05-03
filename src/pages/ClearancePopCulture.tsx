@@ -57,7 +57,6 @@ function MatchCard({ m }: { m: GiantbombMatch }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <h4 className="font-semibold text-sm text-stone-900 truncate">{m.name}</h4>
-            <span className="text-[10px] uppercase tracking-wider text-stone-400">{m.entity_type}</span>
           </div>
           {m.summary && (
             <p className="text-xs text-stone-500 mt-1 line-clamp-2">{m.summary}</p>
@@ -228,7 +227,13 @@ export default function ClearancePopCulture() {
       </div>
 
       {file && (
-        <div className="flex items-center justify-end mb-3">
+        <div className="flex items-center justify-between mb-3 gap-3">
+          {preview && (
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg">
+              <img src={preview} alt="Your upload" className="w-10 h-10 object-contain rounded" />
+              <span className="text-xs text-stone-500">Your upload</span>
+            </div>
+          )}
           <button
             onClick={reset}
             className="px-3 py-1 text-xs font-medium border border-stone-200 rounded-full hover:bg-stone-50 transition-colors"
