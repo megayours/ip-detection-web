@@ -752,6 +752,36 @@ export function browseGiantbombCatalog(opts: {
   }>(`/api/giantbomb-match/catalog/browse?${qs.toString()}`);
 }
 
+// --- Scan All (unified: brands + designs + pop_culture in parallel) ---
+
+export interface ScanAllResult {
+  status: "pending" | "complete" | "failed";
+  error?: string;
+  query_image_url?: string;
+  brands?: { matches?: any[]; weak_matches?: any[] };
+  designs?: { matches?: DesignMatch[]; weak_matches?: DesignMatch[] };
+  pop_culture?: { matches?: GiantbombMatch[]; weak_matches?: GiantbombMatch[] };
+  timings?: Record<string, number>;
+  errors?: Record<string, string>;
+}
+
+export async function submitScanAll(file: File) {
+  const form = new FormData();
+  form.append("image", file);
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}/api/scan-all`, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ job_id: string }>;
+}
+
+export function getScanAllResult(jobId: string) {
+  return request<ScanAllResult>(`/api/scan-all/${jobId}`);
+}
+
 // --- Admin (cross-tenant IP reference management) ---
 
 export interface AdminIpSummary {
