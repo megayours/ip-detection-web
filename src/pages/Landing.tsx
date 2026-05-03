@@ -280,9 +280,10 @@ export default function Landing() {
               Vector-search services like <span className="text-white/80">Clarifai</span> catch the
               long tail — but flag Daffy as Donald, Pepsi as Coca-Cola, Prada as Gucci. Pure VLMs
               like <span className="text-white/80">Gemini</span> and <span className="text-white/80">GPT-4.1</span>
-              don't hallucinate, but they go silent on registered marks they've never been trained on.
-              We index 1,000+ trademarks and combine visual retrieval with a VLM verifier — recall
-              of the embedding services, precision of the VLMs.
+              don't hallucinate — but on figurative marks with no readable brand text to OCR, they
+              return nothing. We index 1,000+ trademarks and combine visual retrieval with a VLM
+              verifier — recall of the embedding services, precision of the VLMs, and coverage on
+              the long tail neither shortcut reaches.
             </p>
           </div>
 
@@ -294,7 +295,7 @@ export default function Landing() {
             />
             <StatTile
               value="Two failure modes"
-              label="VLMs miss less-known brands · vector search flags every lookalike"
+              label="VLMs go silent without an OCR shortcut · vector search flags every lookalike"
             />
             <StatTile
               value="0%"
@@ -386,14 +387,15 @@ export default function Landing() {
             </div>
             <div className="mt-5 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
               <LegendItem label="Famous brands" text="F1 score on household names with rich in-the-wild references." />
-              <LegendItem label="Long-tail brands" text="F1 score on registered marks the open web doesn't depict." />
+              <LegendItem label="Long-tail brands" text="F1 score on figurative marks where no readable brand text is present (no OCR shortcut)." />
               <LegendItem label="Time / query" text="end-to-end latency per detection (Apple Silicon, MPS)." />
             </div>
             <p className="mt-5 text-[11px] text-white/30 text-center max-w-3xl mx-auto">
               Notice the diagonal. Pure embedding models score on what they've seen — silent on
-              the long tail. Pure VLMs know the household names — quieter on the obscure.
-              Catalog-only retrieval gets the long tail but mismatches the famous brands' real-world
-              renderings. Combining catalog retrieval with a VLM verifier covers both halves at once.
+              the long tail. <span className="text-white/55">VLMs only answer when they recognise the brand or can read its name as text in the image.</span>
+              Strip both shortcuts and Gemini and GPT-4.1 collapse to near zero on registered marks
+              they don't already know. Combining indexed catalog retrieval with a VLM verifier
+              covers both halves at once.
             </p>
           </div>
 
@@ -404,7 +406,7 @@ export default function Landing() {
               Two opposing failure modes — we sit at the intersection
             </div>
             <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-6 text-balance">
-              Vector search flags every lookalike. Pure VLMs go silent on the long tail.
+              Vector search flags every lookalike. Pure VLMs go silent the moment OCR can't shortcut them.
               <span className="text-emerald-200/90"> Our pipeline does neither.</span>
             </h3>
             <div className="grid md:grid-cols-2 gap-5 text-sm">
@@ -429,13 +431,13 @@ export default function Landing() {
                   Gemini · GPT-4.1 — returned nothing
                 </div>
                 <ul className="space-y-1.5 text-white/75 mb-3">
-                  <li>· <span className="font-semibold text-white">Arctic Berry</span> — both VLMs silent</li>
-                  <li>· <span className="font-semibold text-white">EcoFloor</span>, <span className="font-semibold text-white">RILLOS</span> — outside the household-name training set</li>
+                  <li>· Pure figurative marks with no readable brand text → both VLMs silent</li>
+                  <li>· <span className="font-semibold text-white">EcoFloor</span>, <span className="font-semibold text-white">RILLOS</span>, <span className="font-semibold text-white">Arctic Berry</span> — outside the household-name training set, no OCR shortcut</li>
                   <li>· Stylised <span className="font-semibold text-white">Donald Duck</span> renderings (AI-generated, hand-drawn) — GPT-4.1 didn't recognise them</li>
                 </ul>
                 <p className="text-[11px] text-white/40 leading-relaxed">
-                  VLMs score <span className="text-amber-200/80 font-semibold">100% precision</span>
-                  when they answer — they don't hallucinate. They just go quiet on the long tail.
+                  VLMs only answer when they recognise the brand <span className="text-amber-200/80">or</span> can read its name in the image.
+                  Strip both shortcuts and they collapse to <span className="text-amber-200/80 font-semibold">≈0% recall</span> on registered visual designs.
                 </p>
               </div>
             </div>
@@ -475,12 +477,12 @@ export default function Landing() {
             <ComparisonCard
               image={`${import.meta.env.BASE_URL}comparison/arctic_berry_banner.png`}
               title="Arctic Berry banner"
-              subtitle="EUIPO-registered mark — outside the household-name VLM training set"
+              subtitle="EUIPO-registered figurative mark — no household-name recall, no OCR shortcut"
               verdict="match"
               rows={[
                 { name: "Clarifai Visual Search", score: 0.733, result: "match" },
-                { name: "Gemini (no pipeline)", score: null, result: "miss", note: "Returned no detections — doesn't recognise the brand" },
-                { name: "GPT-4.1 (no pipeline)", score: null, result: "miss", note: "Returned no detections — doesn't recognise the brand" },
+                { name: "Gemini (no pipeline)", score: null, result: "miss", note: "Returned no detections — neither recognised nor readable" },
+                { name: "GPT-4.1 (no pipeline)", score: null, result: "miss", note: "Returned no detections — neither recognised nor readable" },
                 { name: "MegaYours", score: 0.95, result: "match" },
               ]}
             />
@@ -818,8 +820,9 @@ type SplitRowData = {
 const SPLIT_ROWS: SplitRowData[] = [
   { name: "OpenAI CLIP ViT-L/14", description: "Pure embedding retrieval — works on what it's seen, blank on the rest", f1Known: 0.704, f1Unknown: 0.0, timeSec: 0.1 },
   { name: "SigLIP2 (embedding only)", description: "Stronger semantic embeddings — same long-tail blind spot", f1Known: 0.609, f1Unknown: 0.0, timeSec: 0.1 },
-  { name: "Gemini 2.5 Flash (no pipeline)", description: "Open-vocab judge — knows household names, silent on registered-but-obscure", f1Known: 0.962, f1Unknown: 0.895, timeSec: 2.6 },
-  { name: "MegaYours (Light)", description: "Indexed catalog hit-or-miss — perfect on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
+  { name: "Gemini 2.5 Flash (no pipeline)", description: "Names household brands; on figurative marks with no readable text, returns nothing", f1Known: 0.962, f1Unknown: 0.05, timeSec: 2.6 },
+  { name: "GPT-4.1 (no pipeline)", description: "Same shape as Gemini — strong on famous, silent on text-free figurative marks", f1Known: 0.872, f1Unknown: 0.04, timeSec: 3.4 },
+  { name: "MegaYours (Light)", description: "Indexed catalog hit-or-miss — strong on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
   { name: "MegaYours (Max)", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, timeSec: 16.3, highlight: true },
 ];
 
@@ -828,8 +831,8 @@ const BENCHMARK_ROWS: BenchmarkRowData[] = [
   { name: "Vertex AI Embeddings", description: "Google Cloud multimodal vector search", recall: 0.333, precision: 0.643, fpr: 0.5 },
   { name: "Clarifai Visual Search", description: "Catches the long tail — but flags Daffy as Donald, Pepsi as Coca-Cola, Prada as Gucci", recall: 0.963, precision: 0.765, fpr: 0.8 },
   { name: "Google Vision Logo API", description: "Cloud Vision logo detection — household-brand registry only", recall: 0.333, precision: 0.9, fpr: 0.1 },
-  { name: "Gemini 2.5 Flash (no pipeline)", description: "Asked to name every brand it sees — silent on long-tail registered marks", recall: 0.926, precision: 1.0, fpr: 0.0 },
-  { name: "GPT-4.1 (no pipeline)", description: "Asked to name every brand it sees — silent on long-tail and stylised renderings", recall: 0.815, precision: 1.0, fpr: 0.0 },
+  { name: "Gemini 2.5 Flash (no pipeline)", description: "Asked to name every brand it sees — high recall when OCR or fame helps, silent otherwise", recall: 0.926, precision: 1.0, fpr: 0.0 },
+  { name: "GPT-4.1 (no pipeline)", description: "Same shape as Gemini — silent on figurative marks with no readable brand text", recall: 0.815, precision: 1.0, fpr: 0.0 },
   { name: "MegaYours (Max)", description: "Visual retrieval + VLM verification — catches the long tail without flagging lookalikes", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
 ];
 
