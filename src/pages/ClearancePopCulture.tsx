@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ImageUploader from "../components/ImageUploader";
+import Lightbox from "../components/Lightbox";
 import {
   submitGiantbombMatch,
   getGiantbombMatchResult,
@@ -33,11 +34,7 @@ const KNOWN_CATEGORIES: { value: GiantbombEntityType; label: string }[] = [
   { value: "location",  label: "Locations" },
 ];
 
-function nFmt(n: number) {
-  return n.toLocaleString();
-}
-
-function MatchCard({ m }: { m: GiantbombMatch }) {
+function MatchCard({ m, onZoom }: { m: GiantbombMatch; onZoom: (src: string, caption: string) => void }) {
   const pct = Math.round(m.score * 100);
   return (
     <a
@@ -47,13 +44,20 @@ function MatchCard({ m }: { m: GiantbombMatch }) {
       className="block border border-stone-200 rounded-xl bg-white p-3 hover:border-stone-300 hover:shadow-sm transition-all"
     >
       <div className="flex gap-3">
-        <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center">
-          {m.preview_url ? (
+        {m.preview_url ? (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onZoom(m.preview_url!, m.name); }}
+            className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center cursor-zoom-in"
+            aria-label={`View ${m.name} larger`}
+          >
             <img src={m.preview_url} alt={m.name} className="w-full h-full object-contain" />
-          ) : (
+          </button>
+        ) : (
+          <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center">
             <span className="text-stone-300 text-xs">no image</span>
-          )}
-        </div>
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <h4 className="font-semibold text-sm text-stone-900 truncate">{m.name}</h4>
@@ -87,15 +91,12 @@ export default function ClearancePopCulture() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [result, setResult] = useState<GiantbombMatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Live counts from the API, keyed by entity_type. Empty until the initial
-  // /categories call resolves, after which the chip row reflects reality.
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [zoomed, setZoomed] = useState<{ src: string; caption: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  // Fetch indexed categories once on mount. Cheap and idempotent — the worker
-  // refreshes its catalog cache every 10 min anyway, so the UI being slightly
-  // out-of-date is fine. Any unknown entity_types from the API are appended
-  // to the chip row using the raw value as label.
+  // Fetch indexed categories once on mount to pick a sensible default — if the
+  // built-in default ("concept") isn't indexed yet, fall back to the first
+  // available KNOWN_CATEGORIES entry, then anything else the API returns.
   useEffect(() => {
     let active = true;
     getGiantbombCategories()
@@ -103,9 +104,6 @@ export default function ClearancePopCulture() {
         if (!active) return;
         const m: Record<string, number> = {};
         for (const c of r.categories) m[c.entity_type] = c.count;
-        setCounts(m);
-        // Auto-select the first available category if the default ('concept')
-        // isn't indexed yet — avoids a confusing "no results" state on first load.
         if (!(category in m)) {
           const first = KNOWN_CATEGORIES.find((c) => c.value in m);
           if (first) setCategory(first.value);
@@ -113,8 +111,7 @@ export default function ClearancePopCulture() {
         }
       })
       .catch(() => {
-        // Silent — the chips will just stay disabled and the user can't submit,
-        // which is the correct fail-closed behaviour.
+        // Silent — submission will fail cleanly if no category is available.
       });
     return () => { active = false; };
     // Intentionally only on mount — re-fetching on every chip click would be wasteful.
@@ -184,55 +181,18 @@ export default function ClearancePopCulture() {
           </svg>
         </Link>
       </div>
-      {/* Category chips — availability + counts come from the API on mount.
-          Anything the API returns that's not in KNOWN_CATEGORIES is appended
-          at the end so new entity types light up without a frontend deploy. */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {(() => {
-          const knownValues = new Set(KNOWN_CATEGORIES.map((c) => c.value));
-          const unknownTypes = Object.keys(counts).filter((t) => !knownValues.has(t as GiantbombEntityType));
-          const ordered = [
-            ...KNOWN_CATEGORIES.map((c) => ({ ...c, count: counts[c.value] ?? 0 })),
-            ...unknownTypes.map((t) => ({ value: t as GiantbombEntityType, label: t, count: counts[t] })),
-          ];
-          return ordered.map((c) => {
-            const available = c.count > 0;
-            const isActive = category === c.value;
-            return (
-              <button
-                key={c.value}
-                disabled={!available}
-                onClick={() => available && setCategory(c.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  isActive
-                    ? "bg-stone-900 text-white border-stone-900"
-                    : available
-                    ? "bg-white text-stone-700 border-stone-200 hover:border-stone-400"
-                    : "bg-stone-50 text-stone-300 border-stone-100 cursor-not-allowed"
-                }`}
-                title={available ? `${nFmt(c.count)} indexed` : "No indexed images yet"}
-              >
-                {c.label}
-                {available ? (
-                  <span className={`ml-1.5 text-[10px] tabular-nums ${isActive ? "text-white/70" : "text-stone-400"}`}>
-                    {nFmt(c.count)}
-                  </span>
-                ) : (
-                  <span className="ml-1 text-[9px]">soon</span>
-                )}
-              </button>
-            );
-          });
-        })()}
-      </div>
-
       {file && (
         <div className="flex items-center justify-between mb-3 gap-3">
           {preview && (
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setZoomed({ src: preview, caption: "Your upload" })}
+              className="flex items-center gap-2 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg hover:border-stone-400 cursor-zoom-in transition-colors"
+              aria-label="View your upload larger"
+            >
               <img src={preview} alt="Your upload" className="w-10 h-10 object-contain rounded" />
               <span className="text-xs text-stone-500">Your upload</span>
-            </div>
+            </button>
           )}
           <button
             onClick={reset}
@@ -277,12 +237,21 @@ export default function ClearancePopCulture() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {matches.map((m) => (
-                  <MatchCard key={m.entity_id} m={m} />
+                  <MatchCard key={m.entity_id} m={m} onZoom={(src, caption) => setZoomed({ src, caption })} />
                 ))}
               </div>
             </>
           )}
         </div>
+      )}
+
+      {zoomed && (
+        <Lightbox
+          src={zoomed.src}
+          alt={zoomed.caption}
+          caption={zoomed.caption}
+          onClose={() => setZoomed(null)}
+        />
       )}
     </div>
   );

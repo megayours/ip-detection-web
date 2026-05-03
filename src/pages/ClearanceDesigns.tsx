@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import ImageUploader from "../components/ImageUploader";
+import Lightbox from "../components/Lightbox";
 import { submitDesignMatch, getDesignMatchResult, type DesignMatch, type DesignMatchResult } from "../api";
 
 /**
@@ -30,7 +31,7 @@ function groupByBaseId(matches: DesignMatch[]): GroupedMatch[] {
   return grouped;
 }
 
-function MatchCard({ m, dim }: { m: GroupedMatch; dim: boolean }) {
+function MatchCard({ m, dim, onZoom }: { m: GroupedMatch; dim: boolean; onZoom: (src: string, caption: string) => void }) {
   return (
     <div
       className={`border border-stone-200 rounded-xl bg-white p-3 hover:border-stone-300 hover:shadow-sm transition-all ${
@@ -40,18 +41,24 @@ function MatchCard({ m, dim }: { m: GroupedMatch; dim: boolean }) {
       <div className="flex gap-3">
         <div className="shrink-0 flex flex-wrap gap-1 max-w-[164px]">
           {(m.siblings.length > 0 ? m.siblings : [m]).map((s) => (
-            <a
-              key={s.registration_id}
-              href={s.wipo_link || undefined}
-              target={s.wipo_link ? "_blank" : undefined}
-              rel={s.wipo_link ? "noopener noreferrer" : undefined}
-              title={s.registration_id}
-              className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50 hover:border-stone-300 transition"
-            >
-              {s.preview_url ? (
+            s.preview_url ? (
+              <button
+                key={s.registration_id}
+                type="button"
+                onClick={() => onZoom(s.preview_url!, s.registration_id)}
+                title={s.registration_id}
+                aria-label={`View ${s.registration_id} larger`}
+                className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50 hover:border-stone-300 transition cursor-zoom-in"
+              >
                 <img src={s.preview_url} alt={s.registration_id} className="w-full h-full object-contain" />
-              ) : null}
-            </a>
+              </button>
+            ) : (
+              <div
+                key={s.registration_id}
+                title={s.registration_id}
+                className="block w-20 h-20 border border-stone-100 rounded-lg overflow-hidden bg-stone-50"
+              />
+            )
           ))}
         </div>
         <div className="flex-1 min-w-0">
@@ -142,6 +149,7 @@ export default function ClearanceDesigns() {
   const [result, setResult] = useState<DesignMatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
+  const [zoomed, setZoomed] = useState<{ src: string; caption: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
@@ -244,10 +252,15 @@ export default function ClearanceDesigns() {
         {file && (
           <div className="flex items-center gap-2">
             {preview && (
-              <div className="flex items-center gap-2 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setZoomed({ src: preview, caption: "Your upload" })}
+                className="flex items-center gap-2 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg hover:border-stone-400 cursor-zoom-in transition-colors"
+                aria-label="View your upload larger"
+              >
                 <img src={preview} alt="Your upload" className="w-10 h-10 object-contain rounded" />
                 <span className="text-xs text-stone-500">Your upload</span>
-              </div>
+              </button>
             )}
             <button
               onClick={reset}
@@ -350,7 +363,7 @@ export default function ClearanceDesigns() {
                 {matches.length > 0 && (
                   <div className="space-y-2">
                     {matches.map((m) => (
-                      <MatchCard key={m.design_id} m={m} dim={false} />
+                      <MatchCard key={m.design_id} m={m} dim={false} onZoom={(src, caption) => setZoomed({ src, caption })} />
                     ))}
                   </div>
                 )}
@@ -360,7 +373,7 @@ export default function ClearanceDesigns() {
                       Potential matches (below threshold)
                     </p>
                     {weakMatches.map((m) => (
-                      <MatchCard key={m.design_id} m={m} dim={true} />
+                      <MatchCard key={m.design_id} m={m} dim={true} onZoom={(src, caption) => setZoomed({ src, caption })} />
                     ))}
                   </div>
                 )}
@@ -372,6 +385,15 @@ export default function ClearanceDesigns() {
               </div>
             )}
         </div>
+      )}
+
+      {zoomed && (
+        <Lightbox
+          src={zoomed.src}
+          alt={zoomed.caption}
+          caption={zoomed.caption}
+          onClose={() => setZoomed(null)}
+        />
       )}
     </div>
   );
