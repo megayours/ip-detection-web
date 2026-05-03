@@ -2,28 +2,21 @@ import { useSearchParams } from "react-router-dom";
 import ClearanceBrands from "./ClearanceBrands";
 import ClearanceDesigns from "./ClearanceDesigns";
 import ClearancePopCulture from "./ClearancePopCulture";
-import ClearanceScanAll from "./ClearanceScanAll";
 
 /**
- * Clearance — unified pre-screen for IP conflicts. Modes share the same
- * shape (upload → results) but query different catalogs:
+ * Clearance — unified pre-screen for IP conflicts. Three modes share the
+ * same shape (upload → results) but query different catalogs:
  *
- *   • Scan All           → fans out to brands + designs + pop in parallel.
  *   • Brands             → registered trademarks in this tenant's account.
  *   • Industrial Designs → WIPO Global Design Database (registered designs).
  *   • Pop Culture        → Giantbomb characters / concepts / games / ...
  *
- * Mode is URL-driven (?mode=all|brands|designs|pop) so links and refreshes
- * preserve intent. The legacy /design-match path keeps redirecting into
- * ?mode=designs.
+ * Mode is URL-driven (?mode=brands|designs|pop) so links and refreshes preserve
+ * intent. The legacy /design-match path keeps redirecting into ?mode=designs.
  */
-type Mode = "all" | "brands" | "designs" | "pop";
+type Mode = "brands" | "designs" | "pop";
 
 const MODE_COPY: Record<Mode, { title: string; subtitle: string }> = {
-  all: {
-    title: "Scan All",
-    subtitle: "Search brands, industrial designs, and pop culture catalogs in one upload",
-  },
   brands: {
     title: "Brands",
     subtitle: "Pre-screen images against registered trademarks",
@@ -42,10 +35,7 @@ export default function Clearance() {
   const [params, setParams] = useSearchParams();
   const raw = params.get("mode");
   const mode: Mode =
-    raw === "all" ? "all"
-      : raw === "designs" ? "designs"
-      : raw === "pop" ? "pop"
-      : "brands";
+    raw === "designs" ? "designs" : raw === "pop" ? "pop" : "brands";
 
   function setMode(next: Mode) {
     if (next === mode) return;
@@ -63,7 +53,7 @@ export default function Clearance() {
       </div>
 
       <div className="mb-6 inline-flex p-1 bg-stone-100 rounded-full">
-        {(["all", "brands", "designs", "pop"] as const).map((m) => (
+        {(["brands", "designs", "pop"] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
@@ -81,9 +71,6 @@ export default function Clearance() {
       {/* All modes stay mounted across tab switches so an in-flight job
           keeps polling and the uploaded file / preview survive a mode toggle.
           We just hide the inactive ones with CSS instead of unmounting. */}
-      <div className={mode === "all" ? "" : "hidden"}>
-        <ClearanceScanAll />
-      </div>
       <div className={mode === "brands" ? "" : "hidden"}>
         <ClearanceBrands />
       </div>
