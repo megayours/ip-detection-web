@@ -1,41 +1,46 @@
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import ClearanceBrands from "./ClearanceBrands";
-import ClearanceDesigns from "./ClearanceDesigns";
-import ClearancePopCulture from "./ClearancePopCulture";
+import ClearanceVisual from "./ClearanceVisual";
 
 /**
- * Clearance — unified pre-screen for IP conflicts. Three modes share the
- * same shape (upload → results) but query different catalogs:
+ * Clearance — unified pre-screen for IP conflicts. Two modes:
  *
- *   • Brands             → registered trademarks in this tenant's account.
- *   • Industrial Designs → WIPO Global Design Database (registered designs).
- *   • Pop Culture        → Giantbomb characters / concepts / games / ...
+ *   • Brands       → registered trademarks in this tenant's account.
+ *   • Visual Match → WIPO designs + Giantbomb pop-culture in one query.
  *
- * Mode is URL-driven (?mode=brands|designs|pop) so links and refreshes preserve
- * intent. The legacy /design-match path keeps redirecting into ?mode=designs.
+ * Mode is URL-driven (?mode=brands|visual) so links and refreshes preserve
+ * intent. Legacy ?mode=designs and ?mode=pop redirect to ?mode=visual.
  */
-type Mode = "brands" | "designs" | "pop";
+type Mode = "brands" | "visual";
 
 const MODE_COPY: Record<Mode, { title: string; subtitle: string }> = {
   brands: {
     title: "Brands",
     subtitle: "Pre-screen images against registered trademarks",
   },
-  designs: {
-    title: "Industrial Designs",
-    subtitle: "Search the WIPO Global Design Database for visually similar registered designs",
-  },
-  pop: {
-    title: "Pop Culture",
-    subtitle: "Search the Giantbomb catalog (characters, concepts, games, …) for visually similar entries",
+  visual: {
+    title: "Visual Match",
+    subtitle: "Search WIPO designs and Giantbomb pop-culture catalogs for visually similar entries",
   },
 };
 
 export default function Clearance() {
   const [params, setParams] = useSearchParams();
   const raw = params.get("mode");
-  const mode: Mode =
-    raw === "designs" ? "designs" : raw === "pop" ? "pop" : "brands";
+
+  // Legacy redirect: ?mode=designs or ?mode=pop → ?mode=visual.
+  // Keeps shareable links from old tabs working without a server-side rule.
+  useEffect(() => {
+    if (raw === "designs" || raw === "pop") {
+      const next = new URLSearchParams(params);
+      next.set("mode", "visual");
+      next.delete("type");      // drop legacy entity_type filter
+      setParams(next, { replace: true });
+    }
+  }, [raw, params, setParams]);
+
+  const mode: Mode = raw === "visual" ? "visual" : "brands";
 
   function setMode(next: Mode) {
     if (next === mode) return;
@@ -53,7 +58,7 @@ export default function Clearance() {
       </div>
 
       <div className="mb-6 inline-flex p-1 bg-stone-100 rounded-full">
-        {(["brands", "designs", "pop"] as const).map((m) => (
+        {(["brands", "visual"] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
@@ -68,17 +73,13 @@ export default function Clearance() {
         ))}
       </div>
 
-      {/* All modes stay mounted across tab switches so an in-flight job
-          keeps polling and the uploaded file / preview survive a mode toggle.
-          We just hide the inactive ones with CSS instead of unmounting. */}
+      {/* Both modes stay mounted across tab switches so an in-flight job keeps
+          polling and the uploaded file / preview survives a mode toggle. */}
       <div className={mode === "brands" ? "" : "hidden"}>
         <ClearanceBrands />
       </div>
-      <div className={mode === "designs" ? "" : "hidden"}>
-        <ClearanceDesigns />
-      </div>
-      <div className={mode === "pop" ? "" : "hidden"}>
-        <ClearancePopCulture />
+      <div className={mode === "visual" ? "" : "hidden"}>
+        <ClearanceVisual />
       </div>
     </div>
   );

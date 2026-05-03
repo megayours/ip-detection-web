@@ -604,61 +604,36 @@ export function getClearanceResult(jobId: string) {
   return request<ClearanceResult>(`/api/clearance/${jobId}`);
 }
 
-// --- Design Match (visual similarity vs WIPO design-patent catalog) ---
-
-export interface DesignMatch {
-  design_id: string;
-  registration_id: string;       // e.g. "015093157-0009"
-  base_id?: string;              // e.g. "015093157" — same registration, used to group sibling design views
-  product_class: string | null;  // e.g. "Logos", "Graphic symbols"
-  status: string | null;         // e.g. "Registered and fully published"
-  design_office: string | null;  // e.g. "European Designs"
-  wipo_link: string | null;      // official record URL
-  preview_url: string;           // signed URL to the design's R2 image
-  score: number;                 // displayed confidence — VLM confidence when reranked, else cosine similarity 0..1
-  inliers?: number;              // DALF RANSAC inliers — ≥2 = structurally verified non-rigid match
-  bbox?: [number, number, number, number];   // best-tile region (x, y, w, h)
-  vlm_verdict?: "present" | "absent" | "unclear";   // Gemini precision filter — absent matches are dropped server-side
-  vlm_confidence?: number;       // 0..1 — VLM's calibrated confidence; replaces `score` when present
-  vlm_reasoning?: string;        // one-line human-readable rationale from the VLM
-}
-
-export interface DesignMatchResult {
-  status: "pending" | "complete" | "failed";
-  error?: string;
-  query_image_url?: string;
-  image_width?: number;
-  image_height?: number;
-  matches?: DesignMatch[];
-  weak_matches?: DesignMatch[];   // below threshold but above noise — UI can show as "Potential matches"
-}
-
-export async function submitDesignMatch(file: File) {
-  const form = new FormData();
-  form.append("image", file);
-
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(`${API}/api/design-match`, { method: "POST", headers, body: form });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
-  }
-  return res.json() as Promise<{ job_id: string }>;
-}
-
-export function getDesignMatchResult(jobId: string) {
-  return request<DesignMatchResult>(`/api/design-match/${jobId}`);
-}
-
-// --- Giantbomb Match (visual similarity vs pop-culture catalog) ---
+// --- Visual Match (visual similarity vs designs + pop-culture catalogs) ---
 
 export type GiantbombEntityType =
   | "character" | "concept" | "person" | "location" | "thing" | "franchise" | "game";
 
-export interface GiantbombMatch {
-  entity_id: string;
+interface VisualMatchCommon {
+  id: string;
+  preview_url: string;            // signed URL to the catalog entry's R2 image
+  score: number;                  // displayed confidence; VLM-blended cosine 0..1
+  cosine_score?: number;          // raw retrieval signal
+  whole_cos?: number;             // whole-image cosine (informational)
+  inliers?: number;               // DALF RANSAC inliers — ≥2 = structurally verified
+  bbox?: [number, number, number, number];   // best-tile region (x, y, w, h)
+  vlm_verdict?: "present" | "absent" | "unclear";
+  vlm_confidence?: number;
+  vlm_reasoning?: string;
+}
+
+export interface VisualDesignMatch extends VisualMatchCommon {
+  source: "design";
+  registration_id: string;        // e.g. "015093157-0009"
+  base_id?: string;               // e.g. "015093157" — used to group sibling design views
+  product_class: string | null;   // e.g. "Logos", "Graphic symbols"
+  status: string | null;
+  design_office: string | null;
+  wipo_link: string | null;
+}
+
+export interface VisualPopMatch extends VisualMatchCommon {
+  source: "pop";
   giantbomb_id: string;
   source_id: string;
   entity_type: GiantbombEntityType | string;
@@ -666,39 +641,28 @@ export interface GiantbombMatch {
   aliases: string[];
   summary: string | null;
   source_url: string | null;
-  preview_url: string;            // signed URL to the entity's R2 image
-  score: number;                  // displayed confidence; VLM-blended cosine 0..1
-  cosine_score?: number;          // raw retrieval signal
-  inliers?: number;               // DALF RANSAC inliers
-  bbox?: [number, number, number, number];
-  vlm_verdict?: "present" | "absent" | "unclear";
-  vlm_confidence?: number;
-  vlm_reasoning?: string;
 }
 
-export interface GiantbombMatchResult {
+export type VisualMatch = VisualDesignMatch | VisualPopMatch;
+
+export interface VisualMatchResult {
   status: "pending" | "complete" | "failed";
   error?: string;
-  entity_type?: string | null;     // category that was searched, if any
   query_image_url?: string;
   image_width?: number;
   image_height?: number;
-  matches?: GiantbombMatch[];
-  weak_matches?: GiantbombMatch[];
+  matches?: VisualMatch[];
+  weak_matches?: VisualMatch[];
 }
 
-export async function submitGiantbombMatch(
-  file: File,
-  opts?: { entityType?: GiantbombEntityType },
-) {
+export async function submitVisualMatch(file: File) {
   const form = new FormData();
   form.append("image", file);
-  if (opts?.entityType) form.append("entity_type", opts.entityType);
 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API}/api/giantbomb-match`, { method: "POST", headers, body: form });
+  const res = await fetch(`${API}/api/visual-match`, { method: "POST", headers, body: form });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || res.statusText);
@@ -706,9 +670,15 @@ export async function submitGiantbombMatch(
   return res.json() as Promise<{ job_id: string }>;
 }
 
-export function getGiantbombMatchResult(jobId: string) {
-  return request<GiantbombMatchResult>(`/api/giantbomb-match/${jobId}`);
+export function getVisualMatchResult(jobId: string) {
+  return request<VisualMatchResult>(`/api/visual-match/${jobId}`);
 }
+
+// --- Giantbomb catalog browse (standalone Pop-Culture catalog page) ---
+//
+// The visual-similarity match flow lives on /api/visual-match; the
+// catalog-browse + categories endpoints stay on /api/giantbomb-match
+// because they're pop-culture-specific.
 
 /** Indexed entity types + counts. UI uses this to drive chip availability. */
 export interface GiantbombCategory {

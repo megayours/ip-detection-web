@@ -86,7 +86,7 @@ export default function App() {
           path="/clearance"
           element={<ProtectedRoute><Clearance /></ProtectedRoute>}
         />
-        <Route path="/design-match" element={<Navigate to="/clearance?mode=designs" replace />} />
+        <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
         <Route
           path="/clearance/brands/catalog"
           element={<ProtectedRoute><BrandsCatalog /></ProtectedRoute>}
