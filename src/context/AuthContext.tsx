@@ -18,18 +18,30 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Where to send the user after a successful sign-in. ProtectedRoute /
-// AdminRoute write to this when bouncing an unauthenticated visitor to /login;
-// the OAuth round-trip preserves it because it's a same-tab navigation, then
-// AuthContext consumes + clears it after the callback token lands.
+// Where to send the user after a successful sign-in.
+//
+// Two transports because frontend and API live on different origins
+// (megayours.com vs ip-detection.yours.fun) and Safari/ITP can drop
+// sessionStorage during cross-origin navigation:
+//
+//   1. sessionStorage["auth_return_to"] — set by ProtectedRoute / AdminRoute
+//      so the value survives the click-through to /login. Picked up here when
+//      we hand off to WorkOS so the backend can echo it through the OAuth
+//      state. Falls back to direct consumption on the way back if the URL
+//      param is missing.
+//   2. ?next=<path> URL param on the post-callback redirect — bulletproof
+//      against storage being wiped, since it travels in the OAuth round-trip
+//      itself.
 const RETURN_TO_KEY = "auth_return_to";
 
+function isSafePath(p: string | null | undefined): p is string {
+  if (!p || !p.startsWith("/") || p.startsWith("//")) return false;
+  if (p === "/" || p.startsWith("/login")) return false;
+  return true;
+}
+
 export function stashReturnTo(path: string) {
-  // Only store same-origin paths starting with "/" — never an absolute URL —
-  // to prevent a hostile referrer from turning sign-in into an open redirect.
-  if (!path.startsWith("/") || path.startsWith("//")) return;
-  // Don't loop back to /login or /; both would defeat the purpose.
-  if (path === "/" || path.startsWith("/login")) return;
+  if (!isSafePath(path)) return;
   try {
     sessionStorage.setItem(RETURN_TO_KEY, path);
   } catch {
@@ -37,14 +49,20 @@ export function stashReturnTo(path: string) {
   }
 }
 
-function consumeReturnTo(): string | null {
+function readStashedReturnTo(): string | null {
   try {
     const v = sessionStorage.getItem(RETURN_TO_KEY);
-    if (v) sessionStorage.removeItem(RETURN_TO_KEY);
-    if (!v || !v.startsWith("/") || v.startsWith("//")) return null;
-    return v;
+    return isSafePath(v) ? v : null;
   } catch {
     return null;
+  }
+}
+
+function clearStashedReturnTo() {
+  try {
+    sessionStorage.removeItem(RETURN_TO_KEY);
+  } catch {
+    /* noop */
   }
 }
 
@@ -55,15 +73,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // After WorkOS callback the backend redirects us back here with `?token=…`
-    // in the URL. Consume it once, persist into localStorage, then strip it
-    // from the URL so refreshes don't re-process the same token.
+    // (and optionally `?next=…`) in the URL. Consume both, persist the token
+    // into localStorage, then strip them from the URL so refreshes don't
+    // re-process the same values.
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get("token");
+    const nextFromUrl = urlParams.get("next");
     let justSignedIn = false;
+    let returnTo: string | null = null;
     if (tokenFromUrl) {
       setToken(tokenFromUrl);
       justSignedIn = true;
+      // Prefer the URL param (travels with the OAuth round-trip and survives
+      // any storage wipe). Fall back to sessionStorage for older clients or
+      // if the start request didn't carry return_to for some reason.
+      returnTo = isSafePath(nextFromUrl) ? nextFromUrl : readStashedReturnTo();
+      clearStashedReturnTo();
       urlParams.delete("token");
+      urlParams.delete("next");
       const newSearch = urlParams.toString();
       const newUrl =
         window.location.pathname + (newSearch ? `?${newSearch}` : "") + window.location.hash;
@@ -75,13 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(({ user }) => {
           if (user) {
             setUser(user);
-            // Send the user back to the page they originally tried to visit
-            // (stashed by ProtectedRoute / AdminRoute before bouncing them
-            // through /login).
-            if (justSignedIn) {
-              const returnTo = consumeReturnTo();
-              if (returnTo) navigate(returnTo, { replace: true });
-            }
+            if (justSignedIn && returnTo) navigate(returnTo, { replace: true });
           } else {
             setToken(null);
           }
@@ -93,8 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [navigate]);
 
   function signIn() {
-    // Full-page navigation — WorkOS hosted UI takes over from here.
-    window.location.href = workosLoginUrl();
+    // Hand off the stashed return path so the backend can echo it through the
+    // OAuth state and back to us as `?next=…`. Full-page navigation — WorkOS
+    // hosted UI takes over from here.
+    const returnTo = readStashedReturnTo() ?? undefined;
+    window.location.href = workosLoginUrl(returnTo);
   }
 
   async function logout() {

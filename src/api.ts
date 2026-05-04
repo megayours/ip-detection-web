@@ -36,9 +36,12 @@ export interface AuthUser {
   role?: "user" | "admin";
 }
 
-/** URL the browser navigates to in order to start a WorkOS AuthKit sign-in. */
-export function workosLoginUrl(): string {
-  return `${API}/api/auth/workos/start`;
+/** URL the browser navigates to in order to start a WorkOS AuthKit sign-in.
+ *  Optional `returnTo` is a same-origin path the backend will echo back to
+ *  the SPA as `?next=…` after the OAuth round-trip succeeds. */
+export function workosLoginUrl(returnTo?: string): string {
+  if (!returnTo) return `${API}/api/auth/workos/start`;
+  return `${API}/api/auth/workos/start?return_to=${encodeURIComponent(returnTo)}`;
 }
 
 export function getMe() {
