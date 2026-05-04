@@ -1,5 +1,6 @@
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
+import { stashReturnTo } from "./context/AuthContext";
 import Nav from "./components/Nav";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -24,6 +25,7 @@ function RedirectTrademark() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -31,12 +33,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" />;
+  if (!user) {
+    stashReturnTo(location.pathname + location.search + location.hash);
+    return <Navigate to="/login" />;
+  }
   return <>{children}</>;
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -44,7 +50,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" />;
+  if (!user) {
+    stashReturnTo(location.pathname + location.search + location.hash);
+    return <Navigate to="/login" />;
+  }
   if (user.role !== "admin") {
     return (
       <div className="max-w-xl mx-auto px-6 py-16 text-center">
