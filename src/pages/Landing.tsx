@@ -27,16 +27,17 @@ export default function Landing() {
                 <span className="absolute inset-0 bg-red-500 rounded-full animate-pulse-dot" />
                 <span className="relative bg-red-600 rounded-full w-1.5 h-1.5" />
               </span>
-              Visual Copyright Clearance
+              Automated Visual Copyright Compliance
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-[3.75rem] font-black tracking-[-0.035em] leading-[1.05] text-stone-900 text-balance">
-              Clear visual assets{" "}
-              <span className="text-gradient-red">before they ship.</span>
+              Visual copyright compliance,{" "}
+              <span className="text-gradient-red">automated.</span>
             </h1>
             <p className="mt-7 text-lg text-stone-500 max-w-2xl mx-auto leading-relaxed text-balance">
-              Pre-screen new characters, scenes, props, and creative assets against existing
-              protected IP. We surface risky similarities, show the visual evidence behind each
-              match, and produce reports your legal reviewers can act on.
+              The visual check legal teams do by hand today — every new character, scene,
+              prop, and creative asset compared against existing protected IP — done
+              automatically. Risky similarities surfaced, the visual evidence shown,
+              a report your reviewers can act on.
             </p>
             <div className="mt-10 flex flex-wrap gap-3 justify-center">
               {user ? (
@@ -87,15 +88,15 @@ export default function Landing() {
             <div className="mt-16 flex items-center justify-center gap-6 text-[11px] font-medium text-stone-400 uppercase tracking-[0.2em]">
               <span className="inline-flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-stone-400" />
-                Side-by-side evidence
+                Manual review, automated
               </span>
               <span className="hidden sm:inline-flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-stone-400" />
-                Reports for legal review
+                Side-by-side evidence
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-stone-400" />
-                Built in collaboration with top law firms
+                Built with top law firms
               </span>
             </div>
           </div>
@@ -479,7 +480,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
             <span className="font-semibold text-stone-600">MegaYours</span>
-            <span>· Visual Copyright Clearance</span>
+            <span>· Automated Visual Copyright Compliance</span>
           </div>
           <span className="tabular-nums">© {new Date().getFullYear()}</span>
         </div>
