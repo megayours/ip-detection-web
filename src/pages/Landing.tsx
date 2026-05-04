@@ -95,7 +95,7 @@ export default function Landing() {
               </span>
               <span className="inline-flex items-center gap-2">
                 <span className="w-1 h-1 rounded-full bg-stone-400" />
-                Built with 100+ law firms
+                Built in collaboration with top law firms
               </span>
             </div>
           </div>
