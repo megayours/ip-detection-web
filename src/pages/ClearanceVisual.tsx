@@ -399,7 +399,7 @@ export default function ClearanceVisual() {
       {isProcessing && (
         <div className="mt-8 flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-stone-500">Searching designs and pop culture…</p>
+          <p className="text-sm text-stone-500">Analyzing…</p>
         </div>
       )}
 

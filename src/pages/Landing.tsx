@@ -268,92 +268,17 @@ export default function Landing() {
         <div className="absolute inset-0 bg-grid-dark mask-radial pointer-events-none" aria-hidden />
 
         <div className="relative max-w-6xl mx-auto px-6 py-24">
-          <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-sm text-white/60 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-5">
-              <span className="w-1 h-1 rounded-full bg-emerald-400" />
-              Real Benchmark Results
-            </div>
-            <h2 className="text-3xl sm:text-[2.75rem] font-black tracking-[-0.03em] leading-[1.05] text-balance">
-              Every Other Approach <span className="text-gradient-cream">Picks a Side.</span>
-            </h2>
-            <p className="mt-4 text-white/50 max-w-2xl mx-auto text-balance leading-relaxed">
-              Vector-search services like <span className="text-white/80">Clarifai</span> catch the
-              long tail — but flag Daffy as Donald, Pepsi as Coca-Cola, Prada as Gucci. Pure VLMs
-              like <span className="text-white/80">Gemini</span> and <span className="text-white/80">GPT-4.1</span>
-              don't hallucinate — but on figurative marks with no readable brand text to OCR, they
-              return nothing. We index 1,000+ trademarks and combine visual retrieval with a VLM
-              verifier — recall of the embedding services, precision of the VLMs, and coverage on
-              the long tail neither shortcut reaches.
-            </p>
-          </div>
-
-          {/* Stats strip — headline numbers above the data table */}
-          <div className="grid sm:grid-cols-3 gap-3 max-w-3xl mx-auto mb-10">
-            <StatTile
-              value="1,000+"
-              label="Registered trademarks indexed — including the long tail"
-            />
-            <StatTile
-              value="Two failure modes"
-              label="VLMs go silent without an OCR shortcut · vector search flags every lookalike"
-            />
-            <StatTile
-              value="0%"
-              label="False alarms across the whole benchmark"
-              accent="emerald"
-            />
-          </div>
-
-          {/* Quantitative benchmark */}
-          <div className="mb-14">
-            <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm gradient-border">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
-                  <thead>
-                    <tr className="text-white/40 text-[10px] uppercase tracking-[0.18em] border-b border-white/5">
-                      <th className="text-left px-6 py-5 font-semibold">Approach</th>
-                      <th className="text-right px-4 py-5 font-semibold">
-                        Caught <ArrowUp />
-                      </th>
-                      <th className="text-right px-4 py-5 font-semibold">
-                        Correct when flagged <ArrowUp />
-                      </th>
-                      <th className="text-right px-6 py-5 font-semibold">
-                        False alarms <ArrowDown />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {BENCHMARK_ROWS.map((row) => (
-                      <BenchmarkRow key={row.name} {...row} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="mt-5 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
-              <LegendItem label="Caught" text="share of real infringements the approach detected." />
-              <LegendItem label="Correct when flagged" text="when it raises an alert, how often it's actually right." />
-              <LegendItem label="False alarms" text="share of legitimate images wrongly flagged." />
-            </div>
-            <p className="mt-5 text-[11px] text-white/30 text-center">
-              Threshold 0.75 (cosine) / 0.50 (VLM confidence). Same references, same queries
-              across every approach. Test mix spans household-name brands AND obscure
-              EUIPO-registered marks — the regime where competing approaches fall apart.
-            </p>
-          </div>
-
           {/* Famous vs long-tail split — drilldown by brand familiarity */}
           <div className="mb-14">
             <div className="text-center mb-7">
-              <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-sm text-white/60 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-4">
-                <span className="w-1 h-1 rounded-full bg-amber-300" />
-                Famous brands vs the long tail
+              <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 backdrop-blur-sm text-white/60 text-[11px] font-semibold tracking-[0.2em] uppercase px-3.5 py-1.5 rounded-full mb-5">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                Real Benchmark Results
               </div>
-              <h3 className="text-2xl sm:text-3xl font-black tracking-[-0.03em] leading-[1.1] text-balance">
+              <h2 className="text-3xl sm:text-[2.75rem] font-black tracking-[-0.03em] leading-[1.05] text-balance">
                 Each baseline is strong on <span className="text-gradient-cream">one half</span>.
                 <br className="hidden sm:block" /> Our pipeline wins both.
-              </h3>
+              </h2>
               <p className="mt-3 text-white/50 max-w-2xl mx-auto text-[13px] leading-relaxed">
                 Same evaluation, split by brand familiarity. <span className="text-white/75">Famous</span> =
                 household names with rich in-the-wild references. <span className="text-white/75">Long-tail</span> =
@@ -458,7 +383,7 @@ export default function Landing() {
               rows={[
                 { name: "Vertex AI Search", score: 0.601, result: "miss" },
                 { name: "Clarifai Visual Search", score: 0.779, result: "match" },
-                { name: "Gemini (no pipeline)", score: 1.0, result: "match" },
+                { name: "Gemini", score: 1.0, result: "match" },
                 { name: "MegaYours", score: 1.0, result: "match" },
               ]}
             />
@@ -470,7 +395,7 @@ export default function Landing() {
               rows={[
                 { name: "Vertex AI Search", score: 0.875, result: "false-alarm" },
                 { name: "Clarifai Visual Search", score: 0.882, result: "false-alarm", note: "Top hit was a Donald Duck reference" },
-                { name: "Gemini (no pipeline)", score: null, result: "no-match" },
+                { name: "Gemini", score: null, result: "no-match" },
                 { name: "MegaYours", score: null, result: "no-match" },
               ]}
             />
@@ -481,8 +406,8 @@ export default function Landing() {
               verdict="match"
               rows={[
                 { name: "Clarifai Visual Search", score: 0.733, result: "match" },
-                { name: "Gemini (no pipeline)", score: null, result: "miss", note: "Returned no detections — neither recognised nor readable" },
-                { name: "GPT-4.1 (no pipeline)", score: null, result: "miss", note: "Returned no detections — neither recognised nor readable" },
+                { name: "Gemini", score: null, result: "miss", note: "Returned no detections — neither recognised nor readable" },
+                { name: "GPT-4.1", score: null, result: "miss", note: "Returned no detections — neither recognised nor readable" },
                 { name: "MegaYours", score: 0.95, result: "match" },
               ]}
             />
@@ -599,9 +524,6 @@ const STATS: { value: string; label: string; suffix?: string }[] = [
 function ArrowUp() {
   return <span className="inline-block text-white/25 font-mono ml-0.5">↑</span>;
 }
-function ArrowDown() {
-  return <span className="inline-block text-white/25 font-mono ml-0.5">↓</span>;
-}
 
 function LegendItem({ label, text }: { label: string; text: string }) {
   return (
@@ -610,29 +532,6 @@ function LegendItem({ label, text }: { label: string; text: string }) {
       <div>
         <span className="text-white/70 font-semibold">{label}:</span>{" "}
         <span className="text-white/40">{text}</span>
-      </div>
-    </div>
-  );
-}
-
-function StatTile({
-  value,
-  label,
-  accent,
-}: {
-  value: string;
-  label: string;
-  accent?: "emerald";
-}) {
-  const valueClass =
-    accent === "emerald" ? "text-emerald-300" : "text-white";
-  return (
-    <div className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm px-5 py-5 text-center">
-      <div className={`text-2xl sm:text-[1.75rem] font-black tracking-tight leading-tight ${valueClass}`}>
-        {value}
-      </div>
-      <div className="mt-1.5 text-[11px] text-white/55 leading-snug">
-        {label}
       </div>
     </div>
   );
@@ -796,15 +695,6 @@ function ComparisonCard({
   );
 }
 
-type BenchmarkRowData = {
-  name: string;
-  description: string;
-  recall: number;
-  precision: number;
-  fpr: number;
-  highlight?: boolean;
-};
-
 // Known/unknown split table — populated from compare_vlm.py + compare_clip.py
 // against a 50/50 mix of famous brands and obscure EUIPO marks (synthetic
 // queries). F1 at the operating threshold each approach was tuned for.
@@ -820,20 +710,10 @@ type SplitRowData = {
 const SPLIT_ROWS: SplitRowData[] = [
   { name: "OpenAI CLIP ViT-L/14", description: "Pure embedding retrieval — works on what it's seen, blank on the rest", f1Known: 0.704, f1Unknown: 0.0, timeSec: 0.1 },
   { name: "SigLIP2 (embedding only)", description: "Stronger semantic embeddings — same long-tail blind spot", f1Known: 0.609, f1Unknown: 0.0, timeSec: 0.1 },
-  { name: "Gemini 2.5 Flash (no pipeline)", description: "Names household brands; on figurative marks with no readable text, returns nothing", f1Known: 0.962, f1Unknown: 0.05, timeSec: 2.6 },
-  { name: "GPT-4.1 (no pipeline)", description: "Same shape as Gemini — strong on famous, silent on text-free figurative marks", f1Known: 0.872, f1Unknown: 0.04, timeSec: 3.4 },
+  { name: "Gemini 2.5", description: "Names household brands; on figurative marks with no readable text, returns nothing", f1Known: 0.962, f1Unknown: 0.05, timeSec: 2.6 },
+  { name: "GPT-4.1", description: "Same shape as Gemini — strong on famous, silent on text-free figurative marks", f1Known: 0.872, f1Unknown: 0.04, timeSec: 3.4 },
   { name: "MegaYours (Light)", description: "Indexed catalog hit-or-miss — strong on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
   { name: "MegaYours (Max)", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, timeSec: 16.3, highlight: true },
-];
-
-const BENCHMARK_ROWS: BenchmarkRowData[] = [
-  { name: "OpenAI CLIP ViT-L/14", description: "Standard image-text embedding model", recall: 0.704, precision: 0.704, fpr: 0.8 },
-  { name: "Vertex AI Embeddings", description: "Google Cloud multimodal vector search", recall: 0.333, precision: 0.643, fpr: 0.5 },
-  { name: "Clarifai Visual Search", description: "Catches the long tail — but flags Daffy as Donald, Pepsi as Coca-Cola, Prada as Gucci", recall: 0.963, precision: 0.765, fpr: 0.8 },
-  { name: "Google Vision Logo API", description: "Cloud Vision logo detection — household-brand registry only", recall: 0.333, precision: 0.9, fpr: 0.1 },
-  { name: "Gemini 2.5 Flash (no pipeline)", description: "Asked to name every brand it sees — high recall when OCR or fame helps, silent otherwise", recall: 0.926, precision: 1.0, fpr: 0.0 },
-  { name: "GPT-4.1 (no pipeline)", description: "Same shape as Gemini — silent on figurative marks with no readable brand text", recall: 0.815, precision: 1.0, fpr: 0.0 },
-  { name: "MegaYours (Max)", description: "Visual retrieval + VLM verification — catches the long tail without flagging lookalikes", recall: 0.963, precision: 1.0, fpr: 0.0, highlight: true },
 ];
 
 function fmtPct(n: number) {
@@ -871,27 +751,6 @@ function BenchmarkCell({
         <span className={`text-sm ${textColor} w-10 text-right`}>{fmtPct(value)}</span>
       </div>
     </td>
-  );
-}
-
-function BenchmarkRow({ name, description, recall, precision, fpr, highlight }: BenchmarkRowData) {
-  const rowCls = highlight
-    ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent"
-    : "hover:bg-white/[0.02] transition-colors";
-  const nameCls = highlight ? "text-emerald-200" : "text-white/85";
-  return (
-    <tr className={`${rowCls} border-t border-white/5`}>
-      <td className="px-6 py-5">
-        <div className="flex items-center gap-2">
-          {highlight && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />}
-          <div className={`text-sm font-semibold tracking-tight ${nameCls}`}>{name}</div>
-        </div>
-        <div className="text-xs text-white/40 mt-0.5">{description}</div>
-      </td>
-      <BenchmarkCell value={recall} highlight={highlight} />
-      <BenchmarkCell value={precision} highlight={highlight} />
-      <BenchmarkCell value={fpr} highlight={highlight} inverse />
-    </tr>
   );
 }
 
