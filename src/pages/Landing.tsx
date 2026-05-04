@@ -280,9 +280,9 @@ export default function Landing() {
                 <br className="hidden sm:block" /> Our pipeline wins both.
               </h2>
             </div>
-            <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm gradient-border">
+            <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm gradient-border max-w-3xl mx-auto">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[640px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="text-white/40 text-[10px] uppercase tracking-[0.18em] border-b border-white/5">
                       <th className="text-left px-6 py-5 font-semibold">Approach</th>
@@ -302,7 +302,6 @@ export default function Landing() {
             <p className="mt-5 text-[11px] text-white/30 text-center max-w-3xl mx-auto">
               Pure embedding models recognise what they've seen and miss the rest.
               <span className="text-white/55"> VLMs answer only when they recognise the brand or can read its name in the image.</span>
-              Combining indexed catalog retrieval with a VLM verifier covers what neither shortcut reaches.
             </p>
           </div>
 
@@ -728,9 +727,7 @@ function SplitRow({ name, description, f1Known, f1Unknown, highlight }: SplitRow
     ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent"
     : "hover:bg-white/[0.02] transition-colors";
   const nameCls = highlight ? "text-emerald-200" : "text-white/85";
-  // Floor the averaged percent so x.5 cases round down (e.g. GPT-4.1's
-  // 45.6% displays as 45%, matching how the bench is reported).
-  const avgPct = Math.floor(((f1Known + f1Unknown) / 2) * 100);
+  const avgPct = Math.round(((f1Known + f1Unknown) / 2) * 100);
   return (
     <tr className={`${rowCls} border-t border-white/5`}>
       <td className="px-6 py-5">
