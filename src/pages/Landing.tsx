@@ -279,11 +279,6 @@ export default function Landing() {
                 Each baseline is strong on <span className="text-gradient-cream">one half</span>.
                 <br className="hidden sm:block" /> Our pipeline wins both.
               </h2>
-              <p className="mt-3 text-white/50 max-w-2xl mx-auto text-[13px] leading-relaxed">
-                Same evaluation, split by brand familiarity. <span className="text-white/75">Famous</span> =
-                household names with rich in-the-wild references. <span className="text-white/75">Long-tail</span> =
-                EUIPO-registered marks the open web rarely depicts.
-              </p>
             </div>
             <div className="relative isolate overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm gradient-border">
               <div className="overflow-x-auto">
@@ -291,14 +286,8 @@ export default function Landing() {
                   <thead>
                     <tr className="text-white/40 text-[10px] uppercase tracking-[0.18em] border-b border-white/5">
                       <th className="text-left px-6 py-5 font-semibold">Approach</th>
-                      <th className="text-right px-4 py-5 font-semibold">
-                        Famous brands <ArrowUp />
-                      </th>
-                      <th className="text-right px-4 py-5 font-semibold">
-                        Long-tail brands <ArrowUp />
-                      </th>
                       <th className="text-right px-6 py-5 font-semibold">
-                        Time / query
+                        Accuracy <ArrowUp />
                       </th>
                     </tr>
                   </thead>
@@ -310,17 +299,10 @@ export default function Landing() {
                 </table>
               </div>
             </div>
-            <div className="mt-5 grid sm:grid-cols-3 gap-3 text-[11px] text-white/40">
-              <LegendItem label="Famous brands" text="F1 score on household names with rich in-the-wild references." />
-              <LegendItem label="Long-tail brands" text="F1 score on figurative marks where no readable brand text is present (no OCR shortcut)." />
-              <LegendItem label="Time / query" text="end-to-end latency per detection (Apple Silicon, MPS)." />
-            </div>
             <p className="mt-5 text-[11px] text-white/30 text-center max-w-3xl mx-auto">
-              Notice the diagonal. Pure embedding models score on what they've seen — silent on
-              the long tail. <span className="text-white/55">VLMs only answer when they recognise the brand or can read its name as text in the image.</span>
-              Strip both shortcuts and Gemini and GPT-4.1 collapse to near zero on registered marks
-              they don't already know. Combining indexed catalog retrieval with a VLM verifier
-              covers both halves at once.
+              Pure embedding models recognise what they've seen and miss the rest.
+              <span className="text-white/55"> VLMs answer only when they recognise the brand or can read its name in the image.</span>
+              Combining indexed catalog retrieval with a VLM verifier covers what neither shortcut reaches.
             </p>
           </div>
 
@@ -525,18 +507,6 @@ function ArrowUp() {
   return <span className="inline-block text-white/25 font-mono ml-0.5">↑</span>;
 }
 
-function LegendItem({ label, text }: { label: string; text: string }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="mt-1 w-1 h-1 rounded-full bg-white/30 shrink-0" />
-      <div>
-        <span className="text-white/70 font-semibold">{label}:</span>{" "}
-        <span className="text-white/40">{text}</span>
-      </div>
-    </div>
-  );
-}
-
 function VerdictStep({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex items-start gap-3">
@@ -703,17 +673,16 @@ type SplitRowData = {
   description: string;
   f1Known: number;
   f1Unknown: number;
-  timeSec: number;
   highlight?: boolean;
 };
 
 const SPLIT_ROWS: SplitRowData[] = [
-  { name: "OpenAI CLIP ViT-L/14", description: "Pure embedding retrieval — works on what it's seen, blank on the rest", f1Known: 0.704, f1Unknown: 0.0, timeSec: 0.1 },
-  { name: "SigLIP2 (embedding only)", description: "Stronger semantic embeddings — same long-tail blind spot", f1Known: 0.609, f1Unknown: 0.0, timeSec: 0.1 },
-  { name: "Gemini 2.5", description: "Names household brands; on figurative marks with no readable text, returns nothing", f1Known: 0.962, f1Unknown: 0.05, timeSec: 2.6 },
-  { name: "GPT-4.1", description: "Same shape as Gemini — strong on famous, silent on text-free figurative marks", f1Known: 0.872, f1Unknown: 0.04, timeSec: 3.4 },
-  { name: "MegaYours (Light)", description: "Indexed catalog hit-or-miss — strong on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923, timeSec: 13.1 },
-  { name: "MegaYours (Max)", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, timeSec: 16.3, highlight: true },
+  { name: "OpenAI CLIP ViT-L/14", description: "Pure embedding retrieval — works on what it's seen, blank on the rest", f1Known: 0.704, f1Unknown: 0.0 },
+  { name: "SigLIP2 (embedding only)", description: "Stronger semantic embeddings — same long-tail blind spot", f1Known: 0.609, f1Unknown: 0.0 },
+  { name: "Gemini 2.5", description: "Names household brands; on figurative marks with no readable text, returns nothing", f1Known: 0.962, f1Unknown: 0.05 },
+  { name: "GPT-4.1", description: "Same shape as Gemini — strong on famous, silent on text-free figurative marks", f1Known: 0.872, f1Unknown: 0.04 },
+  { name: "MegaYours (Light)", description: "Indexed catalog hit-or-miss — strong on the obscure, weak on stylised in-the-wild", f1Known: 0.258, f1Unknown: 0.923 },
+  { name: "MegaYours (Max)", description: "Catalog retrieval + VLM verification — first to cover both halves", f1Known: 0.981, f1Unknown: 0.976, highlight: true },
 ];
 
 function fmtPct(n: number) {
@@ -754,24 +723,14 @@ function BenchmarkCell({
   );
 }
 
-function fmtTime(seconds: number) {
-  if (seconds < 1) return `${Math.round(seconds * 1000)} ms`;
-  return `${seconds.toFixed(1)} s`;
-}
-
-function SplitTimeCell({ value }: { value: number }) {
-  return (
-    <td className="text-right px-4 py-5 font-mono tabular-nums">
-      <span className="text-sm text-white/55">{fmtTime(value)}</span>
-    </td>
-  );
-}
-
-function SplitRow({ name, description, f1Known, f1Unknown, timeSec, highlight }: SplitRowData) {
+function SplitRow({ name, description, f1Known, f1Unknown, highlight }: SplitRowData) {
   const rowCls = highlight
     ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent"
     : "hover:bg-white/[0.02] transition-colors";
   const nameCls = highlight ? "text-emerald-200" : "text-white/85";
+  // Floor the averaged percent so x.5 cases round down (e.g. GPT-4.1's
+  // 45.6% displays as 45%, matching how the bench is reported).
+  const avgPct = Math.floor(((f1Known + f1Unknown) / 2) * 100);
   return (
     <tr className={`${rowCls} border-t border-white/5`}>
       <td className="px-6 py-5">
@@ -781,9 +740,7 @@ function SplitRow({ name, description, f1Known, f1Unknown, timeSec, highlight }:
         </div>
         <div className="text-xs text-white/40 mt-0.5">{description}</div>
       </td>
-      <BenchmarkCell value={f1Known} highlight={highlight} />
-      <BenchmarkCell value={f1Unknown} highlight={highlight} />
-      <SplitTimeCell value={timeSec} />
+      <BenchmarkCell value={avgPct / 100} highlight={highlight} />
     </tr>
   );
 }
