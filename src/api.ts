@@ -607,7 +607,7 @@ export function getClearanceResult(jobId: string) {
   return request<ClearanceResult>(`/api/clearance/${jobId}`);
 }
 
-// --- Visual Match (visual similarity vs designs + pop-culture catalogs) ---
+// --- Visual Match (visual similarity vs designs + pop-culture + EUIPO trademarks) ---
 
 export type GiantbombEntityType =
   | "character" | "concept" | "person" | "location" | "thing" | "franchise" | "game";
@@ -646,7 +646,20 @@ export interface VisualPopMatch extends VisualMatchCommon {
   source_url: string | null;
 }
 
-export type VisualMatch = VisualDesignMatch | VisualPopMatch;
+// EUIPO bulk trademark, surfaced via the unified visual-match endpoint
+// alongside designs + pop-culture entities. Same DINOv3 embedding space
+// so it falls out of the same shortlist with no extra retrieval pass.
+export interface VisualTrademarkMatch extends VisualMatchCommon {
+  source: "trademark";
+  application_number: string;
+  verbal_element: string | null;
+  mark_kind: string | null;
+  mark_feature?: string | null;
+  nice_classes?: number[];
+  detail_url: string | null;
+}
+
+export type VisualMatch = VisualDesignMatch | VisualPopMatch | VisualTrademarkMatch;
 
 export interface VisualMatchResult {
   status: "pending" | "complete" | "failed";

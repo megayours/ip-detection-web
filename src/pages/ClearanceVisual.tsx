@@ -9,19 +9,22 @@ import {
   type VisualMatchResult,
   type VisualDesignMatch,
   type VisualPopMatch,
+  type VisualTrademarkMatch,
 } from "../api";
 
 /**
  * Visual Match — unified visual-similarity search across the WIPO design
- * catalog and the Giantbomb pop-culture catalog.
+ * catalog, the EUIPO trademark catalog, and the Giantbomb pop-culture
+ * catalog.
  *
- * Backend ranks both catalogs in one matmul against the same DINOv2
- * embedding space; matches arrive intermixed, sorted by score, each tagged
- * with `source: "design" | "pop"`. We render a per-source card layout but
- * keep the list flat — no filters.
+ * Backend ranks all three catalogs in one matmul against the same DINOv3
+ * embedding space (rows in `ip_catalog`); matches arrive intermixed,
+ * sorted by score, each tagged with `source: "design" | "pop" |
+ * "trademark"`. We render a per-source card layout but keep the list
+ * flat — no filters.
  *
  * Design siblings (same EUIPO `base_id` filing, multiple views) collapse
- * into one card; pop-culture entries are always one-card-per-row.
+ * into one card; pop and trademark entries are always one-card-per-row.
  */
 
 type GroupedDesign = VisualDesignMatch & {
@@ -29,19 +32,20 @@ type GroupedDesign = VisualDesignMatch & {
   siblings: VisualDesignMatch[];
 };
 
-type GroupedRow = GroupedDesign | VisualPopMatch;
+type GroupedRow = GroupedDesign | VisualPopMatch | VisualTrademarkMatch;
 
 /**
  * Bucket adjacent design siblings into one card while preserving the
- * original relative score order. Pop-culture rows pass through unchanged.
- * Within a design bucket the highest-scoring view becomes the
- * representative.
+ * original relative score order. Non-design rows (pop, trademark) pass
+ * through unchanged. Within a design bucket the highest-scoring view
+ * becomes the representative.
  */
 function groupForDisplay(matches: VisualMatch[]): GroupedRow[] {
   const designBuckets = new Map<string, VisualDesignMatch[]>();
   const ordering: (
     | { kind: "design"; key: string }
     | { kind: "pop"; row: VisualPopMatch }
+    | { kind: "trademark"; row: VisualTrademarkMatch }
   )[] = [];
   for (const m of matches) {
     if (m.source === "design") {
@@ -53,13 +57,15 @@ function groupForDisplay(matches: VisualMatch[]): GroupedRow[] {
         designBuckets.set(key, [m]);
         ordering.push({ kind: "design", key });
       }
+    } else if (m.source === "trademark") {
+      ordering.push({ kind: "trademark", row: m });
     } else {
       ordering.push({ kind: "pop", row: m });
     }
   }
   const out: GroupedRow[] = [];
   for (const slot of ordering) {
-    if (slot.kind === "pop") {
+    if (slot.kind === "pop" || slot.kind === "trademark") {
       out.push(slot.row);
     } else {
       const arr = designBuckets.get(slot.key)!;
@@ -259,6 +265,95 @@ function PopCard({
   );
 }
 
+function TrademarkCard({
+  m,
+  dim,
+  onZoom,
+}: {
+  m: VisualTrademarkMatch;
+  dim: boolean;
+  onZoom: (src: string, caption: string) => void;
+}) {
+  const pct = Math.round(m.score * 100);
+  const label = m.verbal_element || m.application_number;
+  return (
+    <div
+      className={`border border-stone-200 rounded-xl bg-white p-3 hover:border-stone-300 hover:shadow-sm transition-all ${
+        dim ? "opacity-70" : ""
+      }`}
+    >
+      <div className="flex gap-3">
+        {m.preview_url ? (
+          <button
+            type="button"
+            onClick={() => onZoom(m.preview_url!, label)}
+            className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center cursor-zoom-in"
+            aria-label={`View ${label} larger`}
+          >
+            <img src={m.preview_url} alt={label} className="w-full h-full object-contain" />
+          </button>
+        ) : (
+          <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-stone-100 flex items-center justify-center">
+            <span className="text-stone-300 text-xs">no image</span>
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wide">
+              Trademark{m.mark_kind ? ` · ${m.mark_kind}` : ""}
+            </span>
+            <span className="font-semibold text-sm text-stone-900 truncate">{label}</span>
+            <span
+              className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                m.score >= 0.8
+                  ? "bg-red-50 text-red-700"
+                  : m.score >= 0.65
+                  ? "bg-amber-50 text-amber-700"
+                  : m.score >= 0.5
+                  ? "bg-stone-100 text-stone-700"
+                  : "bg-stone-50 text-stone-500"
+              }`}
+            >
+              {pct}%
+            </span>
+          </div>
+          <div className="text-xs text-stone-500 truncate">{m.application_number}</div>
+          {m.nice_classes && m.nice_classes.length > 0 && (
+            <div className="text-xs text-stone-400 truncate mt-0.5">
+              Nice: {m.nice_classes.join(", ")}
+            </div>
+          )}
+          <div className="mt-2 flex items-center gap-2 text-[11px]">
+            {m.detail_url && (
+              <a
+                href={m.detail_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-stone-500 hover:text-stone-900 inline-flex items-center gap-0.5"
+              >
+                EUIPO
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </a>
+            )}
+            {typeof m.inliers === "number" && m.inliers >= 2 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                ★ verified
+              </span>
+            )}
+            {m.vlm_verdict === "present" && (
+              <span className="px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                VLM ✓
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResultCard({
   m,
   dim,
@@ -269,6 +364,7 @@ function ResultCard({
   onZoom: (src: string, caption: string) => void;
 }) {
   if (m.source === "design") return <DesignCard m={m} dim={dim} onZoom={onZoom} />;
+  if (m.source === "trademark") return <TrademarkCard m={m} dim={dim} onZoom={onZoom} />;
   return <PopCard m={m} dim={dim} onZoom={onZoom} />;
 }
 
