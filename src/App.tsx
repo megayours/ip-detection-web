@@ -3,6 +3,7 @@ import { useAuth } from "./context/AuthContext";
 import { stashReturnTo } from "./context/AuthContext";
 import Nav from "./components/Nav";
 import Landing from "./pages/Landing";
+import LandingV2 from "./pages/LandingV2";
 import Login from "./pages/Login";
 import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
@@ -76,6 +77,7 @@ export default function App() {
       <Nav />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/landing" element={<LandingV2 />} />
         <Route path="/login" element={<Login />} />
         <Route
           path="/registry"
