@@ -690,6 +690,38 @@ export function getVisualMatchResult(jobId: string) {
   return request<VisualMatchResult>(`/api/visual-match/${jobId}`);
 }
 
+// --- Visual Match supervised feedback ---
+
+export type VisualMatchVerdict = "confirmed" | "rejected";
+
+export interface VisualMatchFeedbackEntry {
+  match_id: string;
+  verdict: VisualMatchVerdict;
+  created_at: string;
+}
+
+export function submitVisualMatchFeedback(
+  jobId: string,
+  matchId: string,
+  verdict: VisualMatchVerdict,
+) {
+  return request<{
+    feedback_id: string;
+    verdict: VisualMatchVerdict;
+    total_confirmed: number;
+    total_rejected: number;
+  }>(`/api/visual-match/${jobId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({ match_id: matchId, verdict }),
+  });
+}
+
+export function getVisualMatchFeedback(jobId: string) {
+  return request<{ feedback: VisualMatchFeedbackEntry[] }>(
+    `/api/visual-match/${jobId}/feedback`,
+  );
+}
+
 // --- Giantbomb catalog browse (standalone Pop-Culture catalog page) ---
 //
 // The visual-similarity match flow lives on /api/visual-match; the
