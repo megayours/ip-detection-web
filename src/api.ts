@@ -612,6 +612,13 @@ export function getClearanceResult(jobId: string) {
 export type GiantbombEntityType =
   | "character" | "concept" | "person" | "location" | "thing" | "franchise" | "game";
 
+export interface VisualMatchRightHolder {
+  role?: string;             // 'applicant' | 'holder' | 'developer' | 'publisher' | 'studio' | …
+  name?: string;
+  identifier?: string;       // e.g. EUIPO applicant id
+  office?: string;           // EUIPO office code
+}
+
 interface VisualMatchCommon {
   id: string;
   preview_url: string;            // signed URL to the catalog entry's R2 image
@@ -623,6 +630,12 @@ interface VisualMatchCommon {
   vlm_verdict?: "present" | "absent" | "unclear";
   vlm_confidence?: number;
   vlm_reasoning?: string;
+  // Right-holders enrichment from ip-diver (server-side via
+  // scripts/enrich_right_holders.py). `right_holder` is the display
+  // string (first holder's name); `right_holders` is the full structured
+  // list. Both undefined when the row hasn't been enriched.
+  right_holder?: string | null;
+  right_holders?: VisualMatchRightHolder[];
 }
 
 export interface VisualDesignMatch extends VisualMatchCommon {

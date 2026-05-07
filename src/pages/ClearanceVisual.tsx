@@ -160,6 +160,11 @@ function DesignCard({
           </div>
           {m.product_class && <div className="text-xs text-stone-500 mb-0.5 truncate">{m.product_class}</div>}
           {m.status && <div className="text-xs text-stone-400 mb-1 truncate">{m.status}</div>}
+          {m.right_holder && (
+            <div className="text-xs text-stone-500 mb-0.5 truncate" title={m.right_holder}>
+              Right holder: <span className="text-stone-700">{m.right_holder}</span>
+            </div>
+          )}
           {m.vlm_reasoning && (
             <div
               className={`text-xs mb-1 px-2 py-1 rounded leading-snug ${
@@ -242,6 +247,11 @@ function PopCard({
             </span>
           </div>
           {m.summary && <p className="text-xs text-stone-500 line-clamp-2">{m.summary}</p>}
+          {m.right_holder && (
+            <div className="text-xs text-stone-500 mt-0.5 truncate" title={m.right_holder}>
+              Right holder: <span className="text-stone-700">{m.right_holder}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-2 text-[11px]">
             {m.source_url && (
               <a
@@ -332,6 +342,11 @@ function TrademarkCard({
           {m.nice_classes && m.nice_classes.length > 0 && (
             <div className="text-xs text-stone-400 truncate mt-0.5">
               Nice: {m.nice_classes.join(", ")}
+            </div>
+          )}
+          {m.right_holder && (
+            <div className="text-xs text-stone-500 mt-0.5 truncate" title={m.right_holder}>
+              Right holder: <span className="text-stone-700">{m.right_holder}</span>
             </div>
           )}
           <div className="mt-2 flex items-center gap-2 text-[11px]">
