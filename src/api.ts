@@ -630,6 +630,14 @@ interface VisualMatchCommon {
   vlm_verdict?: "present" | "absent" | "unclear";
   vlm_confidence?: number;
   vlm_reasoning?: string;
+  // Which signal paths contributed to this match (embedding, ocr, vlm).
+  evidence?: string[];
+  // Literal OCR / open-clearance text that matched (when text-search
+  // contributed).
+  ocr_text?: string;
+  // Feedback kNN nudges (informational badge in the Details panel).
+  feedback_boost?: number;
+  feedback_demote?: number;
   // Right-holders enrichment from ip-diver (server-side via
   // scripts/enrich_right_holders.py). `right_holder` is the display
   // string (first holder's name); `right_holders` is the full structured

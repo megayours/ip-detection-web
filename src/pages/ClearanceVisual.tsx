@@ -38,6 +38,140 @@ type GroupedDesign = VisualDesignMatch & {
 type GroupedRow = GroupedDesign | VisualPopMatch | VisualTrademarkMatch;
 
 /**
+ * Collapsible "Details" panel — surfaces the signals that contributed to a
+ * match: blended score, embedding cosine, DALF inliers, VLM verdict +
+ * reasoning, OCR text, feedback nudges. Click the header to toggle.
+ *
+ * Renders nothing when there's no useful signal to show beyond the headline
+ * score (rare — most matches carry at least cosine_score or a VLM verdict).
+ */
+function MatchDetails({
+  m,
+}: {
+  m: {
+    score: number;
+    cosine_score?: number;
+    whole_cos?: number;
+    inliers?: number;
+    vlm_verdict?: "present" | "absent" | "unclear";
+    vlm_confidence?: number;
+    vlm_reasoning?: string;
+    evidence?: string[];
+    ocr_text?: string;
+    feedback_boost?: number;
+    feedback_demote?: number;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const hasAnySignal =
+    typeof m.cosine_score === "number" ||
+    typeof m.whole_cos === "number" ||
+    typeof m.inliers === "number" ||
+    !!m.vlm_verdict ||
+    !!m.vlm_reasoning ||
+    (m.evidence && m.evidence.length > 0) ||
+    !!m.ocr_text ||
+    typeof m.feedback_boost === "number" ||
+    typeof m.feedback_demote === "number";
+  if (!hasAnySignal) return null;
+  return (
+    <div className="mt-2 border-t border-stone-100 pt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] font-medium text-stone-500 hover:text-stone-900 inline-flex items-center gap-1"
+        aria-expanded={open}
+      >
+        <svg
+          className={`w-2.5 h-2.5 transition-transform ${open ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        Details
+      </button>
+      {open && (
+        <dl className="mt-1.5 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[11px]">
+          <dt className="text-stone-500">Match score</dt>
+          <dd className="text-stone-800 font-medium">{(m.score * 100).toFixed(1)}%</dd>
+          {typeof m.cosine_score === "number" && (
+            <>
+              <dt className="text-stone-500">Best-tile cosine</dt>
+              <dd className="text-stone-800">{m.cosine_score.toFixed(3)}</dd>
+            </>
+          )}
+          {typeof m.whole_cos === "number" && (
+            <>
+              <dt className="text-stone-500">Whole-image cosine</dt>
+              <dd className="text-stone-800">{m.whole_cos.toFixed(3)}</dd>
+            </>
+          )}
+          {typeof m.inliers === "number" && (
+            <>
+              <dt className="text-stone-500">DALF inliers</dt>
+              <dd className="text-stone-800">{m.inliers}</dd>
+            </>
+          )}
+          {m.vlm_verdict && (
+            <>
+              <dt className="text-stone-500">VLM verdict</dt>
+              <dd className="text-stone-800">
+                <span
+                  className={`px-1.5 py-0.5 rounded ${
+                    m.vlm_verdict === "present"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : m.vlm_verdict === "unclear"
+                      ? "bg-amber-50 text-amber-800"
+                      : "bg-stone-50 text-stone-700"
+                  }`}
+                >
+                  {m.vlm_verdict}
+                  {typeof m.vlm_confidence === "number" &&
+                    ` @ ${m.vlm_confidence.toFixed(2)}`}
+                </span>
+              </dd>
+            </>
+          )}
+          {m.vlm_reasoning && (
+            <>
+              <dt className="text-stone-500">VLM reasoning</dt>
+              <dd className="text-stone-700 italic leading-snug">{m.vlm_reasoning}</dd>
+            </>
+          )}
+          {m.evidence && m.evidence.length > 0 && (
+            <>
+              <dt className="text-stone-500">Evidence</dt>
+              <dd className="text-stone-800">{m.evidence.join(", ")}</dd>
+            </>
+          )}
+          {m.ocr_text && (
+            <>
+              <dt className="text-stone-500">OCR text</dt>
+              <dd className="text-stone-700 font-mono">{m.ocr_text}</dd>
+            </>
+          )}
+          {typeof m.feedback_boost === "number" && m.feedback_boost > 0 && (
+            <>
+              <dt className="text-stone-500">Feedback boost</dt>
+              <dd className="text-emerald-700">+{m.feedback_boost.toFixed(3)}</dd>
+            </>
+          )}
+          {typeof m.feedback_demote === "number" && m.feedback_demote > 0 && (
+            <>
+              <dt className="text-stone-500">Feedback demote</dt>
+              <dd className="text-rose-700">−{m.feedback_demote.toFixed(3)}</dd>
+            </>
+          )}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/**
  * Bucket adjacent design siblings into one card while preserving the
  * original relative score order. Non-design rows (pop, trademark) pass
  * through unchanged. Within a design bucket the highest-scoring view
@@ -186,6 +320,7 @@ function DesignCard({
               Structural match confirmed
             </div>
           )}
+          <MatchDetails m={m} />
           {feedback}
         </div>
       </div>
@@ -277,6 +412,7 @@ function PopCard({
               </span>
             )}
           </div>
+          <MatchDetails m={m} />
           {feedback}
         </div>
       </div>
@@ -374,6 +510,7 @@ function TrademarkCard({
               </span>
             )}
           </div>
+          <MatchDetails m={m} />
           {feedback}
         </div>
       </div>
