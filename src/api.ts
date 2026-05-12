@@ -630,11 +630,17 @@ interface VisualMatchCommon {
   vlm_verdict?: "present" | "absent" | "unclear";
   vlm_confidence?: number;
   vlm_reasoning?: string;
-  // Which signal paths contributed to this match (embedding, ocr, vlm).
+  // Which signal paths contributed to this match. Values:
+  //   'embedding'  — visual cosine hit
+  //   'ocr-text'   — easyocr read literal text in the query image
+  //   'vlm-detect' — VLM identified the IP from visual content (no text)
   evidence?: string[];
-  // Literal OCR / open-clearance text that matched (when text-search
-  // contributed).
+  // Literal text that easyocr read from the query image (when 'ocr-text'
+  // fired).
   ocr_text?: string;
+  // IP name the VLM identified in the query image (when 'vlm-detect'
+  // fired). Distinct from ocr_text because no text is actually visible.
+  detected_name?: string;
   // Feedback kNN nudges (informational badge in the Details panel).
   feedback_boost?: number;
   feedback_demote?: number;

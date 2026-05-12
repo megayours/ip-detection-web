@@ -58,6 +58,7 @@ function MatchDetails({
     vlm_reasoning?: string;
     evidence?: string[];
     ocr_text?: string;
+    detected_name?: string;
     feedback_boost?: number;
     feedback_demote?: number;
   };
@@ -71,6 +72,7 @@ function MatchDetails({
     !!m.vlm_reasoning ||
     (m.evidence && m.evidence.length > 0) ||
     !!m.ocr_text ||
+    !!m.detected_name ||
     typeof m.feedback_boost === "number" ||
     typeof m.feedback_demote === "number";
   if (!hasAnySignal) return null;
@@ -145,6 +147,12 @@ function MatchDetails({
             <>
               <dt className="text-stone-500">Evidence</dt>
               <dd className="text-stone-800">{m.evidence.join(", ")}</dd>
+            </>
+          )}
+          {m.detected_name && (
+            <>
+              <dt className="text-stone-500">Detected as</dt>
+              <dd className="text-stone-700 font-mono">{m.detected_name}</dd>
             </>
           )}
           {m.ocr_text && (
