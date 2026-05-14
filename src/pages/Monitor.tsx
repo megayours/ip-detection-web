@@ -5,12 +5,14 @@ import {
   deleteMonitoredDomain,
   getMonitoringSettings,
   listMonitoredDomains,
+  listMonitoringPresets,
   listMonitoringRuns,
   triggerMonitoringRun,
   updateMonitoredDomain,
   updateMonitoringSettings,
   type MonitoredDomain,
   type MonitoringFrequency,
+  type MonitoringPreset,
   type MonitoringSettings,
   type ReverseSearchRun,
 } from "../api";
@@ -19,6 +21,7 @@ export default function Monitor() {
   const [domains, setDomains] = useState<MonitoredDomain[]>([]);
   const [runs, setRuns] = useState<ReverseSearchRun[]>([]);
   const [settings, setSettings] = useState<MonitoringSettings | null>(null);
+  const [presets, setPresets] = useState<MonitoringPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -29,14 +32,16 @@ export default function Monitor() {
   async function refresh() {
     setError("");
     try {
-      const [d, r, s] = await Promise.all([
+      const [d, r, s, p] = await Promise.all([
         listMonitoredDomains(),
         listMonitoringRuns({ limit: 50 }),
         getMonitoringSettings(),
+        listMonitoringPresets(),
       ]);
       setDomains(d.domains);
       setRuns(r.runs);
       setSettings(s.settings);
+      setPresets(p.presets);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -256,6 +261,7 @@ export default function Monitor() {
                 key={d.id}
                 d={d}
                 runs={runsByDomain.get(d.id) ?? []}
+                presets={presets}
                 onToggle={() => toggleEnabled(d)}
                 onTrigger={() => trigger(d)}
                 onDelete={() => removeDomain(d)}
@@ -282,32 +288,10 @@ const RECIPE_PLACEHOLDER = `{
   "notes": "manual"
 }`;
 
-// Predefined recipes the user can apply with one click. Bing-image sidestep
-// is the load-bearing one — it routes through Bing's already-indexed copy of
-// hardened sites (Amazon, h&m, …) instead of fighting their bot wall directly.
-// `{domain}` is substituted at fetch time alongside `{q}`.
-const RECIPE_PRESETS: Record<string, Record<string, unknown>> = {
-  "Bing image search (sidestep)": {
-    search_url_template:
-      "https://www.bing.com/images/search?q=site%3A{domain}+{q}&form=HDRSC2",
-    image_selector: "a.iusc",
-    link_selector: "",
-    notes:
-      "Bing-backed sidestep: queries Bing for site:{domain} {q}, harvests the image grid. Bypasses on-site bot detection entirely.",
-  },
-  "DuckDuckGo HTML (no JS)": {
-    search_url_template:
-      "https://html.duckduckgo.com/html/?q=site%3A{domain}+{q}",
-    image_selector: "img.result__icon__img, img",
-    link_selector: "",
-    notes:
-      "DDG HTML version — no JS, easy to scrape. Limited to public-indexed content.",
-  },
-};
-
 function DomainRow({
   d,
   runs,
+  presets,
   onToggle,
   onTrigger,
   onDelete,
@@ -316,6 +300,7 @@ function DomainRow({
 }: {
   d: MonitoredDomain;
   runs: ReverseSearchRun[];
+  presets: MonitoringPreset[];
   onToggle: () => void;
   onTrigger: () => void;
   onDelete: () => void;
@@ -425,19 +410,23 @@ function DomainRow({
               <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
                 Presets
               </span>
-              {Object.entries(RECIPE_PRESETS).map(([label, recipe]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    setRecipeDraft(JSON.stringify(recipe, null, 2));
-                    setRecipeError("");
-                  }}
-                  className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200"
-                >
-                  {label}
-                </button>
-              ))}
+              {presets.length === 0 ? (
+                <span className="text-[10px] text-stone-400">loading…</span>
+              ) : (
+                presets.map((preset) => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => {
+                      setRecipeDraft(JSON.stringify(preset.recipe, null, 2));
+                      setRecipeError("");
+                    }}
+                    className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200"
+                  >
+                    {preset.label}
+                  </button>
+                ))
+              )}
             </div>
             <textarea
               value={recipeDraft}

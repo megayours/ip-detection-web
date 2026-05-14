@@ -1087,3 +1087,13 @@ export function updateMonitoringSettings(patch: {
     body: JSON.stringify(patch),
   });
 }
+
+export interface MonitoringPreset {
+  key: string;
+  label: string;
+  recipe: Record<string, unknown>;
+}
+
+export function listMonitoringPresets() {
+  return request<{ presets: MonitoringPreset[] }>("/api/monitoring/presets");
+}
