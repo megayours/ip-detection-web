@@ -282,6 +282,29 @@ const RECIPE_PLACEHOLDER = `{
   "notes": "manual"
 }`;
 
+// Predefined recipes the user can apply with one click. Bing-image sidestep
+// is the load-bearing one — it routes through Bing's already-indexed copy of
+// hardened sites (Amazon, h&m, …) instead of fighting their bot wall directly.
+// `{domain}` is substituted at fetch time alongside `{q}`.
+const RECIPE_PRESETS: Record<string, Record<string, unknown>> = {
+  "Bing image search (sidestep)": {
+    search_url_template:
+      "https://www.bing.com/images/search?q=site%3A{domain}+{q}&form=HDRSC2",
+    image_selector: "a.iusc",
+    link_selector: "",
+    notes:
+      "Bing-backed sidestep: queries Bing for site:{domain} {q}, harvests the image grid. Bypasses on-site bot detection entirely.",
+  },
+  "DuckDuckGo HTML (no JS)": {
+    search_url_template:
+      "https://html.duckduckgo.com/html/?q=site%3A{domain}+{q}",
+    image_selector: "img.result__icon__img, img",
+    link_selector: "",
+    notes:
+      "DDG HTML version — no JS, easy to scrape. Limited to public-indexed content.",
+  },
+};
+
 function DomainRow({
   d,
   runs,
@@ -398,6 +421,24 @@ function DomainRow({
         </button>
         {recipeOpen && (
           <div className="mt-2 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                Presets
+              </span>
+              {Object.entries(RECIPE_PRESETS).map(([label, recipe]) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    setRecipeDraft(JSON.stringify(recipe, null, 2));
+                    setRecipeError("");
+                  }}
+                  className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <textarea
               value={recipeDraft}
               onChange={(e) => {
