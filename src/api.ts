@@ -1017,7 +1017,11 @@ export function createMonitoredDomain(domain: string, keywords: string[]) {
 
 export function updateMonitoredDomain(
   id: string,
-  patch: { keywords?: string[]; enabled?: boolean },
+  patch: {
+    keywords?: string[];
+    enabled?: boolean;
+    recipe?: Record<string, unknown> | null;
+  },
 ) {
   return request<{ domain: MonitoredDomain | null }>(`/api/monitoring/domains/${id}`, {
     method: "PATCH",

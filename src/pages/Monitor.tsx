@@ -90,6 +90,15 @@ export default function Monitor() {
     }
   }
 
+  async function saveRecipe(d: MonitoredDomain, recipe: Record<string, unknown> | null) {
+    try {
+      await updateMonitoredDomain(d.id, { recipe });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function removeDomain(d: MonitoredDomain) {
     if (!confirm(`Stop monitoring ${d.domain}?`)) return;
     try {
@@ -251,6 +260,7 @@ export default function Monitor() {
                 onTrigger={() => trigger(d)}
                 onDelete={() => removeDomain(d)}
                 onKeywords={(raw) => updateKeywords(d, raw)}
+                onSaveRecipe={(recipe) => saveRecipe(d, recipe)}
               />
             ))}
           </div>
@@ -265,6 +275,13 @@ export default function Monitor() {
   );
 }
 
+const RECIPE_PLACEHOLDER = `{
+  "search_url_template": "https://example.com/search?q={q}",
+  "image_selector": "img.product",
+  "link_selector": "",
+  "notes": "manual"
+}`;
+
 function DomainRow({
   d,
   runs,
@@ -272,6 +289,7 @@ function DomainRow({
   onTrigger,
   onDelete,
   onKeywords,
+  onSaveRecipe,
 }: {
   d: MonitoredDomain;
   runs: ReverseSearchRun[];
@@ -279,9 +297,15 @@ function DomainRow({
   onTrigger: () => void;
   onDelete: () => void;
   onKeywords: (raw: string) => void;
+  onSaveRecipe: (recipe: Record<string, unknown> | null) => void;
 }) {
   const [keywordDraft, setKeywordDraft] = useState(d.keywords.join(", "));
   const [editing, setEditing] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
+  const [recipeDraft, setRecipeDraft] = useState(
+    d.recipe ? JSON.stringify(d.recipe, null, 2) : "",
+  );
+  const [recipeError, setRecipeError] = useState("");
   const lastRun = runs[0];
 
   return (
@@ -361,6 +385,82 @@ function DomainRow({
             >
               Save
             </button>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-stone-100 pt-2">
+        <button
+          onClick={() => setRecipeOpen((v) => !v)}
+          className="text-xs text-stone-500 hover:text-stone-900 underline"
+        >
+          {recipeOpen ? "hide" : "show"} scrape recipe
+        </button>
+        {recipeOpen && (
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={recipeDraft}
+              onChange={(e) => {
+                setRecipeDraft(e.target.value);
+                setRecipeError("");
+              }}
+              placeholder={RECIPE_PLACEHOLDER}
+              rows={8}
+              spellCheck={false}
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-xs font-mono"
+            />
+            {recipeError && (
+              <div className="text-xs text-red-600">{recipeError}</div>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const trimmed = recipeDraft.trim();
+                  if (!trimmed) {
+                    setRecipeError("Empty — use Clear to remove the recipe.");
+                    return;
+                  }
+                  let parsed: unknown;
+                  try {
+                    parsed = JSON.parse(trimmed);
+                  } catch (e) {
+                    setRecipeError(
+                      `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`,
+                    );
+                    return;
+                  }
+                  if (
+                    !parsed ||
+                    typeof parsed !== "object" ||
+                    !("search_url_template" in parsed)
+                  ) {
+                    setRecipeError("Missing search_url_template.");
+                    return;
+                  }
+                  setRecipeError("");
+                  onSaveRecipe(parsed as Record<string, unknown>);
+                }}
+                className="px-3 py-1 rounded-full text-xs font-semibold bg-stone-900 text-white"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  if (!confirm("Clear recipe? Next run will re-bootstrap via VLM.")) return;
+                  setRecipeDraft("");
+                  setRecipeError("");
+                  onSaveRecipe(null);
+                }}
+                className="px-3 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-600 hover:bg-stone-200"
+              >
+                Clear
+              </button>
+              <span className="text-[10px] text-stone-400">
+                Must include <code className="font-mono">search_url_template</code> with{" "}
+                <code className="font-mono">{"{q}"}</code> token and{" "}
+                <code className="font-mono">image_selector</code>.
+              </span>
+            </div>
           </div>
         )}
       </div>
