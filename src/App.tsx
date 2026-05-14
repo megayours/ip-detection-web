@@ -8,6 +8,7 @@ import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
 import Cases from "./pages/Cases";
 import CaseDetail from "./pages/CaseDetail";
+import Monitor from "./pages/Monitor";
 import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
@@ -115,6 +116,10 @@ export default function App() {
         <Route
           path="/cases/:id"
           element={<ProtectedRoute><CaseDetail /></ProtectedRoute>}
+        />
+        <Route
+          path="/monitor"
+          element={<ProtectedRoute><Monitor /></ProtectedRoute>}
         />
         <Route
           path="/test"

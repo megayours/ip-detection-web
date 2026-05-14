@@ -57,6 +57,9 @@ export default function Nav() {
               <Link to="/clearance" className={linkClass("/clearance")}>
                 Clearance
               </Link>
+              <Link to="/monitor" className={linkClass("/monitor")}>
+                Monitor
+              </Link>
               {user.role === "admin" && (
                 <Link to="/admin" className={linkClass("/admin")}>
                   Admin

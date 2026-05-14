@@ -963,3 +963,104 @@ export function triggerAdminReindex(opts: {
     body: JSON.stringify(opts),
   });
 }
+
+// --- Brand monitoring (scrape target sites for IP infringements) ---
+
+export type MonitoringFrequency = "daily" | "weekly";
+
+export interface MonitoredDomain {
+  id: string;
+  tenant_id: string;
+  domain: string;
+  keywords: string[];
+  recipe: Record<string, unknown> | null;
+  recipe_updated_at: string | null;
+  last_run_at: string | null;
+  enabled: boolean;
+  zero_yield_streak: number;
+  created_at: string;
+}
+
+export interface ReverseSearchRun {
+  id: string;
+  tenant_id: string;
+  trademark_id: string | null;
+  domain_id: string | null;
+  keyword: string | null;
+  job_id: string | null;
+  status: string;
+  images_searched: number;
+  results_found: number;
+  results_after_filter: number;
+  cases_created: number;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface MonitoringSettings {
+  monitoring_enabled: boolean;
+  monitoring_frequency: MonitoringFrequency | string;
+}
+
+export function listMonitoredDomains() {
+  return request<{ domains: MonitoredDomain[] }>("/api/monitoring/domains");
+}
+
+export function createMonitoredDomain(domain: string, keywords: string[]) {
+  return request<{ domain: MonitoredDomain }>("/api/monitoring/domains", {
+    method: "POST",
+    body: JSON.stringify({ domain, keywords }),
+  });
+}
+
+export function updateMonitoredDomain(
+  id: string,
+  patch: { keywords?: string[]; enabled?: boolean },
+) {
+  return request<{ domain: MonitoredDomain | null }>(`/api/monitoring/domains/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteMonitoredDomain(id: string) {
+  return request<{ ok: boolean }>(`/api/monitoring/domains/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function listMonitoringRuns(opts: { domain_id?: string; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (opts.domain_id) params.set("domain_id", opts.domain_id);
+  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return request<{ runs: ReverseSearchRun[] }>(
+    `/api/monitoring/runs${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function triggerMonitoringRun(domainId: string, keyword?: string) {
+  return request<{ jobs: Array<{ id: string; type: string; status: string }> }>(
+    "/api/monitoring/runs",
+    {
+      method: "POST",
+      body: JSON.stringify({ domain_id: domainId, keyword }),
+    },
+  );
+}
+
+export function getMonitoringSettings() {
+  return request<{ settings: MonitoringSettings | null }>("/api/monitoring/settings");
+}
+
+export function updateMonitoringSettings(patch: {
+  enabled?: boolean;
+  frequency?: MonitoringFrequency;
+}) {
+  return request<{ settings: MonitoringSettings | null }>("/api/monitoring/settings", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
