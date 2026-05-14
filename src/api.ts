@@ -445,11 +445,30 @@ export interface CaseComment {
   };
 }
 
+export interface MonitorEvidence {
+  result_id: string;
+  run_id: string;
+  page_url: string;
+  image_url: string | null;
+  domain: string;
+  keyword: string | null;
+  similarity_score: number;
+  inliers: number | null;
+  vlm_verdict: string | null;
+  vlm_confidence: number | null;
+  vlm_reasoning: string | null;
+  match_bucket: string;
+  matched_ref_storage_path: string | null;
+  matched_ref_image_url: string | null;
+  run_created_at: string;
+}
+
 export interface CaseDetailResponse {
   case: Case;
   trademark: { id: string; name: string; description: string | null } | null;
   reference_images: Array<{ id: string; image_url: string }>;
   comments: CaseComment[];
+  monitor_evidence?: MonitorEvidence | null;
 }
 
 export interface ListCasesFilter {

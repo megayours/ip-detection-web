@@ -10,6 +10,7 @@ import {
   type CaseComment,
   type CaseDetailResponse,
   type CaseReviewStatus,
+  type MonitorEvidence,
   type RuleResult,
 } from "../api";
 import { useAuth } from "../context/AuthContext";
@@ -229,18 +230,23 @@ export default function CaseDetail() {
         </PaneCard>
       </div>
 
-      {/* Pipeline trace */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-black text-stone-900 tracking-tight">Pipeline trace</h2>
-        <p className="text-sm text-stone-500">
-          The cheap stages run on local nodes and produce the evidence trail.
-          The infringement review (VLM) is the final judge when it runs;
-          otherwise canonical proximity decides. Cases the model clears are
-          auto-dismissed.
-        </p>
-        {c.review_status === "dismissed" && <DismissReasonBanner ruleResults={ruleResults} />}
-        <PipelineTrace pipelineStage={c.pipeline_stage} ruleResults={ruleResults} />
-      </section>
+      {/* Evidence: monitor cases use a dedicated panel because the scan-
+          pipeline rule_graph doesn't run for them. */}
+      {data.monitor_evidence ? (
+        <MonitorEvidencePanel evidence={data.monitor_evidence} />
+      ) : (
+        <section className="space-y-3">
+          <h2 className="text-lg font-black text-stone-900 tracking-tight">Pipeline trace</h2>
+          <p className="text-sm text-stone-500">
+            The cheap stages run on local nodes and produce the evidence trail.
+            The infringement review (VLM) is the final judge when it runs;
+            otherwise canonical proximity decides. Cases the model clears are
+            auto-dismissed.
+          </p>
+          {c.review_status === "dismissed" && <DismissReasonBanner ruleResults={ruleResults} />}
+          <PipelineTrace pipelineStage={c.pipeline_stage} ruleResults={ruleResults} />
+        </section>
+      )}
 
       {/* Comments */}
       <section className="space-y-4">
@@ -529,6 +535,191 @@ function CommentRow({
         <CommentBody body={comment.body} />
       </div>
     </li>
+  );
+}
+
+function MonitorEvidencePanel({ evidence }: { evidence: MonitorEvidence }) {
+  const simPct = Math.round(evidence.similarity_score * 100);
+  const inliers = evidence.inliers ?? 0;
+  const bucket = evidence.match_bucket;
+  const vlmRan = !!evidence.vlm_verdict;
+  let host: string | null = null;
+  try {
+    host = new URL(evidence.page_url).hostname.replace(/^www\./, "");
+  } catch {
+    host = evidence.domain;
+  }
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-black text-stone-900 tracking-tight">
+          Monitor evidence
+        </h2>
+        <p className="text-sm text-stone-500">
+          Detected by the brand-monitoring scraper. Three signals decide whether
+          a candidate becomes a ticket: semantic embedding similarity,
+          structural keypoint inliers, and (for borderline matches) a local VLM
+          verdict.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SignalCard
+          label="Semantic"
+          value={`${simPct}%`}
+          sub="SigLIP-2 cosine vs IP centroid"
+          tone={simPct >= 80 ? "red" : simPct >= 60 ? "amber" : "slate"}
+        />
+        <SignalCard
+          label="Structural"
+          value={`${inliers}`}
+          sub={`RANSAC inliers · ${
+            bucket === "high" ? "≥12 high-conf" : "6–11 borderline"
+          }`}
+          tone={bucket === "high" ? "red" : "amber"}
+        />
+        <SignalCard
+          label="VLM"
+          value={
+            !vlmRan
+              ? "skipped"
+              : evidence.vlm_verdict === "present"
+              ? "match"
+              : evidence.vlm_verdict ?? "—"
+          }
+          sub={
+            !vlmRan
+              ? "Not needed at this confidence"
+              : `Local Qwen rerank${
+                  evidence.vlm_confidence != null
+                    ? ` · conf ${Math.round((evidence.vlm_confidence ?? 0) * 100)}%`
+                    : ""
+                }`
+          }
+          tone={!vlmRan ? "slate" : evidence.vlm_verdict === "present" ? "red" : "slate"}
+        />
+      </div>
+
+      {evidence.vlm_reasoning && (
+        <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-700">
+          <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">
+            VLM reasoning
+          </div>
+          {evidence.vlm_reasoning}
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          Source
+        </div>
+        <dl className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div>
+            <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+              Domain
+            </dt>
+            <dd className="text-stone-800 truncate">{host}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+              Keyword
+            </dt>
+            <dd className="text-stone-800">
+              {evidence.keyword ? (
+                <code className="font-mono text-xs bg-stone-100 px-1.5 py-0.5 rounded">
+                  {evidence.keyword}
+                </code>
+              ) : (
+                "—"
+              )}
+            </dd>
+          </div>
+          <div className="sm:col-span-2 min-w-0">
+            <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+              Page URL
+            </dt>
+            <dd className="min-w-0">
+              <a
+                href={evidence.page_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-red-700 hover:text-red-800 truncate block"
+              >
+                {evidence.page_url}
+              </a>
+            </dd>
+          </div>
+          {evidence.image_url && (
+            <div className="sm:col-span-2 min-w-0">
+              <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                Candidate image URL
+              </dt>
+              <dd className="min-w-0">
+                <a
+                  href={evidence.image_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-red-700 hover:text-red-800 truncate block"
+                >
+                  {evidence.image_url}
+                </a>
+              </dd>
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+              Run
+            </dt>
+            <dd className="text-stone-600 text-xs">
+              {new Date(evidence.run_created_at).toLocaleString()}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      {evidence.matched_ref_image_url && (
+        <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+            Best-match reference (the IP image RANSAC scored against)
+          </div>
+          <div className="p-3">
+            <img
+              src={evidence.matched_ref_image_url}
+              alt=""
+              className="max-h-72 mx-auto block rounded-lg border border-stone-200"
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SignalCard({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone: "red" | "amber" | "slate";
+}) {
+  const palette: Record<string, string> = {
+    red: "bg-red-50 text-red-700 border-red-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    slate: "bg-stone-50 text-stone-600 border-stone-200",
+  };
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${palette[tone]}`}>
+      <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+        {label}
+      </div>
+      <div className="text-2xl font-black mt-0.5">{value}</div>
+      <div className="text-[11px] mt-1 opacity-80">{sub}</div>
+    </div>
   );
 }
 
