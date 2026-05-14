@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
+  generateIpKeywords,
   getTrademark,
   deleteTrademark,
   updateTrademark,
@@ -25,8 +26,60 @@ export default function RegistryDetail() {
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
   const [savingDesc, setSavingDesc] = useState(false);
+  const [keywordDraft, setKeywordDraft] = useState("");
+  const [genJobId, setGenJobId] = useState<string | null>(null);
 
   const indexJob = useJobPoller(indexJobId);
+  const genJob = useJobPoller(genJobId);
+
+  useEffect(() => {
+    if (!genJob) return;
+    if (genJob.status === "completed" || genJob.status === "failed") {
+      void load();
+      setGenJobId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [genJob?.status]);
+
+  async function addKeyword() {
+    if (!ip || !keywordDraft.trim()) return;
+    const k = keywordDraft.trim();
+    const existing = ip.keywords ?? [];
+    if (existing.some((e) => e.toLowerCase() === k.toLowerCase())) {
+      setKeywordDraft("");
+      return;
+    }
+    try {
+      const { trademark } = await updateTrademark(ip.id, {
+        keywords: [...existing, k],
+      });
+      setIp(trademark);
+      setKeywordDraft("");
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function removeKeyword(idx: number) {
+    if (!ip) return;
+    const next = (ip.keywords ?? []).filter((_, i) => i !== idx);
+    try {
+      const { trademark } = await updateTrademark(ip.id, { keywords: next });
+      setIp(trademark);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
+  async function regenerateKeywords() {
+    if (!ip) return;
+    try {
+      const { job_id } = await generateIpKeywords(ip.id, ip.description ?? "");
+      setGenJobId(job_id);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
 
   async function load() {
     if (!id) return;
@@ -181,6 +234,76 @@ export default function RegistryDetail() {
             No description — add one to improve concept-level matching during clearance.
           </p>
         )}</div>
+
+      {/* Monitoring keywords */}
+      <div className="border border-stone-200 rounded-xl bg-white p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="text-xs font-medium text-stone-400 uppercase tracking-wider">
+              Monitoring keywords
+            </label>
+            <p className="text-xs text-stone-500 mt-0.5">
+              Used by /monitor to scrape linked sites. Edit freely; "Regenerate" re-runs the VLM against this IP's assets + description.
+            </p>
+          </div>
+          <button
+            onClick={regenerateKeywords}
+            disabled={!!genJobId || images.filter((i) => i.status === "indexed").length === 0}
+            className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+          >
+            {genJobId ? "Generating…" : "Regenerate"}
+          </button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {(ip.keywords ?? []).length === 0 ? (
+            <span className="text-xs text-stone-400 italic">
+              No keywords — generate from assets or add manually.
+            </span>
+          ) : (
+            (ip.keywords ?? []).map((k, idx) => (
+              <span
+                key={`${idx}-${k}`}
+                className="inline-flex items-center gap-1 bg-stone-100 text-stone-800 px-3 py-1 rounded-full text-xs"
+              >
+                {k}
+                <button
+                  onClick={() => removeKeyword(idx)}
+                  className="text-stone-400 hover:text-red-600 font-bold"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={keywordDraft}
+            onChange={(e) => setKeywordDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void addKeyword();
+              }
+            }}
+            placeholder="Add a keyword"
+            className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-xs"
+          />
+          <button
+            onClick={addKeyword}
+            disabled={!keywordDraft.trim()}
+            className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 text-xs font-semibold disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
+        {genJob?.status === "failed" && (
+          <div className="text-xs text-red-600">
+            Generate failed: {genJob.error ?? "(unknown error)"}
+          </div>
+        )}
+      </div>
 
       {/* Index job status */}
       {indexJob && indexJob.status !== "completed" && (

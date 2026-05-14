@@ -6,6 +6,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
+import RegistryWizard from "./pages/RegistryWizard";
 import Cases from "./pages/Cases";
 import CaseDetail from "./pages/CaseDetail";
 import Monitor from "./pages/Monitor";
@@ -81,6 +82,10 @@ export default function App() {
         <Route
           path="/registry"
           element={<ProtectedRoute><Registry /></ProtectedRoute>}
+        />
+        <Route
+          path="/registry/new"
+          element={<ProtectedRoute><RegistryWizard /></ProtectedRoute>}
         />
         <Route
           path="/registry/:id"

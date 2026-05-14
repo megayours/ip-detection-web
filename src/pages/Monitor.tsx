@@ -7,6 +7,7 @@ import {
   listMonitoredDomains,
   listMonitoringPresets,
   listMonitoringRuns,
+  listTrademarks,
   triggerMonitoringRun,
   updateMonitoredDomain,
   updateMonitoringSettings,
@@ -15,6 +16,7 @@ import {
   type MonitoringPreset,
   type MonitoringSettings,
   type ReverseSearchRun,
+  type Trademark,
 } from "../api";
 
 export default function Monitor() {
@@ -22,26 +24,29 @@ export default function Monitor() {
   const [runs, setRuns] = useState<ReverseSearchRun[]>([]);
   const [settings, setSettings] = useState<MonitoringSettings | null>(null);
   const [presets, setPresets] = useState<MonitoringPreset[]>([]);
+  const [ips, setIps] = useState<Trademark[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [newDomain, setNewDomain] = useState("");
-  const [newKeywords, setNewKeywords] = useState("");
+  const [newIpId, setNewIpId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function refresh() {
     setError("");
     try {
-      const [d, r, s, p] = await Promise.all([
+      const [d, r, s, p, t] = await Promise.all([
         listMonitoredDomains(),
         listMonitoringRuns({ limit: 50 }),
         getMonitoringSettings(),
         listMonitoringPresets(),
+        listTrademarks(),
       ]);
       setDomains(d.domains);
       setRuns(r.runs);
       setSettings(s.settings);
       setPresets(p.presets);
+      setIps(t.trademarks);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -55,16 +60,12 @@ export default function Monitor() {
 
   async function addDomain(e: React.FormEvent) {
     e.preventDefault();
-    if (!newDomain.trim()) return;
+    if (!newDomain.trim() || !newIpId) return;
     setSubmitting(true);
     try {
-      const keywords = newKeywords
-        .split(",")
-        .map((k) => k.trim())
-        .filter(Boolean);
-      await createMonitoredDomain(newDomain.trim(), keywords);
+      await createMonitoredDomain(newDomain.trim(), newIpId);
       setNewDomain("");
-      setNewKeywords("");
+      setNewIpId("");
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -82,13 +83,9 @@ export default function Monitor() {
     }
   }
 
-  async function updateKeywords(d: MonitoredDomain, raw: string) {
-    const keywords = raw
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
+  async function relinkIp(d: MonitoredDomain, ip_catalog_id: string) {
     try {
-      await updateMonitoredDomain(d.id, { keywords });
+      await updateMonitoredDomain(d.id, { ip_catalog_id });
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -115,8 +112,14 @@ export default function Monitor() {
   }
 
   async function trigger(d: MonitoredDomain) {
-    if (d.keywords.length === 0) {
-      setError("Add at least one keyword before triggering a run.");
+    if (!d.ip_catalog_id) {
+      setError("Link an IP to this domain first.");
+      return;
+    }
+    if (!d.ip_keywords || d.ip_keywords.length === 0) {
+      setError(
+        "Linked IP has no keywords yet — open it in /registry and generate or add some.",
+      );
       return;
     }
     try {
@@ -220,27 +223,43 @@ export default function Monitor() {
       {/* Add domain */}
       <section className="rounded-2xl border border-stone-200 p-5 bg-white space-y-3">
         <div className="text-sm font-bold text-stone-900">Add a monitored site</div>
-        <form onSubmit={addDomain} className="grid grid-cols-12 gap-2">
-          <input
-            value={newDomain}
-            onChange={(e) => setNewDomain(e.target.value)}
-            placeholder="example-shop.com"
-            className="col-span-4 px-3 py-2 rounded-lg border border-stone-200 text-sm"
-          />
-          <input
-            value={newKeywords}
-            onChange={(e) => setNewKeywords(e.target.value)}
-            placeholder="comma-separated keywords"
-            className="col-span-6 px-3 py-2 rounded-lg border border-stone-200 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={submitting || !newDomain.trim()}
-            className="col-span-2 px-3 py-2 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
-          >
-            {submitting ? "…" : "Add"}
-          </button>
-        </form>
+        {ips.length === 0 ? (
+          <p className="text-xs text-stone-500">
+            Register at least one IP in <Link to="/registry" className="underline">/registry</Link> first
+            — monitored sites need an IP to attach to.
+          </p>
+        ) : (
+          <form onSubmit={addDomain} className="grid grid-cols-12 gap-2">
+            <input
+              value={newDomain}
+              onChange={(e) => setNewDomain(e.target.value)}
+              placeholder="example-shop.com"
+              className="col-span-5 px-3 py-2 rounded-lg border border-stone-200 text-sm"
+            />
+            <select
+              value={newIpId}
+              onChange={(e) => setNewIpId(e.target.value)}
+              className="col-span-5 px-3 py-2 rounded-lg border border-stone-200 text-sm bg-white"
+            >
+              <option value="">— pick an IP —</option>
+              {ips.map((ip) => (
+                <option key={ip.id} value={ip.id}>
+                  {ip.name}
+                  {ip.keywords && ip.keywords.length > 0
+                    ? ` · ${ip.keywords.length} kw`
+                    : " · no keywords"}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              disabled={submitting || !newDomain.trim() || !newIpId}
+              className="col-span-2 px-3 py-2 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
+            >
+              {submitting ? "…" : "Add"}
+            </button>
+          </form>
+        )}
       </section>
 
       {/* Domains */}
@@ -262,10 +281,11 @@ export default function Monitor() {
                 d={d}
                 runs={runsByDomain.get(d.id) ?? []}
                 presets={presets}
+                ips={ips}
                 onToggle={() => toggleEnabled(d)}
                 onTrigger={() => trigger(d)}
                 onDelete={() => removeDomain(d)}
-                onKeywords={(raw) => updateKeywords(d, raw)}
+                onRelinkIp={(ipId) => relinkIp(d, ipId)}
                 onSaveRecipe={(recipe) => saveRecipe(d, recipe)}
               />
             ))}
@@ -292,23 +312,23 @@ function DomainRow({
   d,
   runs,
   presets,
+  ips,
   onToggle,
   onTrigger,
   onDelete,
-  onKeywords,
+  onRelinkIp,
   onSaveRecipe,
 }: {
   d: MonitoredDomain;
   runs: ReverseSearchRun[];
   presets: MonitoringPreset[];
+  ips: Trademark[];
   onToggle: () => void;
   onTrigger: () => void;
   onDelete: () => void;
-  onKeywords: (raw: string) => void;
+  onRelinkIp: (ip_catalog_id: string) => void;
   onSaveRecipe: (recipe: Record<string, unknown> | null) => void;
 }) {
-  const [keywordDraft, setKeywordDraft] = useState(d.keywords.join(", "));
-  const [editing, setEditing] = useState(false);
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [recipeDraft, setRecipeDraft] = useState(
     d.recipe ? JSON.stringify(d.recipe, null, 2) : "",
@@ -355,46 +375,44 @@ function DomainRow({
         </div>
       </div>
 
-      <div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {d.keywords.length === 0 ? (
-            <span className="text-xs text-stone-400">No keywords</span>
-          ) : (
-            d.keywords.map((k) => (
-              <span
-                key={k}
-                className="inline-flex items-center bg-stone-100 text-stone-700 px-2.5 py-0.5 rounded-full text-xs"
-              >
-                {k}
-              </span>
-            ))
-          )}
-          <button
-            onClick={() => setEditing((v) => !v)}
-            className="text-xs text-stone-500 hover:text-stone-900 underline"
+      <div className="flex items-center gap-2 flex-wrap text-xs">
+        <span className="text-stone-400">Watches:</span>
+        {d.ip_catalog_id ? (
+          <Link
+            to={`/registry/${d.ip_catalog_id}`}
+            className="font-semibold text-stone-800 hover:text-red-700 underline"
           >
-            {editing ? "cancel" : "edit"}
-          </button>
-        </div>
-        {editing && (
-          <div className="mt-2 flex items-center gap-2">
-            <input
-              value={keywordDraft}
-              onChange={(e) => setKeywordDraft(e.target.value)}
-              placeholder="comma-separated"
-              className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-xs"
-            />
-            <button
-              onClick={() => {
-                onKeywords(keywordDraft);
-                setEditing(false);
-              }}
-              className="px-3 py-1 rounded-full text-xs font-semibold bg-stone-900 text-white"
-            >
-              Save
-            </button>
-          </div>
+            {d.ip_name ?? "(IP)"}
+          </Link>
+        ) : (
+          <span className="text-red-600">No IP linked</span>
         )}
+        {d.ip_catalog_id && (
+          <span className="text-stone-400">
+            ·{" "}
+            {d.ip_keywords && d.ip_keywords.length > 0
+              ? `${d.ip_keywords.length} keyword(s)`
+              : "no keywords on IP yet"}
+          </span>
+        )}
+        <select
+          value={d.ip_catalog_id ?? ""}
+          onChange={(e) => {
+            if (e.target.value && e.target.value !== d.ip_catalog_id) {
+              onRelinkIp(e.target.value);
+            }
+          }}
+          className="ml-auto px-2 py-1 rounded-lg border border-stone-200 text-xs bg-white"
+        >
+          <option value="" disabled>
+            change IP…
+          </option>
+          {ips.map((ip) => (
+            <option key={ip.id} value={ip.id}>
+              {ip.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="border-t border-stone-100 pt-2">

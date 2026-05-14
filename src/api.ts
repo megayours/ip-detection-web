@@ -68,6 +68,8 @@ export interface Trademark {
   id: string;
   name: string;
   description: string | null;
+  /** Monitoring keywords proposed by the wizard's VLM step + user edits. */
+  keywords: string[];
   image_count: number;
   indexed_count: number;
   centroid_dino: number[] | null;
@@ -148,14 +150,15 @@ export function browseDesignCatalog(opts: { q?: string; limit?: number; offset?:
   return request<CatalogPage<DesignCatalogItem>>(`/api/design-match/catalog/browse${qs ? `?${qs}` : ""}`);
 }
 
-export function createTrademark(
-  name: string,
-  description?: string,
-  guidelines?: string,
-) {
+/**
+ * Step 1 of the IP-creation wizard. Just the name — description, keywords,
+ * and guidelines are added through subsequent wizard steps via updateTrademark
+ * and generateIpKeywords.
+ */
+export function createTrademark(name: string) {
   return request<{ trademark: Trademark }>("/api/trademarks", {
     method: "POST",
-    body: JSON.stringify({ name, description, guidelines }),
+    body: JSON.stringify({ name }),
   });
 }
 
@@ -174,11 +177,25 @@ export function updateTrademark(
     description?: string;
     guidelines?: string | null;
     baseline_config?: BaselineConfig | null;
+    keywords?: string[];
   }
 ) {
   return request<{ trademark: Trademark }>(`/api/trademarks/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
+  });
+}
+
+/**
+ * Kick off VLM keyword generation for an IP using its uploaded assets + the
+ * supplied description (also persists the description). Returns the job id;
+ * poll /api/jobs/:id until result.keywords is populated, then reload the IP
+ * to pick up the new keywords[] field.
+ */
+export function generateIpKeywords(id: string, description: string) {
+  return request<{ job_id: string }>(`/api/trademarks/${id}/keywords/generate`, {
+    method: "POST",
+    body: JSON.stringify({ description }),
   });
 }
 
@@ -991,7 +1008,11 @@ export interface MonitoredDomain {
   id: string;
   tenant_id: string;
   domain: string;
-  keywords: string[];
+  /** Linked IP — keywords for the scrape come from the IP, not this row. */
+  ip_catalog_id: string | null;
+  /** Convenience fields surfaced by GET /api/monitoring/domains (JOINed). */
+  ip_name: string | null;
+  ip_keywords: string[] | null;
   recipe: Record<string, unknown> | null;
   recipe_updated_at: string | null;
   last_run_at: string | null;
@@ -1027,17 +1048,17 @@ export function listMonitoredDomains() {
   return request<{ domains: MonitoredDomain[] }>("/api/monitoring/domains");
 }
 
-export function createMonitoredDomain(domain: string, keywords: string[]) {
+export function createMonitoredDomain(domain: string, ip_catalog_id: string) {
   return request<{ domain: MonitoredDomain }>("/api/monitoring/domains", {
     method: "POST",
-    body: JSON.stringify({ domain, keywords }),
+    body: JSON.stringify({ domain, ip_catalog_id }),
   });
 }
 
 export function updateMonitoredDomain(
   id: string,
   patch: {
-    keywords?: string[];
+    ip_catalog_id?: string;
     enabled?: boolean;
     recipe?: Record<string, unknown> | null;
   },
