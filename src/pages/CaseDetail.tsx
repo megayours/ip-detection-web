@@ -9,6 +9,7 @@ import {
   type Case,
   type CaseComment,
   type CaseDetailResponse,
+  type CaseEnrichment,
   type CaseReviewStatus,
   type MonitorEvidence,
   type RuleResult,
@@ -236,6 +237,10 @@ export default function CaseDetail() {
           rule_results — if there's no rule graph output, it's a monitor case
           and we show the monitor-specific evidence panel (with graceful
           fallback to the case row when the linked result-row is missing). */}
+      {isMonitorCase(c) && (
+        <ListingContextPanel enrichment={data.enrichment ?? null} sourceUrl={c.source_url} />
+      )}
+
       {isMonitorCase(c) ? (
         <MonitorEvidencePanel
           evidence={data.monitor_evidence ?? null}
@@ -765,6 +770,140 @@ function MonitorEvidencePanel({
           Detailed evidence (RANSAC inliers, VLM verdict, exact run metadata)
           isn't recorded for this case. New cases produced after the
           recent worker update include the full breakdown.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ListingContextPanel({
+  enrichment,
+  sourceUrl,
+}: {
+  enrichment: CaseEnrichment | null;
+  sourceUrl: string | null;
+}) {
+  // No row yet → still enriching (worker hasn't processed enrich_case job).
+  if (!enrichment) {
+    return (
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-black text-stone-900 tracking-tight">
+            Listing context
+          </h2>
+          <p className="text-sm text-stone-500">
+            What the listing page itself says — seller, price, location, etc. —
+            extracted by the VLM for the legal record.
+          </p>
+        </div>
+        <div className="bg-stone-50 border border-stone-200 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-stone-600">
+          <span className="w-3 h-3 border-2 border-stone-400 border-t-transparent rounded-full animate-spin shrink-0" />
+          Fetching the listing page and asking the VLM for seller/price/location… this runs once per case in the background.
+        </div>
+      </section>
+    );
+  }
+
+  // Enrichment row exists but the worker recorded an error.
+  if (enrichment.error) {
+    return (
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-black text-stone-900 tracking-tight">
+            Listing context
+          </h2>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-sm text-amber-800">
+          <div className="font-semibold mb-1">Couldn't enrich this listing</div>
+          <div className="text-xs">{enrichment.error}</div>
+          {sourceUrl && (
+            <div className="mt-2 text-xs">
+              Open the page manually:{" "}
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                {sourceUrl}
+              </a>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // Successful enrichment.
+  const fields: Array<{ label: string; value: string | null; isLink?: boolean }> = [
+    { label: "Seller", value: enrichment.seller_name },
+    { label: "Seller profile", value: enrichment.seller_profile_url, isLink: true },
+    { label: "Listing title", value: enrichment.listing_title },
+    { label: "Price", value: enrichment.price },
+    { label: "Location", value: enrichment.location },
+    { label: "Platform", value: enrichment.platform },
+  ];
+  const present = fields.filter((f) => f.value && f.value.trim());
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-black text-stone-900 tracking-tight">
+          Listing context
+        </h2>
+        <p className="text-sm text-stone-500">
+          Extracted from the listing page by the VLM. Use this for the legal record.
+        </p>
+      </div>
+
+      {present.length === 0 ? (
+        <div className="bg-stone-50 border border-stone-200 rounded-xl px-5 py-4 text-sm text-stone-500">
+          VLM ran but couldn't read any structured fields from this page.
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+          <dl className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            {present.map((f) => (
+              <div key={f.label} className="min-w-0">
+                <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
+                  {f.label}
+                </dt>
+                <dd className="text-stone-800 truncate">
+                  {f.isLink && f.value ? (
+                    <a
+                      href={f.value}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-red-700 hover:text-red-800 underline truncate block"
+                    >
+                      {f.value}
+                    </a>
+                  ) : (
+                    f.value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {enrichment.description_summary && (
+            <div className="border-t border-stone-100 px-4 py-3">
+              <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider mb-1">
+                Description
+              </dt>
+              <dd className="text-sm text-stone-700">{enrichment.description_summary}</dd>
+            </div>
+          )}
+          {enrichment.notes && (
+            <div className="border-t border-stone-100 px-4 py-3">
+              <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider mb-1">
+                VLM observation
+              </dt>
+              <dd className="text-sm text-stone-700">{enrichment.notes}</dd>
+            </div>
+          )}
+          <div className="border-t border-stone-100 px-4 py-2 text-[11px] text-stone-400">
+            Enriched {new Date(enrichment.enriched_at).toLocaleString()}
+          </div>
         </div>
       )}
     </section>

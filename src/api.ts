@@ -480,12 +480,27 @@ export interface MonitorEvidence {
   run_created_at: string;
 }
 
+export interface CaseEnrichment {
+  case_id: string;
+  seller_name: string | null;
+  seller_profile_url: string | null;
+  listing_title: string | null;
+  price: string | null;
+  location: string | null;
+  description_summary: string | null;
+  platform: string | null;
+  notes: string | null;
+  error: string | null;
+  enriched_at: string;
+}
+
 export interface CaseDetailResponse {
   case: Case;
   trademark: { id: string; name: string; description: string | null } | null;
   reference_images: Array<{ id: string; image_url: string }>;
   comments: CaseComment[];
   monitor_evidence?: MonitorEvidence | null;
+  enrichment?: CaseEnrichment | null;
 }
 
 export interface ListCasesFilter {
