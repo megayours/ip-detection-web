@@ -230,10 +230,23 @@ export default function CaseDetail() {
         </PaneCard>
       </div>
 
-      {/* Evidence: monitor cases use a dedicated panel because the scan-
-          pipeline rule_graph doesn't run for them. */}
-      {data.monitor_evidence ? (
-        <MonitorEvidencePanel evidence={data.monitor_evidence} />
+      {/* Evidence panel. Monitor cases (produced by the brand-monitoring
+          worker) never run the scan-pipeline rule graph, so the old
+          "Pipeline trace" is meaningless for them. We detect by absence of
+          rule_results — if there's no rule graph output, it's a monitor case
+          and we show the monitor-specific evidence panel (with graceful
+          fallback to the case row when the linked result-row is missing). */}
+      {isMonitorCase(c) ? (
+        <MonitorEvidencePanel
+          evidence={data.monitor_evidence ?? null}
+          fallback={{
+            score: c.score,
+            source_url: c.source_url,
+            image_url: c.image_url ?? null,
+            trademark_name: data.trademark?.name ?? null,
+            created_at: c.created_at,
+          }}
+        />
       ) : (
         <section className="space-y-3">
           <h2 className="text-lg font-black text-stone-900 tracking-tight">Pipeline trace</h2>
@@ -538,16 +551,52 @@ function CommentRow({
   );
 }
 
-function MonitorEvidencePanel({ evidence }: { evidence: MonitorEvidence }) {
-  const simPct = Math.round(evidence.similarity_score * 100);
-  const inliers = evidence.inliers ?? 0;
-  const bucket = evidence.match_bucket;
-  const vlmRan = !!evidence.vlm_verdict;
+/**
+ * True for cases produced by the brand-monitoring worker (vs. scan or
+ * submission). Heuristic: monitor cases never write rule_results, so the
+ * absence of any rule results combined with pipeline_stage=='complete' is a
+ * strong signal. Works whether or not the linked reverse_search_results row
+ * is present.
+ */
+function isMonitorCase(c: Case): boolean {
+  if (c.pipeline_stage !== "complete") return false;
+  const rr = c.primitive_results?.rule_results ?? [];
+  return rr.length === 0;
+}
+
+interface MonitorEvidenceFallback {
+  score: number;
+  source_url: string | null;
+  image_url: string | null;
+  trademark_name: string | null;
+  created_at: string;
+}
+
+function MonitorEvidencePanel({
+  evidence,
+  fallback,
+}: {
+  evidence: MonitorEvidence | null;
+  fallback: MonitorEvidenceFallback;
+}) {
+  // Either source supplies the same fields; evidence wins when present
+  // because it has the richer match metadata (inliers, VLM verdict, etc.).
+  const simPct = Math.round((evidence?.similarity_score ?? fallback.score) * 100);
+  const inliers = evidence?.inliers ?? 0;
+  const bucket = evidence?.match_bucket ?? "unknown";
+  const vlmRan = !!evidence?.vlm_verdict;
+  const pageUrl = evidence?.page_url ?? fallback.source_url ?? "";
+  const imageUrl = evidence?.image_url ?? fallback.image_url ?? null;
+  const domain = evidence?.domain ?? null;
+  const keyword = evidence?.keyword ?? null;
+  const runCreatedAt = evidence?.run_created_at ?? fallback.created_at;
+  const matchedRefUrl = evidence?.matched_ref_image_url ?? null;
+
   let host: string | null = null;
   try {
-    host = new URL(evidence.page_url).hostname.replace(/^www\./, "");
+    host = pageUrl ? new URL(pageUrl).hostname.replace(/^www\./, "") : null;
   } catch {
-    host = evidence.domain;
+    host = domain;
   }
 
   return (
@@ -573,35 +622,49 @@ function MonitorEvidencePanel({ evidence }: { evidence: MonitorEvidence }) {
         />
         <SignalCard
           label="Structural"
-          value={`${inliers}`}
-          sub={`RANSAC inliers · ${
-            bucket === "high" ? "≥12 high-conf" : "6–11 borderline"
-          }`}
-          tone={bucket === "high" ? "red" : "amber"}
+          value={evidence ? `${inliers}` : "—"}
+          sub={
+            !evidence
+              ? "Evidence not recorded for this case"
+              : bucket === "high"
+                ? "RANSAC inliers · ≥12 high-conf"
+                : bucket === "borderline"
+                  ? "RANSAC inliers · 6–11 borderline"
+                  : bucket === "vlm_only"
+                    ? "Skipped — thumbnail-grade image, VLM was the gate"
+                    : "RANSAC inliers"
+          }
+          tone={bucket === "high" ? "red" : bucket === "borderline" ? "amber" : "slate"}
         />
         <SignalCard
           label="VLM"
           value={
-            !vlmRan
-              ? "skipped"
-              : evidence.vlm_verdict === "present"
-              ? "match"
-              : evidence.vlm_verdict ?? "—"
+            !evidence
+              ? "—"
+              : !vlmRan
+                ? "skipped"
+                : evidence.vlm_verdict === "present"
+                  ? "match"
+                  : evidence.vlm_verdict ?? "—"
           }
           sub={
-            !vlmRan
-              ? "Not needed at this confidence"
-              : `Local Qwen rerank${
-                  evidence.vlm_confidence != null
-                    ? ` · conf ${Math.round((evidence.vlm_confidence ?? 0) * 100)}%`
-                    : ""
-                }`
+            !evidence
+              ? "Evidence not recorded for this case"
+              : !vlmRan
+                ? "Not needed at this confidence"
+                : `Local Qwen rerank${
+                    evidence.vlm_confidence != null
+                      ? ` · conf ${Math.round((evidence.vlm_confidence ?? 0) * 100)}%`
+                      : ""
+                  }`
           }
-          tone={!vlmRan ? "slate" : evidence.vlm_verdict === "present" ? "red" : "slate"}
+          tone={
+            !evidence ? "slate" : !vlmRan ? "slate" : evidence.vlm_verdict === "present" ? "red" : "slate"
+          }
         />
       </div>
 
-      {evidence.vlm_reasoning && (
+      {evidence?.vlm_reasoning && (
         <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-700">
           <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">
             VLM reasoning
@@ -619,16 +682,16 @@ function MonitorEvidencePanel({ evidence }: { evidence: MonitorEvidence }) {
             <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
               Domain
             </dt>
-            <dd className="text-stone-800 truncate">{host}</dd>
+            <dd className="text-stone-800 truncate">{host ?? "—"}</dd>
           </div>
           <div>
             <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
               Keyword
             </dt>
             <dd className="text-stone-800">
-              {evidence.keyword ? (
+              {keyword ? (
                 <code className="font-mono text-xs bg-stone-100 px-1.5 py-0.5 rounded">
-                  {evidence.keyword}
+                  {keyword}
                 </code>
               ) : (
                 "—"
@@ -640,56 +703,68 @@ function MonitorEvidencePanel({ evidence }: { evidence: MonitorEvidence }) {
               Page URL
             </dt>
             <dd className="min-w-0">
-              <a
-                href={evidence.page_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-red-700 hover:text-red-800 truncate block"
-              >
-                {evidence.page_url}
-              </a>
+              {pageUrl ? (
+                <a
+                  href={pageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-red-700 hover:text-red-800 truncate block"
+                >
+                  {pageUrl}
+                </a>
+              ) : (
+                <span className="text-stone-400">—</span>
+              )}
             </dd>
           </div>
-          {evidence.image_url && (
+          {imageUrl && (
             <div className="sm:col-span-2 min-w-0">
               <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
                 Candidate image URL
               </dt>
               <dd className="min-w-0">
                 <a
-                  href={evidence.image_url}
+                  href={imageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-red-700 hover:text-red-800 truncate block"
                 >
-                  {evidence.image_url}
+                  {imageUrl}
                 </a>
               </dd>
             </div>
           )}
           <div className="sm:col-span-2">
             <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
-              Run
+              {evidence ? "Run" : "Created"}
             </dt>
             <dd className="text-stone-600 text-xs">
-              {new Date(evidence.run_created_at).toLocaleString()}
+              {new Date(runCreatedAt).toLocaleString()}
             </dd>
           </div>
         </dl>
       </div>
 
-      {evidence.matched_ref_image_url && (
+      {matchedRefUrl && (
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
           <div className="px-4 py-2.5 border-b border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
-            Best-match reference (the IP image RANSAC scored against)
+            Best-match reference image
           </div>
           <div className="p-3">
             <img
-              src={evidence.matched_ref_image_url}
+              src={matchedRefUrl}
               alt=""
               className="max-h-72 mx-auto block rounded-lg border border-stone-200"
             />
           </div>
+        </div>
+      )}
+
+      {!evidence && (
+        <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-xs text-stone-500">
+          Detailed evidence (RANSAC inliers, VLM verdict, exact run metadata)
+          isn't recorded for this case. New cases produced after the
+          recent worker update include the full breakdown.
         </div>
       )}
     </section>
