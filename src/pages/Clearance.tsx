@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { listIpReviews, type IpReview } from "../api";
 import ClearanceBrands from "./ClearanceBrands";
 import ClearanceVisual from "./ClearanceVisual";
 
@@ -89,6 +90,8 @@ export default function Clearance() {
         </Link>
       </div>
 
+      <RecentReviews />
+
       <div className="mt-8">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
           Power-user tools
@@ -106,13 +109,114 @@ export default function Clearance() {
           >
             Visual match (designs + pop culture)
           </Link>
-          <Link
-            to="/ip-reviews"
-            className="px-3 py-1.5 rounded-full text-xs font-medium border border-stone-200 bg-white text-stone-600 hover:border-stone-300"
-          >
-            My reviews
-          </Link>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RecentReviews() {
+  const [reviews, setReviews] = useState<IpReview[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    listIpReviews({ limit: 20 })
+      .then(({ reviews }) => alive && setReviews(reviews))
+      .catch(() => { /* silent */ })
+      .finally(() => alive && setLoaded(true));
+    return () => { alive = false; };
+  }, []);
+
+  const recentClearance = useMemo(
+    () => reviews.filter((r) => r.mode === "clearance").slice(0, 4),
+    [reviews]
+  );
+  const recentMonitoring = useMemo(
+    () => reviews.filter((r) => r.mode === "monitoring").slice(0, 4),
+    [reviews]
+  );
+
+  if (!loaded || (recentClearance.length === 0 && recentMonitoring.length === 0)) {
+    return null;
+  }
+
+  return (
+    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <RecentColumn
+        title="Recent clearance reviews"
+        href="/ip-reviews?mode=clearance"
+        reviews={recentClearance}
+      />
+      <RecentColumn
+        title="Active monitoring"
+        href="/ip-reviews?mode=monitoring"
+        reviews={recentMonitoring}
+      />
+    </div>
+  );
+}
+
+function RecentColumn({
+  title,
+  href,
+  reviews,
+}: {
+  title: string;
+  href: string;
+  reviews: IpReview[];
+}) {
+  if (reviews.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+          {title}
+        </h3>
+        <Link to={href} className="text-[11px] text-stone-500 hover:text-stone-800">
+          See all →
+        </Link>
+      </div>
+      <div className="space-y-1.5">
+        {reviews.map((r) => (
+          <Link
+            key={r.id}
+            to={`/ip-reviews/${r.id}`}
+            className="flex items-center gap-2.5 rounded-lg border border-stone-200 bg-white p-2.5 hover:border-stone-300 transition-colors"
+          >
+            {r.asset_image_url ? (
+              <img
+                src={r.asset_image_url}
+                alt=""
+                className="w-8 h-8 rounded object-cover border border-stone-200"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded bg-stone-100" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-stone-900 truncate">
+                {r.title}
+              </div>
+              <div className="text-[10px] text-stone-400">
+                {r.mode === "monitoring" && r.asset_name
+                  ? `${r.asset_name} · `
+                  : ""}
+                {new Date(r.created_at).toLocaleDateString()}
+              </div>
+            </div>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${
+                r.status === "complete"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : r.status === "failed"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {r.status}
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   );

@@ -26,12 +26,12 @@ export default function Nav() {
     return () => window.removeEventListener("mousedown", onClick);
   }, [menuOpen]);
 
-  const linkClass = (path: string) =>
-    `text-sm font-medium transition-colors ${
-      pathname === path
-        ? "text-stone-900"
-        : "text-stone-400 hover:text-stone-700"
+  const linkClass = (path: string) => {
+    const active = pathname === path || pathname.startsWith(`${path}/`);
+    return `text-sm font-medium transition-colors ${
+      active ? "text-stone-900" : "text-stone-400 hover:text-stone-700"
     }`;
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-cream/80 backdrop-blur-md border-b border-stone-200/60">
@@ -57,6 +57,9 @@ export default function Nav() {
               </Link>
               <Link to="/clearance" className={linkClass("/clearance")}>
                 IP review
+              </Link>
+              <Link to="/ip-reviews" className={linkClass("/ip-reviews")}>
+                Reviews
               </Link>
               <Link to="/monitor" className={linkClass("/monitor")}>
                 Monitor
