@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   getCase,
+  listCrossSiteMatches,
   updateCase,
   deleteCase as apiDeleteCase,
   postCaseComment,
@@ -11,6 +12,8 @@ import {
   type CaseDetailResponse,
   type CaseEnrichment,
   type CaseReviewStatus,
+  type CrossSiteExternalMatch,
+  type CrossSiteInternalMatch,
   type MonitorEvidence,
   type RuleResult,
 } from "../api";
@@ -28,7 +31,47 @@ export default function CaseDetail() {
   const [error, setError] = useState("");
   const [commentDraft, setCommentDraft] = useState("");
   const [postingComment, setPostingComment] = useState(false);
+  const [crossSiteInternal, setCrossSiteInternal] = useState<CrossSiteInternalMatch[] | null>(null);
+  const [crossSiteExternal, setCrossSiteExternal] = useState<CrossSiteExternalMatch[] | null>(null);
+  const [crossSiteLoading, setCrossSiteLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const xsitePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    setCrossSiteInternal(null);
+    setCrossSiteExternal(null);
+    setCrossSiteLoading(true);
+
+    async function fetchOnce() {
+      try {
+        const r = await listCrossSiteMatches(id!);
+        setCrossSiteInternal(r.internal);
+        setCrossSiteExternal(r.external);
+      } catch {
+        setCrossSiteInternal([]);
+        setCrossSiteExternal([]);
+      } finally {
+        setCrossSiteLoading(false);
+      }
+    }
+
+    void fetchOnce();
+    // The open-web search runs as a background job after enrichment lands —
+    // poll for a minute so the panel updates when results arrive.
+    let ticks = 0;
+    xsitePollRef.current = setInterval(() => {
+      ticks += 1;
+      void fetchOnce();
+      if (ticks >= 20 && xsitePollRef.current) {
+        clearInterval(xsitePollRef.current);
+        xsitePollRef.current = null;
+      }
+    }, 3000);
+    return () => {
+      if (xsitePollRef.current) clearInterval(xsitePollRef.current);
+    };
+  }, [id]);
 
   async function load() {
     if (!id) return;
@@ -239,6 +282,14 @@ export default function CaseDetail() {
           fallback to the case row when the linked result-row is missing). */}
       {isMonitorCase(c) && (
         <ListingContextPanel enrichment={data.enrichment ?? null} sourceUrl={c.source_url} />
+      )}
+
+      {isMonitorCase(c) && (
+        <CrossSitePanel
+          internal={crossSiteInternal}
+          external={crossSiteExternal}
+          loading={crossSiteLoading}
+        />
       )}
 
       {isMonitorCase(c) ? (
@@ -776,6 +827,199 @@ function MonitorEvidencePanel({
   );
 }
 
+function CrossSitePanel({
+  internal,
+  external,
+  loading,
+}: {
+  internal: CrossSiteInternalMatch[] | null;
+  external: CrossSiteExternalMatch[] | null;
+  loading: boolean;
+}) {
+  const internalReady = internal !== null;
+  const externalReady = external !== null;
+  const internalCount = internal?.length ?? 0;
+  const externalCount = external?.length ?? 0;
+
+  // Initial first-load spinner.
+  if (loading && !internalReady && !externalReady) {
+    return (
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-black text-stone-900 tracking-tight">
+            Also found on
+          </h2>
+          <p className="text-sm text-stone-500">
+            Where else this image is being sold — both from your monitor
+            history and from an open-web Brave search.
+          </p>
+        </div>
+        <div className="bg-stone-50 border border-stone-200 rounded-xl px-5 py-4 flex items-center gap-3 text-sm text-stone-600">
+          <span className="w-3 h-3 border-2 border-stone-400 border-t-transparent rounded-full animate-spin shrink-0" />
+          Searching…
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-black text-stone-900 tracking-tight">
+          Also found on
+        </h2>
+        <p className="text-sm text-stone-500">
+          Where else this image is being sold — both from your monitor
+          history and from an open-web Brave search after enrichment.
+        </p>
+      </div>
+
+      {/* INTERNAL — monitor history */}
+      <div className="space-y-2">
+        <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          From your monitor history ({internalCount})
+        </div>
+        {internalCount === 0 ? (
+          <div className="text-xs text-stone-500 px-1">
+            No other monitored domain has the same image yet.
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {internal!.map((m) => (
+              <InternalRow key={m.result_id} m={m} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* EXTERNAL — open-web Brave */}
+      <div className="space-y-2">
+        <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          From the open web · Brave title search ({externalCount})
+        </div>
+        {externalCount === 0 ? (
+          <div className="text-xs text-stone-500 px-1">
+            {externalReady
+              ? "No matches found across the open web. Title-based search runs once after enrichment; it can take a minute."
+              : "Searching…"}
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {external!.map((m) => (
+              <ExternalRow key={m.id} m={m} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function InternalRow({ m }: { m: CrossSiteInternalMatch }) {
+  const simPct = Math.round(m.similarity * 100);
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 px-4 py-3 flex items-center gap-3">
+      {m.image_url && (
+        <img
+          src={m.image_url}
+          alt=""
+          className="shrink-0 w-14 h-14 rounded-lg object-cover border border-stone-200"
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold text-stone-900 truncate">
+          {m.listing_title ?? m.page_url}
+        </div>
+        <div className="text-xs text-stone-500 truncate">
+          {m.domain}
+          {m.seller_name ? ` · ${m.seller_name}` : ""}
+        </div>
+        <div className="mt-1 flex items-center gap-2 text-[11px]">
+          <span className="inline-flex items-center bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+            {simPct}% match
+          </span>
+          {m.review_status && (
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ${
+                m.review_status === "confirmed"
+                  ? "bg-red-50 text-red-700"
+                  : m.review_status === "dismissed"
+                    ? "bg-stone-100 text-stone-500"
+                    : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              {m.review_status}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0 flex flex-col items-end gap-1.5">
+        <a
+          href={m.page_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-semibold text-red-700 hover:text-red-800 underline"
+        >
+          Open listing →
+        </a>
+        {m.case_id && (
+          <Link
+            to={`/cases/${m.case_id}`}
+            className="text-xs font-semibold text-stone-500 hover:text-stone-900"
+          >
+            View case →
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExternalRow({ m }: { m: CrossSiteExternalMatch }) {
+  const simPct = Math.round(m.similarity_score * 100);
+  let host: string | null = null;
+  try {
+    host = new URL(m.page_url).hostname.replace(/^www\./, "");
+  } catch {
+    host = null;
+  }
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 px-4 py-3 flex items-center gap-3">
+      {m.image_url && (
+        <img
+          src={m.image_url}
+          alt=""
+          className="shrink-0 w-14 h-14 rounded-lg object-cover border border-stone-200"
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold text-stone-900 truncate">
+          {m.title ?? m.page_url}
+        </div>
+        <div className="text-xs text-stone-500 truncate">{host ?? m.page_url}</div>
+        <div className="mt-1 flex items-center gap-2 text-[11px]">
+          <span className="inline-flex items-center bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+            {simPct}% match
+          </span>
+          <span className="inline-flex items-center bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider text-[10px]">
+            {m.source.replace(/_/g, " ")}
+          </span>
+        </div>
+      </div>
+      <div className="shrink-0">
+        <a
+          href={m.page_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-semibold text-red-700 hover:text-red-800 underline"
+        >
+          Open listing →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function ListingContextPanel({
   enrichment,
   sourceUrl,
@@ -835,18 +1079,22 @@ function ListingContextPanel({
   }
 
   // Successful enrichment.
-  const fields: Array<{ label: string; value: string | null; isLink?: boolean }> = [
+  const facts: Array<{ label: string; value: string | null; isLink?: boolean }> = [
     { label: "Seller", value: enrichment.seller_name },
     { label: "Seller profile", value: enrichment.seller_profile_url, isLink: true },
     { label: "Listing title", value: enrichment.listing_title },
     { label: "Price", value: enrichment.price },
     { label: "Location", value: enrichment.location },
     { label: "Platform", value: enrichment.platform },
+    {
+      label: "Creator",
+      value: enrichment.creator_type ? prettyEnum(enrichment.creator_type) : null,
+    },
   ];
-  const present = fields.filter((f) => f.value && f.value.trim());
+  const presentFacts = facts.filter((f) => f.value && f.value.trim());
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div>
         <h2 className="text-lg font-black text-stone-900 tracking-tight">
           Listing context
@@ -856,14 +1104,42 @@ function ListingContextPanel({
         </p>
       </div>
 
-      {present.length === 0 ? (
-        <div className="bg-stone-50 border border-stone-200 rounded-xl px-5 py-4 text-sm text-stone-500">
-          VLM ran but couldn't read any structured fields from this page.
+      {/* Why-this-is-the-same-idea: the headline explanation */}
+      {enrichment.match_explanation && (
+        <div className="bg-red-50/70 border border-red-100 rounded-xl px-5 py-4">
+          <div className="text-[10px] font-bold text-red-700 uppercase tracking-wider mb-1">
+            Why this is the same idea
+          </div>
+          <div className="text-sm text-stone-800">{enrichment.match_explanation}</div>
         </div>
-      ) : (
+      )}
+
+      {/* Two assessment cards side-by-side */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <AssessmentCard
+          label="License status"
+          value={prettyEnum(enrichment.license_status ?? "unclear")}
+          tone={licenseTone(enrichment.license_status)}
+          sub={
+            enrichment.license_confidence != null
+              ? `Confidence ${Math.round((enrichment.license_confidence ?? 0) * 100)}%`
+              : undefined
+          }
+          reasoning={enrichment.license_reasoning}
+        />
+        <AssessmentCard
+          label="Infringement type"
+          value={prettyEnum(enrichment.infringement_type ?? "unclear")}
+          tone={infringementTone(enrichment.infringement_type)}
+          reasoning={enrichment.infringement_reasoning}
+        />
+      </div>
+
+      {/* Listing facts */}
+      {presentFacts.length > 0 && (
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
           <dl className="px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            {present.map((f) => (
+            {presentFacts.map((f) => (
               <div key={f.label} className="min-w-0">
                 <dt className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
                   {f.label}
@@ -906,7 +1182,264 @@ function ListingContextPanel({
           </div>
         </div>
       )}
+
+      {/* Triage actions — mockups for now; click logs to console, opens
+          either an external link or a templated letter modal. */}
+      <ActionRow enrichment={enrichment} sourceUrl={sourceUrl} />
     </section>
+  );
+}
+
+function prettyEnum(s: string): string {
+  return s
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function licenseTone(s: string | null | undefined): "red" | "amber" | "slate" | "emerald" {
+  switch (s) {
+    case "likely_unlicensed":
+      return "red";
+    case "likely_licensed":
+      return "emerald";
+    case "unclear":
+    default:
+      return "slate";
+  }
+}
+
+function infringementTone(
+  s: string | null | undefined,
+): "red" | "amber" | "slate" {
+  switch (s) {
+    case "full_copy":
+      return "red";
+    case "derivative":
+      return "amber";
+    case "different_class":
+      return "amber";
+    case "unclear":
+    default:
+      return "slate";
+  }
+}
+
+function AssessmentCard({
+  label,
+  value,
+  tone,
+  sub,
+  reasoning,
+}: {
+  label: string;
+  value: string;
+  tone: "red" | "amber" | "slate" | "emerald";
+  sub?: string;
+  reasoning?: string | null;
+}) {
+  const palette: Record<string, string> = {
+    red: "bg-red-50 text-red-700 border-red-100",
+    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    slate: "bg-stone-50 text-stone-600 border-stone-200",
+  };
+  return (
+    <div className={`rounded-2xl border px-4 py-3 space-y-2 ${palette[tone]}`}>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+          {label}
+        </div>
+        <div className="text-xl font-black mt-0.5">{value}</div>
+        {sub && <div className="text-[11px] mt-0.5 opacity-80">{sub}</div>}
+      </div>
+      {reasoning && (
+        <div className="text-xs opacity-90 leading-relaxed border-t border-current/10 pt-2">
+          {reasoning}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActionRow({
+  enrichment,
+  sourceUrl,
+}: {
+  enrichment: CaseEnrichment;
+  sourceUrl: string | null;
+}) {
+  const [modal, setModal] = useState<"cd" | "takedown" | null>(null);
+
+  const lensUrl = sourceUrl
+    ? `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(sourceUrl)}`
+    : null;
+
+  return (
+    <>
+      <div className="space-y-2">
+        <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          Actions
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {enrichment.seller_profile_url && (
+            <a
+              href={enrichment.seller_profile_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700"
+            >
+              View seller profile →
+            </a>
+          )}
+          {lensUrl && (
+            <a
+              href={lensUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700"
+              title="Find this same image elsewhere on the web via Google Lens"
+            >
+              Find similar listings (Google Lens) →
+            </a>
+          )}
+          <button
+            onClick={() => setModal("cd")}
+            className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"
+          >
+            Generate cease &amp; desist
+          </button>
+          <button
+            onClick={() => setModal("takedown")}
+            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white"
+          >
+            Draft takedown notice
+          </button>
+        </div>
+      </div>
+      {modal && (
+        <ActionLetterModal
+          kind={modal}
+          enrichment={enrichment}
+          sourceUrl={sourceUrl}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function ActionLetterModal({
+  kind,
+  enrichment,
+  sourceUrl,
+  onClose,
+}: {
+  kind: "cd" | "takedown";
+  enrichment: CaseEnrichment;
+  sourceUrl: string | null;
+  onClose: () => void;
+}) {
+  const today = new Date().toLocaleDateString();
+  const seller = enrichment.seller_name || "[Seller name]";
+  const platform = enrichment.platform || "[Platform]";
+  const listing = enrichment.listing_title || "[Listing title]";
+  const url = sourceUrl || "[Listing URL]";
+
+  const body =
+    kind === "cd"
+      ? `${today}
+
+To: ${seller}
+Re: Unauthorized use of intellectual property — ${listing}
+
+Dear ${seller},
+
+We represent the owner of the intellectual property depicted in the listing
+referenced above, currently offered for sale on ${platform} at:
+  ${url}
+
+We have determined that this listing reproduces our client's protected work
+without authorization. Our VLM-assisted review classified the use as
+"${prettyEnum(enrichment.infringement_type ?? "unclear")}" and judged the
+listing "${prettyEnum(enrichment.license_status ?? "unclear")}".
+
+${enrichment.match_explanation ?? ""}
+
+Please cease all sale, distribution, and display of this item within seven (7)
+days of receipt. Confirm in writing that you have done so. Failure to comply
+will result in enforcement action including a takedown notice to ${platform}
+and any further remedies available under applicable law.
+
+Sincerely,
+[Rights-holder / counsel name]`
+      : `${today}
+
+DMCA / Marketplace Takedown Notice — ${platform}
+
+The undersigned, on behalf of the rights-holder of the intellectual property
+depicted in the following listing, requests that ${platform} remove the
+material identified below:
+
+  Listing title:   ${listing}
+  Listing URL:     ${url}
+  Seller:          ${seller}
+  Platform:        ${platform}
+  Detected match:  ${enrichment.match_explanation ?? "[describe the IP match]"}
+  Infringement:    ${prettyEnum(enrichment.infringement_type ?? "unclear")}
+  License status:  ${prettyEnum(enrichment.license_status ?? "unclear")}
+
+I have a good-faith belief that the use of the material described above is
+not authorized by the rights-holder, its agent, or the law. I declare under
+penalty of perjury that the information in this notification is accurate.
+
+[Rights-holder / counsel signature, contact details]`;
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl border border-stone-200 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+      >
+        <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+              Mockup — copy &amp; edit before sending
+            </div>
+            <h3 className="font-bold text-stone-900">
+              {kind === "cd" ? "Cease & desist letter" : "Takedown notice"}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-stone-400 hover:text-stone-700 text-lg font-bold leading-none px-2"
+          >
+            ×
+          </button>
+        </div>
+        <textarea
+          readOnly
+          value={body}
+          className="flex-1 px-5 py-4 text-sm font-mono whitespace-pre-wrap resize-none outline-none"
+        />
+        <div className="px-5 py-3 border-t border-stone-100 flex items-center justify-end gap-2">
+          <button
+            onClick={() => navigator.clipboard.writeText(body)}
+            className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700"
+          >
+            Copy to clipboard
+          </button>
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

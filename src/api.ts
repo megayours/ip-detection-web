@@ -480,6 +480,14 @@ export interface MonitorEvidence {
   run_created_at: string;
 }
 
+export type LicenseStatus = "likely_licensed" | "likely_unlicensed" | "unclear";
+export type InfringementType =
+  | "full_copy"
+  | "derivative"
+  | "different_class"
+  | "unclear";
+export type CreatorType = "individual" | "company" | "unknown";
+
 export interface CaseEnrichment {
   case_id: string;
   seller_name: string | null;
@@ -490,6 +498,13 @@ export interface CaseEnrichment {
   description_summary: string | null;
   platform: string | null;
   notes: string | null;
+  match_explanation: string | null;
+  license_status: LicenseStatus | string | null;
+  license_confidence: number | null;
+  license_reasoning: string | null;
+  infringement_type: InfringementType | string | null;
+  infringement_reasoning: string | null;
+  creator_type: CreatorType | string | null;
   error: string | null;
   enriched_at: string;
 }
@@ -538,6 +553,48 @@ export function updateCase(
 
 export function deleteCase(id: string) {
   return request<{ ok: boolean }>(`/api/cases/${id}`, { method: "DELETE" });
+}
+
+/** Cross-site match from monitor history — same image found on another
+ *  monitored domain by an earlier monitor run. */
+export interface CrossSiteInternalMatch {
+  result_id: string;
+  case_id: string | null;
+  domain: string;
+  page_url: string;
+  image_url: string | null;
+  similarity: number;
+  seller_name: string | null;
+  listing_title: string | null;
+  review_status: string | null;
+  created_at: string;
+}
+
+/** Cross-site match from the open web — found by Brave title search after
+ *  enrichment, then SigLIP-similarity-scored against the case's image. */
+export interface CrossSiteExternalMatch {
+  id: string;
+  case_id: string;
+  source: string;
+  page_url: string;
+  image_url: string | null;
+  title: string | null;
+  similarity_score: number;
+  created_at: string;
+}
+
+export function listCrossSiteMatches(
+  caseId: string,
+  opts: { threshold?: number; limit?: number } = {},
+) {
+  const params = new URLSearchParams();
+  if (opts.threshold !== undefined) params.set("threshold", String(opts.threshold));
+  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return request<{
+    internal: CrossSiteInternalMatch[];
+    external: CrossSiteExternalMatch[];
+  }>(`/api/cases/${caseId}/cross-site${qs ? `?${qs}` : ""}`);
 }
 
 // --- Case comments ---
