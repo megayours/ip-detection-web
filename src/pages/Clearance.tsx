@@ -82,8 +82,8 @@ export default function Clearance() {
             Start infringement monitoring
           </h2>
           <p className="text-xs text-stone-500 leading-relaxed">
-            "Where is my IP being misused?" Pick an indexed IP, optional
-            territories, platforms, and approved licensees. Output: prioritized
+            "Where is my IP being misused?" Pick an IP, add platforms to
+            scan — scraping kicks off immediately. Output: prioritized
             findings + US DMCA takedown packet.
           </p>
         </Link>

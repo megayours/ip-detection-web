@@ -5,11 +5,14 @@ import {
   getIpReview,
   ipReviewReportUrl,
   ipReviewTakedownPacketUrl,
+  listMonitoredDomains,
+  triggerMonitoringRun,
   updateIpReviewDecision,
   type IpReview,
   type IpReviewDecision,
   type IpReviewFinding,
   type IpReviewMatch,
+  type MonitoredDomain,
   type RightsType,
   type RiskBand,
 } from "../api";
@@ -43,8 +46,16 @@ export default function IpReviewDetail() {
   }, [reload]);
 
   useEffect(() => {
-    if (!review || review.status !== "processing") return;
-    const t = setInterval(reload, 3000);
+    if (!review) return;
+    // Clearance: poll only while the detection job is running.
+    // Monitoring: poll every 10s — findings are produced asynchronously
+    // by the scheduler, so a "complete" status still expects fresh data
+    // to keep flowing in.
+    let interval: number | null = null;
+    if (review.status === "processing") interval = 3000;
+    else if (review.mode === "monitoring") interval = 10000;
+    if (interval == null) return;
+    const t = setInterval(reload, interval);
     return () => clearInterval(t);
   }, [review, reload]);
 
@@ -500,13 +511,33 @@ function EvidencePacket({ matches }: { matches: IpReviewMatch[] }) {
 
 function MonitoringView({
   review,
-  onUpdated: _onUpdated,
+  onUpdated,
 }: {
   review: IpReview;
   onUpdated: () => void;
 }) {
   const findings = review.findings ?? [];
   const [hideApproved, setHideApproved] = useState(true);
+  const [domains, setDomains] = useState<MonitoredDomain[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
+
+  // Pull all tenant domains once so we can label `monitored_platforms`
+  // ids by hostname and show their last_run_at in the empty state.
+  useEffect(() => {
+    let alive = true;
+    listMonitoredDomains()
+      .then(({ domains }) => alive && setDomains(domains))
+      .catch(() => { /* non-fatal — the empty-state still renders */ });
+    return () => { alive = false; };
+  }, []);
+
+  const platformDomains = useMemo(() => {
+    const byId = new Map(domains.map((d) => [d.id, d]));
+    return review.monitored_platforms
+      .map((id) => byId.get(id))
+      .filter((d): d is MonitoredDomain => !!d);
+  }, [domains, review.monitored_platforms]);
 
   const visible = useMemo(
     () => (hideApproved ? findings.filter((f) => !f.is_approved_licensee) : findings),
@@ -522,11 +553,47 @@ function MonitoringView({
     return { high, med, low, total: findings.length };
   }, [findings]);
 
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshError("");
+    try {
+      // Fire one run per linked domain; the API fans out per IP keyword
+      // server-side. Errors on one domain don't abort the rest.
+      const results = await Promise.allSettled(
+        review.monitored_platforms.map((id) => triggerMonitoringRun(id))
+      );
+      const rejected = results.filter((r) => r.status === "rejected");
+      if (rejected.length === results.length && rejected.length > 0) {
+        setRefreshError("All refresh requests failed — try again later.");
+      }
+      // Findings poll on its own cadence; one immediate reload pulls
+      // whatever's already landed before the worker finishes.
+      onUpdated();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const isFresh =
+    findings.length === 0 &&
+    Date.now() - new Date(review.created_at).getTime() < 10 * 60 * 1000;
+
   return (
     <>
       <PriorityBanner counts={counts} />
 
-      <MonitoringFilterContext review={review} />
+      <MonitoringFilterContext
+        review={review}
+        platformDomains={platformDomains}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        refreshError={refreshError}
+      />
+
+      {isFresh && (
+        <ScrapingInProgress platforms={platformDomains} />
+      )}
 
       <div className="rounded-2xl border border-stone-200 bg-white">
         <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between">
@@ -544,10 +611,14 @@ function MonitoringView({
         </div>
         {visible.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
-            No findings yet. The monitoring scheduler refreshes results periodically;
-            check back later or visit{" "}
-            <a href="/monitor" className="underline">Monitor</a> to configure
-            additional domains for this IP.
+            {isFresh
+              ? "Waiting for the first findings to arrive…"
+              : (
+                <>
+                  No findings yet. Click <span className="font-semibold">Refresh now</span>
+                  {" "}above, or wait for the next scheduled run.
+                </>
+              )}
           </div>
         ) : (
           <div className="divide-y divide-stone-100">
@@ -556,6 +627,37 @@ function MonitoringView({
         )}
       </div>
     </>
+  );
+}
+
+function ScrapingInProgress({ platforms }: { platforms: MonitoredDomain[] }) {
+  return (
+    <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+        <span className="text-sm font-semibold text-blue-900">
+          Scraping in progress
+        </span>
+      </div>
+      <p className="text-xs text-blue-800 mb-2">
+        We've started monitoring the platforms below. Initial findings usually
+        appear within 30-60 seconds; this page refreshes automatically.
+      </p>
+      {platforms.length > 0 && (
+        <ul className="space-y-0.5 text-[11px] text-blue-800">
+          {platforms.map((p) => (
+            <li key={p.id}>
+              · {p.domain}
+              {p.last_run_at && (
+                <span className="text-blue-600/70">
+                  {" "}— last run {new Date(p.last_run_at).toLocaleString()}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -599,16 +701,27 @@ function PriorityCard({
   );
 }
 
-function MonitoringFilterContext({ review }: { review: IpReview }) {
+function MonitoringFilterContext({
+  review,
+  platformDomains,
+  onRefresh,
+  refreshing,
+  refreshError,
+}: {
+  review: IpReview;
+  platformDomains: MonitoredDomain[];
+  onRefresh: () => void;
+  refreshing: boolean;
+  refreshError: string;
+}) {
+  const platformLabel = platformDomains.length > 0
+    ? platformDomains.map((d) => d.domain).join(", ")
+    : review.monitored_platforms.length > 0
+      ? `${review.monitored_platforms.length} platform(s)`
+      : "All monitored";
   const rows: Array<[string, string]> = [
     ["IP", review.monitored_ip?.name ?? "(unknown)"],
-    ["Territories", review.territories.length ? review.territories.join(", ") : "All"],
-    [
-      "Platforms",
-      review.monitored_platforms.length
-        ? `${review.monitored_platforms.length} selected`
-        : "All monitored",
-    ],
+    ["Platforms", platformLabel],
     [
       "Approved licensees",
       review.approved_licensees.length
@@ -618,7 +731,21 @@ function MonitoringFilterContext({ review }: { review: IpReview }) {
   ];
   return (
     <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-5">
-      <h2 className="text-sm font-bold text-stone-900 mb-2">Filter</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-bold text-stone-900">Filter</h2>
+        <div className="flex items-center gap-2">
+          {refreshError && (
+            <span className="text-[11px] text-red-600">{refreshError}</span>
+          )}
+          <button
+            onClick={onRefresh}
+            disabled={refreshing || review.monitored_platforms.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
+          >
+            {refreshing ? "Refreshing…" : "Refresh now"}
+          </button>
+        </div>
+      </div>
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-2">

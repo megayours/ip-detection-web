@@ -1410,10 +1410,22 @@ export function ipReviewTakedownPacketUrl(id: string): string {
 export interface MonitoringReviewContext {
   title: string;
   monitored_ip_catalog_id: string;
-  territories?: string[];
   approved_licensees?: string[];
+  /** Existing monitored_domains IDs the user kept selected. */
   monitored_platforms?: string[];
+  /** New URLs (or hostnames) the user typed — backend creates the
+   *  corresponding monitored_domains rows idempotently. */
+  new_platform_urls?: string[];
   notes?: string;
+}
+
+export class IpNeedsKeywordsError extends Error {
+  ip_id: string;
+  constructor(ip_id: string, message = "IP has no monitoring keywords yet.") {
+    super(message);
+    this.name = "IpNeedsKeywordsError";
+    this.ip_id = ip_id;
+  }
 }
 
 export async function createMonitoringReview(ctx: MonitoringReviewContext) {
@@ -1422,16 +1434,23 @@ export async function createMonitoringReview(ctx: MonitoringReviewContext) {
   form.append("mode", "monitoring");
   form.append("monitored_ip_catalog_id", ctx.monitored_ip_catalog_id);
   if (ctx.notes) form.append("notes", ctx.notes);
-  if (ctx.territories?.length) form.append("territories", JSON.stringify(ctx.territories));
   if (ctx.approved_licensees?.length) form.append("approved_licensees", JSON.stringify(ctx.approved_licensees));
   if (ctx.monitored_platforms?.length) form.append("monitored_platforms", JSON.stringify(ctx.monitored_platforms));
+  if (ctx.new_platform_urls?.length) form.append("new_platform_urls", JSON.stringify(ctx.new_platform_urls));
 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API}/api/ip-reviews`, { method: "POST", headers, body: form });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const err = (await res.json().catch(() => ({ error: res.statusText }))) as {
+      error?: string;
+      ip_id?: string;
+      message?: string;
+    };
+    if (err.error === "ip_needs_keywords" && err.ip_id) {
+      throw new IpNeedsKeywordsError(err.ip_id, err.message);
+    }
     throw new Error(err.error || res.statusText);
   }
-  return res.json() as Promise<{ id: string }>;
+  return res.json() as Promise<{ id: string; platforms: string[] }>;
 }

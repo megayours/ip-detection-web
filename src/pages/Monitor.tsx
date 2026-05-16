@@ -170,6 +170,24 @@ export default function Monitor() {
         </p>
       </div>
 
+      <div className="rounded-2xl border border-stone-300 bg-white p-4 flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-bold text-stone-900">
+            Want a guided flow with takedown packets?
+          </div>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Start an Infringement Monitoring review — pick an IP, list
+            platforms, and we'll wire the scraping up for you.
+          </p>
+        </div>
+        <Link
+          to="/ip-reviews/new/monitoring"
+          className="shrink-0 px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
+        >
+          New monitoring review
+        </Link>
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-5 py-4">
           {error}
