@@ -1218,3 +1218,162 @@ export function revokeApiKey(id: string) {
     method: "DELETE",
   });
 }
+
+// --- IP Reviews (guided legal-grade workflow) ---
+
+export type IpReviewMode = "clearance" | "monitoring";
+export type IpReviewStatus = "processing" | "complete" | "failed";
+export type IpReviewDecision =
+  | "approved"
+  | "approved_with_note"
+  | "needs_edit"
+  | "needs_license"
+  | "escalate"
+  | "do_not_use"
+  | "monitor";
+
+export type RightsType = "copyright" | "trademark" | "design" | "publicity";
+export type RiskBand = "high" | "medium" | "low" | "clear";
+
+export interface IpReviewSegment {
+  risk_band: RiskBand;
+  top_score: number;
+  match_ids: string[];
+}
+
+export interface IpReviewMatch {
+  id: string;
+  ip_name: string;
+  trademark_id: string | null;
+  catalog_source: string;
+  rights_types: RightsType[];
+  scores: {
+    visual_similarity: number;
+    structural_inliers: number;
+    ocr_match: number;
+    calibrator_combined: number;
+  };
+  region: string | null;
+  bbox: number[] | null;
+  in_scope_territories: string[];
+  category_overlap: boolean;
+  evidence: string[];
+  justification: string | null;
+  closest_ref: string | null;
+  reference_images: { id: string; image_url: string }[];
+}
+
+export interface IpReviewResult {
+  asset_image_path: string;
+  image_width: number;
+  image_height: number;
+  segments: Record<RightsType, IpReviewSegment>;
+  matches: IpReviewMatch[];
+  verdict_lines: string[];
+  scope_disclosure: string[];
+  context_echo: Record<string, unknown>;
+}
+
+export interface IpReview {
+  id: string;
+  tenant_id: string;
+  account_id: string;
+  job_id: string | null;
+  mode: IpReviewMode;
+  title: string;
+  status: IpReviewStatus;
+  asset_image_path: string;
+  asset_name: string | null;
+  asset_type: string | null;
+  intended_use: string | null;
+  territories: string[];
+  product_categories: string[];
+  asset_placement: string | null;
+  inspiration_board_paths: string[];
+  notes: string | null;
+  result: IpReviewResult | null;
+  decision: IpReviewDecision | null;
+  decision_rationale: string | null;
+  decided_by_account_id: string | null;
+  decided_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // Annotated on response:
+  asset_image_url?: string;
+  inspiration_image_urls?: string[];
+}
+
+export interface IpReviewContext {
+  title: string;
+  mode?: IpReviewMode;
+  asset_name?: string;
+  asset_type?: string;
+  intended_use?: string;
+  territories?: string[];
+  product_categories?: string[];
+  asset_placement?: string;
+  notes?: string;
+}
+
+export async function createIpReview(
+  image: File,
+  context: IpReviewContext,
+  inspirationImages: File[] = []
+) {
+  const form = new FormData();
+  form.append("image", image);
+  form.append("title", context.title);
+  if (context.mode) form.append("mode", context.mode);
+  if (context.asset_name) form.append("asset_name", context.asset_name);
+  if (context.asset_type) form.append("asset_type", context.asset_type);
+  if (context.intended_use) form.append("intended_use", context.intended_use);
+  if (context.asset_placement) form.append("asset_placement", context.asset_placement);
+  if (context.notes) form.append("notes", context.notes);
+  if (context.territories?.length) {
+    form.append("territories", JSON.stringify(context.territories));
+  }
+  if (context.product_categories?.length) {
+    form.append("product_categories", JSON.stringify(context.product_categories));
+  }
+  for (const f of inspirationImages) form.append("inspiration", f);
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}/api/ip-reviews`, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ id: string }>;
+}
+
+export function listIpReviews(filter: { mode?: IpReviewMode; decision?: IpReviewDecision; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (filter.mode) params.set("mode", filter.mode);
+  if (filter.decision) params.set("decision", filter.decision);
+  if (filter.limit !== undefined) params.set("limit", String(filter.limit));
+  const qs = params.toString();
+  return request<{ reviews: IpReview[] }>(`/api/ip-reviews${qs ? `?${qs}` : ""}`);
+}
+
+export function getIpReview(id: string) {
+  return request<{ review: IpReview }>(`/api/ip-reviews/${id}`);
+}
+
+export function updateIpReviewDecision(
+  id: string,
+  patch: { decision: IpReviewDecision | null; decision_rationale: string | null }
+) {
+  return request<{ review: IpReview }>(`/api/ip-reviews/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteIpReview(id: string) {
+  return request<{ ok: boolean }>(`/api/ip-reviews/${id}`, { method: "DELETE" });
+}
+
+export function ipReviewReportUrl(id: string): string {
+  return `${API}/api/ip-reviews/${id}/report.pdf`;
+}

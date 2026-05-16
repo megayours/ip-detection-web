@@ -1,60 +1,148 @@
 import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import ClearanceBrands from "./ClearanceBrands";
 import ClearanceVisual from "./ClearanceVisual";
 
 /**
- * Clearance — unified pre-screen for IP conflicts. Two modes:
+ * Clearance hub. Two top-level intents:
  *
- *   • Brands       → registered trademarks in this tenant's account.
- *   • Visual Match → WIPO designs + Giantbomb pop-culture in one query.
+ *   • Clearance review (new wedge — guided wizard, legal-grade report)
+ *   • Infringement monitoring (coming soon)
  *
- * Mode is URL-driven (?mode=brands|visual) so links and refreshes preserve
- * intent. Legacy ?mode=designs and ?mode=pop redirect to ?mode=visual.
+ * The legacy fast-check tools (Brands / Visual Match) stay accessible
+ * via `?mode=brands|visual` for power users — useful for "I just want
+ * to see matches against the EUIPO/Giantbomb catalogs without filling
+ * out a wizard."
  */
-type Mode = "brands" | "visual";
-
-const MODE_COPY: Record<Mode, { title: string; subtitle: string }> = {
-  brands: {
-    title: "Brands",
-    subtitle: "Pre-screen images against registered trademarks",
-  },
-  visual: {
-    title: "Visual Match",
-    subtitle: "Search WIPO designs and Giantbomb pop-culture catalogs for visually similar entries",
-  },
-};
+type LegacyMode = "brands" | "visual";
 
 export default function Clearance() {
   const [params, setParams] = useSearchParams();
   const raw = params.get("mode");
 
-  // Legacy redirect: ?mode=designs or ?mode=pop → ?mode=visual.
-  // Keeps shareable links from old tabs working without a server-side rule.
   useEffect(() => {
     if (raw === "designs" || raw === "pop") {
       const next = new URLSearchParams(params);
       next.set("mode", "visual");
-      next.delete("type");      // drop legacy entity_type filter
+      next.delete("type");
       setParams(next, { replace: true });
     }
   }, [raw, params, setParams]);
 
-  const mode: Mode = raw === "visual" ? "visual" : "brands";
+  const legacyMode: LegacyMode | null =
+    raw === "brands" || raw === "visual" ? raw : null;
 
-  function setMode(next: Mode) {
-    if (next === mode) return;
-    const p = new URLSearchParams(params);
-    if (next === "brands") p.delete("mode");
-    else p.set("mode", next);
-    setParams(p, { replace: false });
+  if (legacyMode) {
+    return <LegacyView mode={legacyMode} setMode={(m) => {
+      const p = new URLSearchParams(params);
+      p.set("mode", m);
+      setParams(p, { replace: false });
+    }} clearMode={() => {
+      const p = new URLSearchParams(params);
+      p.delete("mode");
+      setParams(p, { replace: false });
+    }} />;
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight">Clearance</h1>
-        <p className="text-xs text-stone-400 mt-0.5">{MODE_COPY[mode].subtitle}</p>
+        <h1 className="text-xl font-bold tracking-tight">IP review</h1>
+        <p className="text-xs text-stone-400 mt-0.5">
+          Guided workflows for IP clearance and infringement monitoring.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Link
+          to="/ip-reviews/new"
+          className="block rounded-2xl border-2 border-stone-300 bg-white p-6 hover:border-stone-900 transition-colors"
+        >
+          <div className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
+            Clearance
+          </div>
+          <h2 className="text-base font-bold text-stone-900 mb-1">
+            Start a clearance review
+          </h2>
+          <p className="text-xs text-stone-500 leading-relaxed">
+            "Is this asset too close to existing IP?" Guided wizard captures
+            asset details, territory, intended use. Output: risk by IP type,
+            legal-grade PDF, lawyer decision.
+          </p>
+        </Link>
+
+        <div className="block rounded-2xl border-2 border-dashed border-stone-200 bg-stone-50/40 p-6">
+          <div className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">
+            Coming soon
+          </div>
+          <h2 className="text-base font-bold text-stone-400 mb-1">
+            Infringement monitoring
+          </h2>
+          <p className="text-xs text-stone-400 leading-relaxed">
+            "Where is my IP being misused?" Track unauthorized usage across
+            platforms in selected territories, generate takedown packets.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
+          Power-user tools
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/clearance?mode=brands"
+            className="px-3 py-1.5 rounded-full text-xs font-medium border border-stone-200 bg-white text-stone-600 hover:border-stone-300"
+          >
+            Brands fast check
+          </Link>
+          <Link
+            to="/clearance?mode=visual"
+            className="px-3 py-1.5 rounded-full text-xs font-medium border border-stone-200 bg-white text-stone-600 hover:border-stone-300"
+          >
+            Visual match (designs + pop culture)
+          </Link>
+          <Link
+            to="/ip-reviews"
+            className="px-3 py-1.5 rounded-full text-xs font-medium border border-stone-200 bg-white text-stone-600 hover:border-stone-300"
+          >
+            My reviews
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LegacyView({
+  mode,
+  setMode,
+  clearMode,
+}: {
+  mode: LegacyMode;
+  setMode: (m: LegacyMode) => void;
+  clearMode: () => void;
+}) {
+  const subtitle =
+    mode === "brands"
+      ? "Pre-screen images against registered trademarks"
+      : "Search WIPO designs and Giantbomb pop-culture catalogs";
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="mb-3">
+        <button
+          onClick={clearMode}
+          className="text-[11px] text-stone-500 hover:text-stone-800"
+        >
+          ← Back to IP review
+        </button>
+      </div>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold tracking-tight">
+          {mode === "brands" ? "Brands fast check" : "Visual match"}
+        </h1>
+        <p className="text-xs text-stone-400 mt-0.5">{subtitle}</p>
       </div>
 
       <div className="mb-6 inline-flex p-1 bg-stone-100 rounded-full">
@@ -68,13 +156,11 @@ export default function Clearance() {
                 : "text-stone-500 hover:text-stone-800"
             }`}
           >
-            {MODE_COPY[m].title}
+            {m === "brands" ? "Brands" : "Visual Match"}
           </button>
         ))}
       </div>
 
-      {/* Both modes stay mounted across tab switches so an in-flight job keeps
-          polling and the uploaded file / preview survives a mode toggle. */}
       <div className={mode === "brands" ? "" : "hidden"}>
         <ClearanceBrands />
       </div>

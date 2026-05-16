@@ -56,7 +56,7 @@ export default function Nav() {
                 Registry
               </Link>
               <Link to="/clearance" className={linkClass("/clearance")}>
-                Clearance
+                IP review
               </Link>
               <Link to="/monitor" className={linkClass("/monitor")}>
                 Monitor

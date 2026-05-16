@@ -14,6 +14,9 @@ import Check from "./pages/Check";
 import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
+import ClearanceReviewNew from "./pages/ClearanceReviewNew";
+import IpReviews from "./pages/IpReviews";
+import IpReviewDetail from "./pages/IpReviewDetail";
 import BrandsCatalog from "./pages/BrandsCatalog";
 import DesignsCatalog from "./pages/DesignsCatalog";
 import PopCultureCatalog from "./pages/PopCultureCatalog";
@@ -101,6 +104,18 @@ export default function App() {
         <Route
           path="/clearance"
           element={<ProtectedRoute><Clearance /></ProtectedRoute>}
+        />
+        <Route
+          path="/ip-reviews"
+          element={<ProtectedRoute><IpReviews /></ProtectedRoute>}
+        />
+        <Route
+          path="/ip-reviews/new"
+          element={<ProtectedRoute><ClearanceReviewNew /></ProtectedRoute>}
+        />
+        <Route
+          path="/ip-reviews/:id"
+          element={<ProtectedRoute><IpReviewDetail /></ProtectedRoute>}
         />
         <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
         <Route
