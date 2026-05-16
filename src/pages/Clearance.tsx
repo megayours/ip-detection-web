@@ -71,18 +71,22 @@ export default function Clearance() {
           </p>
         </Link>
 
-        <div className="block rounded-2xl border-2 border-dashed border-stone-200 bg-stone-50/40 p-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">
-            Coming soon
+        <Link
+          to="/ip-reviews/new/monitoring"
+          className="block rounded-2xl border-2 border-stone-300 bg-white p-6 hover:border-stone-900 transition-colors"
+        >
+          <div className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
+            Monitoring
           </div>
-          <h2 className="text-base font-bold text-stone-400 mb-1">
-            Infringement monitoring
+          <h2 className="text-base font-bold text-stone-900 mb-1">
+            Start infringement monitoring
           </h2>
-          <p className="text-xs text-stone-400 leading-relaxed">
-            "Where is my IP being misused?" Track unauthorized usage across
-            platforms in selected territories, generate takedown packets.
+          <p className="text-xs text-stone-500 leading-relaxed">
+            "Where is my IP being misused?" Pick an indexed IP, optional
+            territories, platforms, and approved licensees. Output: prioritized
+            findings + US DMCA takedown packet.
           </p>
-        </div>
+        </Link>
       </div>
 
       <div className="mt-8">

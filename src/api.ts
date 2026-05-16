@@ -1298,9 +1298,34 @@ export interface IpReview {
   decided_at: string | null;
   created_at: string;
   updated_at: string;
+  // Monitoring-mode fields (NULL/empty for clearance mode):
+  monitored_ip_catalog_id: string | null;
+  approved_licensees: string[];
+  monitored_platforms: string[];
   // Annotated on response:
   asset_image_url?: string;
   inspiration_image_urls?: string[];
+  monitored_ip?: { id: string; name: string } | null;
+  findings?: IpReviewFinding[];
+}
+
+export interface IpReviewFinding {
+  result_id: string;
+  run_id: string;
+  domain_id: string | null;
+  domain: string;
+  page_url: string;
+  image_url: string | null;
+  similarity_score: number | null;
+  inliers: number | null;
+  vlm_verdict: string | null;
+  vlm_confidence: number | null;
+  vlm_reasoning: string | null;
+  status: string;
+  case_id: string | null;
+  is_approved_licensee: boolean;
+  enforcement_priority: number;
+  found_at: string;
 }
 
 export interface IpReviewContext {
@@ -1376,4 +1401,37 @@ export function deleteIpReview(id: string) {
 
 export function ipReviewReportUrl(id: string): string {
   return `${API}/api/ip-reviews/${id}/report.pdf`;
+}
+
+export function ipReviewTakedownPacketUrl(id: string): string {
+  return `${API}/api/ip-reviews/${id}/takedown-packet.pdf`;
+}
+
+export interface MonitoringReviewContext {
+  title: string;
+  monitored_ip_catalog_id: string;
+  territories?: string[];
+  approved_licensees?: string[];
+  monitored_platforms?: string[];
+  notes?: string;
+}
+
+export async function createMonitoringReview(ctx: MonitoringReviewContext) {
+  const form = new FormData();
+  form.append("title", ctx.title);
+  form.append("mode", "monitoring");
+  form.append("monitored_ip_catalog_id", ctx.monitored_ip_catalog_id);
+  if (ctx.notes) form.append("notes", ctx.notes);
+  if (ctx.territories?.length) form.append("territories", JSON.stringify(ctx.territories));
+  if (ctx.approved_licensees?.length) form.append("approved_licensees", JSON.stringify(ctx.approved_licensees));
+  if (ctx.monitored_platforms?.length) form.append("monitored_platforms", JSON.stringify(ctx.monitored_platforms));
+
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}/api/ip-reviews`, { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json() as Promise<{ id: string }>;
 }

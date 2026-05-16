@@ -15,6 +15,7 @@ import TestSubmission from "./pages/TestSubmission";
 import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
+import MonitoringReviewNew from "./pages/MonitoringReviewNew";
 import IpReviews from "./pages/IpReviews";
 import IpReviewDetail from "./pages/IpReviewDetail";
 import BrandsCatalog from "./pages/BrandsCatalog";
@@ -112,6 +113,10 @@ export default function App() {
         <Route
           path="/ip-reviews/new"
           element={<ProtectedRoute><ClearanceReviewNew /></ProtectedRoute>}
+        />
+        <Route
+          path="/ip-reviews/new/monitoring"
+          element={<ProtectedRoute><MonitoringReviewNew /></ProtectedRoute>}
         />
         <Route
           path="/ip-reviews/:id"
