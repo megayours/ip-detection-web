@@ -19,6 +19,7 @@ import DesignsCatalog from "./pages/DesignsCatalog";
 import PopCultureCatalog from "./pages/PopCultureCatalog";
 import Admin from "./pages/Admin";
 import AdminIpDetail from "./pages/AdminIpDetail";
+import Settings from "./pages/Settings";
 
 function RedirectTrademark() {
   const { id } = useParams();
@@ -133,6 +134,10 @@ export default function App() {
         <Route
           path="/reviews"
           element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>}
+        />
+        <Route
+          path="/settings"
+          element={<ProtectedRoute><Settings /></ProtectedRoute>}
         />
         <Route
           path="/admin"

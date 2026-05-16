@@ -89,11 +89,11 @@ export interface TrademarkImage {
 }
 
 export function listTrademarks() {
-  return request<{ trademarks: Trademark[] }>("/api/trademarks");
+  return request<{ trademarks: Trademark[] }>("/api/ip");
 }
 
 export function listPublicTrademarks() {
-  return request<{ trademarks: Trademark[] }>("/api/trademarks/public");
+  return request<{ trademarks: Trademark[] }>("/api/ip/public");
 }
 
 // --- Catalog browse (paginated + searchable) ---
@@ -138,7 +138,7 @@ export function browseTrademarkCatalog(opts: { q?: string; limit?: number; offse
   if (opts.limit !== undefined) p.set("limit", String(opts.limit));
   if (opts.offset !== undefined) p.set("offset", String(opts.offset));
   const qs = p.toString();
-  return request<CatalogPage<TrademarkCatalogItem>>(`/api/trademarks/catalog/browse${qs ? `?${qs}` : ""}`);
+  return request<CatalogPage<TrademarkCatalogItem>>(`/api/ip/catalog/browse${qs ? `?${qs}` : ""}`);
 }
 
 export function browseDesignCatalog(opts: { q?: string; limit?: number; offset?: number } = {}) {
@@ -156,18 +156,18 @@ export function browseDesignCatalog(opts: { q?: string; limit?: number; offset?:
  * and generateIpKeywords.
  */
 export function createTrademark(name: string) {
-  return request<{ trademark: Trademark }>("/api/trademarks", {
+  return request<{ trademark: Trademark }>("/api/ip", {
     method: "POST",
     body: JSON.stringify({ name }),
   });
 }
 
 export function getTrademark(id: string) {
-  return request<{ trademark: Trademark; images: TrademarkImage[] }>(`/api/trademarks/${id}`);
+  return request<{ trademark: Trademark; images: TrademarkImage[] }>(`/api/ip/${id}`);
 }
 
 export function deleteTrademark(id: string) {
-  return request<{ ok: boolean }>(`/api/trademarks/${id}`, { method: "DELETE" });
+  return request<{ ok: boolean }>(`/api/ip/${id}`, { method: "DELETE" });
 }
 
 export function updateTrademark(
@@ -180,7 +180,7 @@ export function updateTrademark(
     keywords?: string[];
   }
 ) {
-  return request<{ trademark: Trademark }>(`/api/trademarks/${id}`, {
+  return request<{ trademark: Trademark }>(`/api/ip/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
@@ -193,7 +193,7 @@ export function updateTrademark(
  * to pick up the new keywords[] field.
  */
 export function generateIpKeywords(id: string, description: string) {
-  return request<{ job_id: string }>(`/api/trademarks/${id}/keywords/generate`, {
+  return request<{ job_id: string }>(`/api/ip/${id}/keywords/generate`, {
     method: "POST",
     body: JSON.stringify({ description }),
   });
@@ -206,7 +206,7 @@ export async function uploadTrademarkImages(trademarkId: string, files: File[]) 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API}/api/trademarks/${trademarkId}/images`, {
+  const res = await fetch(`${API}/api/ip/${trademarkId}/images`, {
     method: "POST",
     headers,
     body: form,
@@ -219,7 +219,7 @@ export async function uploadTrademarkImages(trademarkId: string, files: File[]) 
 }
 
 export function deleteTrademarkImage(trademarkId: string, imageId: string) {
-  return request<{ ok: boolean }>(`/api/trademarks/${trademarkId}/images/${imageId}`, { method: "DELETE" });
+  return request<{ ok: boolean }>(`/api/ip/${trademarkId}/images/${imageId}`, { method: "DELETE" });
 }
 
 // --- Detection ---
@@ -1189,4 +1189,32 @@ export interface MonitoringPreset {
 
 export function listMonitoringPresets() {
   return request<{ presets: MonitoringPreset[] }>("/api/monitoring/presets");
+}
+
+// --- API keys ---
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+export function listApiKeys() {
+  return request<{ keys: ApiKey[] }>("/api/api-keys");
+}
+
+export function createApiKey(name: string) {
+  return request<{ key: ApiKey; token: string }>("/api/api-keys", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function revokeApiKey(id: string) {
+  return request<{ ok: boolean }>(`/api/api-keys/${id}`, {
+    method: "DELETE",
+  });
 }

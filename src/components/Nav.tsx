@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+// Settings page hosts tenant-level API key management.
 import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
 
@@ -100,6 +101,13 @@ export default function Nav() {
                       <div className="text-xs text-stone-500 truncate">{user.email}</div>
                     )}
                   </div>
+                  <Link
+                    to="/settings"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 transition-colors"
+                  >
+                    Settings
+                  </Link>
                   <button
                     onClick={async () => {
                       setMenuOpen(false);
