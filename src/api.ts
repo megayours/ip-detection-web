@@ -1404,15 +1404,31 @@ export function ipReviewReportUrl(id: string): string {
   return `${API}/api/ip-reviews/${id}/report.pdf`;
 }
 
-export function ipReviewTakedownPacketUrl(id: string): string {
-  return `${API}/api/ip-reviews/${id}/takedown-packet.pdf`;
-}
-
-export function ipReviewFindingTakedownPacketUrl(
+/**
+ * Fetch a per-finding takedown packet with the bearer token attached and
+ * open it in a new tab. Anchor `href` navigation doesn't carry the
+ * Authorization header, so the request would 401 — instead we pull the
+ * PDF as a Blob and hand the browser a blob: URL.
+ */
+export async function openIpReviewFindingTakedownPacket(
   reviewId: string,
   resultId: string,
-): string {
-  return `${API}/api/ip-reviews/${reviewId}/findings/${resultId}/takedown-packet.pdf`;
+): Promise<void> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(
+    `${API}/api/ip-reviews/${reviewId}/findings/${resultId}/takedown-packet.pdf`,
+    { headers },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  // Revoke after a beat — early revoke kills the open in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export function dismissIpReviewFinding(reviewId: string, resultId: string) {

@@ -4,9 +4,8 @@ import {
   deleteIpReview,
   dismissIpReviewFinding,
   getIpReview,
-  ipReviewFindingTakedownPacketUrl,
   ipReviewReportUrl,
-  ipReviewTakedownPacketUrl,
+  openIpReviewFindingTakedownPacket,
   listMonitoredDomains,
   triggerMonitoringRun,
   updateIpReviewDecision,
@@ -151,16 +150,6 @@ function Header({ review }: { review: IpReview }) {
                 className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
               >
                 Export PDF
-              </a>
-            )}
-            {isMonitoring && (
-              <a
-                href={ipReviewTakedownPacketUrl(review.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
-              >
-                Takedown packet
               </a>
             )}
           </div>
@@ -817,6 +806,29 @@ function MonitoringFilterContext({
   );
 }
 
+function TakedownPacketButton({ reviewId, resultId }: { reviewId: string; resultId: string }) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={async () => {
+        setLoading(true);
+        try {
+          await openIpReviewFindingTakedownPacket(reviewId, resultId);
+        } catch (e) {
+          alert(e instanceof Error ? e.message : "Failed to open takedown packet");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      className="px-2.5 py-1 rounded-md bg-stone-900 text-white text-[11px] font-semibold hover:bg-stone-800 disabled:opacity-50"
+    >
+      {loading ? "Preparing…" : "Takedown packet"}
+    </button>
+  );
+}
+
 function FindingRow({
   f,
   reviewId,
@@ -888,14 +900,7 @@ function FindingRow({
           </div>
         )}
         <div className="flex items-center gap-2 mt-3">
-          <a
-            href={ipReviewFindingTakedownPacketUrl(reviewId, f.result_id)}
-            target="_blank"
-            rel="noreferrer"
-            className="px-2.5 py-1 rounded-md bg-stone-900 text-white text-[11px] font-semibold hover:bg-stone-800"
-          >
-            Takedown packet
-          </a>
+          <TakedownPacketButton reviewId={reviewId} resultId={f.result_id} />
           <button
             type="button"
             onClick={onDismiss}
