@@ -1400,8 +1400,23 @@ export function deleteIpReview(id: string) {
   return request<{ ok: boolean }>(`/api/ip-reviews/${id}`, { method: "DELETE" });
 }
 
-export function ipReviewReportUrl(id: string): string {
-  return `${API}/api/ip-reviews/${id}/report.pdf`;
+/**
+ * Fetch the clearance-review PDF with the bearer token attached and open
+ * it in a new tab. Same workaround as the per-finding takedown packet —
+ * anchor navigation can't carry the Authorization header.
+ */
+export async function openIpReviewReport(id: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API}/api/ip-reviews/${id}/report.pdf`, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 /**

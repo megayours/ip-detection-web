@@ -4,8 +4,8 @@ import {
   deleteIpReview,
   dismissIpReviewFinding,
   getIpReview,
-  ipReviewReportUrl,
   openIpReviewFindingTakedownPacket,
+  openIpReviewReport,
   listMonitoredDomains,
   triggerMonitoringRun,
   updateIpReviewDecision,
@@ -143,14 +143,7 @@ function Header({ review }: { review: IpReview }) {
           <div className="flex items-center gap-2">
             <StatusPill status={review.status} />
             {!isMonitoring && review.status === "complete" && (
-              <a
-                href={ipReviewReportUrl(review.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
-              >
-                Export PDF
-              </a>
+              <ExportPdfButton reviewId={review.id} />
             )}
           </div>
         </div>
@@ -803,6 +796,29 @@ function MonitoringFilterContext({
         ))}
       </dl>
     </div>
+  );
+}
+
+function ExportPdfButton({ reviewId }: { reviewId: string }) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={async () => {
+        setLoading(true);
+        try {
+          await openIpReviewReport(reviewId);
+        } catch (e) {
+          alert(e instanceof Error ? e.message : "Failed to open report");
+        } finally {
+          setLoading(false);
+        }
+      }}
+      className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 disabled:opacity-50"
+    >
+      {loading ? "Preparing…" : "Export PDF"}
+    </button>
   );
 }
 
