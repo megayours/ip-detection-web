@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deleteIpReview,
+  dismissIpReviewFinding,
   getIpReview,
+  ipReviewFindingTakedownPacketUrl,
   ipReviewReportUrl,
   ipReviewTakedownPacketUrl,
   listMonitoredDomains,
@@ -518,6 +520,10 @@ function MonitoringView({
 }) {
   const findings = review.findings ?? [];
   const [hideApproved, setHideApproved] = useState(true);
+  const [showDismissed, setShowDismissed] = useState(false);
+  // Optimistically-dismissed result_ids — the server reload eventually
+  // replaces this once `dismissed_at` lands in the polled payload.
+  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   const [domains, setDomains] = useState<MonitoredDomain[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
@@ -539,19 +545,48 @@ function MonitoringView({
       .filter((d): d is MonitoredDomain => !!d);
   }, [domains, review.monitored_platforms]);
 
-  const visible = useMemo(
-    () => (hideApproved ? findings.filter((f) => !f.is_approved_licensee) : findings),
-    [findings, hideApproved]
-  );
+  const visible = useMemo(() => {
+    return findings.filter((f) => {
+      const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
+      if (isDismissed && !showDismissed) return false;
+      if (hideApproved && f.is_approved_licensee) return false;
+      return true;
+    });
+  }, [findings, hideApproved, showDismissed, dismissing]);
 
+  // Counts ignore dismissed findings — the priority banner reflects the
+  // outstanding workload, not the historical total.
   const counts = useMemo(() => {
-    const high = findings.filter((f) => f.enforcement_priority >= 0.75).length;
-    const med = findings.filter(
+    const live = findings.filter(
+      (f) => !f.dismissed_at && !dismissing.has(f.result_id),
+    );
+    const high = live.filter((f) => f.enforcement_priority >= 0.75).length;
+    const med = live.filter(
       (f) => f.enforcement_priority >= 0.5 && f.enforcement_priority < 0.75
     ).length;
-    const low = findings.filter((f) => f.enforcement_priority < 0.5).length;
-    return { high, med, low, total: findings.length };
-  }, [findings]);
+    const low = live.filter((f) => f.enforcement_priority < 0.5).length;
+    return { high, med, low, total: live.length };
+  }, [findings, dismissing]);
+
+  const dismissedCount = findings.filter(
+    (f) => !!f.dismissed_at || dismissing.has(f.result_id),
+  ).length;
+
+  async function handleDismiss(f: IpReviewFinding) {
+    if (dismissing.has(f.result_id)) return;
+    setDismissing((prev) => new Set(prev).add(f.result_id));
+    try {
+      await dismissIpReviewFinding(review.id, f.result_id);
+      onUpdated();
+    } catch (e) {
+      setDismissing((prev) => {
+        const next = new Set(prev);
+        next.delete(f.result_id);
+        return next;
+      });
+      alert(e instanceof Error ? e.message : "Failed to dismiss finding");
+    }
+  }
 
   async function handleRefresh() {
     if (refreshing) return;
@@ -596,18 +631,33 @@ function MonitoringView({
       )}
 
       <div className="rounded-2xl border border-stone-200 bg-white">
-        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between flex-wrap gap-y-2">
           <h2 className="text-sm font-bold text-stone-900">
             Findings ({visible.length})
           </h2>
-          <label className="flex items-center gap-2 text-[11px] text-stone-500">
-            <input
-              type="checkbox"
-              checked={hideApproved}
-              onChange={(e) => setHideApproved(e.target.checked)}
-            />
-            Hide approved licensees
-          </label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-[11px] text-stone-500">
+              <input
+                type="checkbox"
+                checked={hideApproved}
+                onChange={(e) => setHideApproved(e.target.checked)}
+              />
+              Hide approved licensees
+            </label>
+            <label
+              className={`flex items-center gap-2 text-[11px] ${
+                dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={showDismissed}
+                onChange={(e) => setShowDismissed(e.target.checked)}
+                disabled={dismissedCount === 0}
+              />
+              Show dismissed ({dismissedCount})
+            </label>
+          </div>
         </div>
         {visible.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
@@ -622,7 +672,16 @@ function MonitoringView({
           </div>
         ) : (
           <div className="divide-y divide-stone-100">
-            {visible.map((f) => <FindingRow key={f.result_id} f={f} />)}
+            {visible.map((f) => (
+              <FindingRow
+                key={f.result_id}
+                f={f}
+                reviewId={review.id}
+                isDismissed={!!f.dismissed_at || dismissing.has(f.result_id)}
+                isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
+                onDismiss={() => handleDismiss(f)}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -758,7 +817,19 @@ function MonitoringFilterContext({
   );
 }
 
-function FindingRow({ f }: { f: IpReviewFinding }) {
+function FindingRow({
+  f,
+  reviewId,
+  isDismissed,
+  isDismissing,
+  onDismiss,
+}: {
+  f: IpReviewFinding;
+  reviewId: string;
+  isDismissed: boolean;
+  isDismissing: boolean;
+  onDismiss: () => void;
+}) {
   const priorityCls =
     f.enforcement_priority >= 0.75
       ? "text-red-700"
@@ -766,7 +837,7 @@ function FindingRow({ f }: { f: IpReviewFinding }) {
         ? "text-amber-700"
         : "text-stone-700";
   return (
-    <div className="px-5 py-4 flex items-start gap-3">
+    <div className={`px-5 py-4 flex items-start gap-3 ${isDismissed ? "opacity-50" : ""}`}>
       {f.image_url ? (
         <img
           src={f.image_url}
@@ -781,6 +852,11 @@ function FindingRow({ f }: { f: IpReviewFinding }) {
           <span className="font-semibold text-sm text-stone-900 truncate">
             {f.domain}
           </span>
+          {isDismissed && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">
+              dismissed
+            </span>
+          )}
           {f.is_approved_licensee && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">
               approved
@@ -811,6 +887,24 @@ function FindingRow({ f }: { f: IpReviewFinding }) {
             {f.vlm_reasoning}
           </div>
         )}
+        <div className="flex items-center gap-2 mt-3">
+          <a
+            href={ipReviewFindingTakedownPacketUrl(reviewId, f.result_id)}
+            target="_blank"
+            rel="noreferrer"
+            className="px-2.5 py-1 rounded-md bg-stone-900 text-white text-[11px] font-semibold hover:bg-stone-800"
+          >
+            Takedown packet
+          </a>
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={isDismissed || isDismissing}
+            className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
+          >
+            {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
+          </button>
+        </div>
       </div>
       <div className="text-right shrink-0">
         <div className={`text-lg font-bold ${priorityCls}`}>

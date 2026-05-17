@@ -1326,6 +1326,7 @@ export interface IpReviewFinding {
   is_approved_licensee: boolean;
   enforcement_priority: number;
   found_at: string;
+  dismissed_at: string | null;
 }
 
 export interface IpReviewContext {
@@ -1405,6 +1406,20 @@ export function ipReviewReportUrl(id: string): string {
 
 export function ipReviewTakedownPacketUrl(id: string): string {
   return `${API}/api/ip-reviews/${id}/takedown-packet.pdf`;
+}
+
+export function ipReviewFindingTakedownPacketUrl(
+  reviewId: string,
+  resultId: string,
+): string {
+  return `${API}/api/ip-reviews/${reviewId}/findings/${resultId}/takedown-packet.pdf`;
+}
+
+export function dismissIpReviewFinding(reviewId: string, resultId: string) {
+  return request<{ ok: boolean }>(
+    `/api/ip-reviews/${reviewId}/findings/${resultId}/dismiss`,
+    { method: "POST" },
+  );
 }
 
 export interface MonitoringReviewContext {
