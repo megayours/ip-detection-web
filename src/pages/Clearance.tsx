@@ -88,7 +88,7 @@ function Inbox() {
             to="/ip-reviews/new/monitoring"
             className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
           >
-            + Monitoring
+            + Infringement Monitoring
           </Link>
         </div>
       </div>
