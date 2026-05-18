@@ -1307,6 +1307,34 @@ export interface IpReview {
   inspiration_image_urls?: string[];
   monitored_ip?: { id: string; name: string } | null;
   findings?: IpReviewFinding[];
+  match_decisions?: IpReviewMatchDecision[];
+  // Inbox counts — populated by GET /api/ip-reviews list responses.
+  // Clearance: flagged matches awaiting a locked decision.
+  // Monitoring: undismissed, non-licensee findings.
+  flagged_match_count?: number;
+  open_findings_count?: number;
+}
+
+export type IpReviewMatchDecisionValue = "flag" | "dismiss";
+
+export interface IpReviewMatchDecision {
+  review_id: string;
+  match_id: string;
+  decision: IpReviewMatchDecisionValue;
+  note: string | null;
+  decided_by_account_id: string | null;
+  decided_at: string;
+}
+
+export function setIpReviewMatchDecision(
+  reviewId: string,
+  matchId: string,
+  patch: { decision: IpReviewMatchDecisionValue | null; note: string | null },
+) {
+  return request<{ decision: IpReviewMatchDecision | null }>(
+    `/api/ip-reviews/${reviewId}/matches/${matchId}`,
+    { method: "PATCH", body: JSON.stringify(patch) },
+  );
 }
 
 export interface IpReviewFinding {

@@ -58,9 +58,6 @@ export default function Nav() {
               <Link to="/clearance" className={linkClass("/clearance")}>
                 IP review
               </Link>
-              <Link to="/ip-reviews" className={linkClass("/ip-reviews")}>
-                Reviews
-              </Link>
               <Link to="/monitor" className={linkClass("/monitor")}>
                 Monitor
               </Link>

@@ -5,15 +5,15 @@ import ClearanceBrands from "./ClearanceBrands";
 import ClearanceVisual from "./ClearanceVisual";
 
 /**
- * Clearance hub. Two top-level intents:
+ * IP review hub. Linear-style inbox of clearance + monitoring tasks.
  *
- *   • Clearance review (new wedge — guided wizard, legal-grade report)
- *   • Infringement monitoring (coming soon)
- *
- * The legacy fast-check tools (Brands / Visual Match) stay accessible
- * via `?mode=brands|visual` for power users — useful for "I just want
- * to see matches against the EUIPO/Giantbomb catalogs without filling
- * out a wizard."
+ * Routing notes:
+ *   - Quick-action buttons launch the existing wizards (`/ip-reviews/new`,
+ *     `/ip-reviews/new/monitoring`); each row deep-links to
+ *     `/ip-reviews/:id`.
+ *   - Legacy fast-check tools (Brands / Visual Match) are hidden from the
+ *     nav but still reachable via `/clearance?mode=brands|visual` so
+ *     power users can keep their bookmarks alive.
  */
 type LegacyMode = "brands" | "visual";
 
@@ -45,181 +45,213 @@ export default function Clearance() {
     }} />;
   }
 
-  return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight">IP review</h1>
-        <p className="text-xs text-stone-400 mt-0.5">
-          Guided workflows for IP clearance and infringement monitoring.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link
-          to="/ip-reviews/new"
-          className="block rounded-2xl border-2 border-stone-300 bg-white p-6 hover:border-stone-900 transition-colors"
-        >
-          <div className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
-            Clearance
-          </div>
-          <h2 className="text-base font-bold text-stone-900 mb-1">
-            Start a clearance review
-          </h2>
-          <p className="text-xs text-stone-500 leading-relaxed">
-            "Is this asset too close to existing IP?" Guided wizard captures
-            asset details, territory, intended use. Output: risk by IP type,
-            legal-grade PDF, lawyer decision.
-          </p>
-        </Link>
-
-        <Link
-          to="/ip-reviews/new/monitoring"
-          className="block rounded-2xl border-2 border-stone-300 bg-white p-6 hover:border-stone-900 transition-colors"
-        >
-          <div className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
-            Monitoring
-          </div>
-          <h2 className="text-base font-bold text-stone-900 mb-1">
-            Start infringement monitoring
-          </h2>
-          <p className="text-xs text-stone-500 leading-relaxed">
-            "Where is my IP being misused?" Pick an IP, add platforms to
-            scan — scraping kicks off immediately. Output: prioritized
-            findings + US DMCA takedown packet.
-          </p>
-        </Link>
-      </div>
-
-      <RecentReviews />
-
-      <div className="mt-8">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">
-          Power-user tools
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to="/clearance?mode=brands"
-            className="px-3 py-1.5 rounded-full text-xs font-medium border border-stone-200 bg-white text-stone-600 hover:border-stone-300"
-          >
-            Brands fast check
-          </Link>
-          <Link
-            to="/clearance?mode=visual"
-            className="px-3 py-1.5 rounded-full text-xs font-medium border border-stone-200 bg-white text-stone-600 hover:border-stone-300"
-          >
-            Visual match (designs + pop culture)
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+  return <Inbox />;
 }
 
-function RecentReviews() {
+function Inbox() {
   const [reviews, setReviews] = useState<IpReview[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let alive = true;
-    listIpReviews({ limit: 20 })
+    listIpReviews({ limit: 200 })
       .then(({ reviews }) => alive && setReviews(reviews))
-      .catch(() => { /* silent */ })
+      .catch((e) => alive && setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => alive && setLoaded(true));
     return () => { alive = false; };
   }, []);
 
-  const recentClearance = useMemo(
-    () => reviews.filter((r) => r.mode === "clearance").slice(0, 4),
-    [reviews]
-  );
-  const recentMonitoring = useMemo(
-    () => reviews.filter((r) => r.mode === "monitoring").slice(0, 4),
-    [reviews]
-  );
-
-  if (!loaded || (recentClearance.length === 0 && recentMonitoring.length === 0)) {
-    return null;
-  }
+  const { needs, done } = useMemo(() => {
+    const needs: IpReview[] = [];
+    const done: IpReview[] = [];
+    for (const r of reviews) {
+      if (needsAttention(r)) needs.push(r);
+      else done.push(r);
+    }
+    return { needs, done };
+  }, [reviews]);
 
   return (
-    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-      <RecentColumn
-        title="Recent clearance reviews"
-        href="/ip-reviews?mode=clearance"
-        reviews={recentClearance}
-      />
-      <RecentColumn
-        title="Active monitoring"
-        href="/ip-reviews?mode=monitoring"
-        reviews={recentMonitoring}
-      />
+    <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <h1 className="text-xl font-bold tracking-tight">Inbox</h1>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to="/ip-reviews/new"
+            className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-800 text-xs font-semibold hover:bg-stone-50"
+          >
+            + Clearance
+          </Link>
+          <Link
+            to="/ip-reviews/new/monitoring"
+            className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
+          >
+            + Monitoring
+          </Link>
+        </div>
+      </div>
+
+      {!loaded && (
+        <div className="text-sm text-stone-400">Loading…</div>
+      )}
+      {error && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
+
+      {loaded && reviews.length === 0 && (
+        <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-8 text-center">
+          <p className="text-sm text-stone-600">Nothing in your inbox.</p>
+          <p className="text-xs text-stone-400 mt-1">
+            Start a clearance review or set up monitoring to populate this list.
+          </p>
+        </div>
+      )}
+
+      {loaded && reviews.length > 0 && (
+        <>
+          <Section
+            title={`Needs attention (${needs.length})`}
+            rows={needs}
+            emptyText="You're all caught up."
+          />
+          {done.length > 0 && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => setDoneOpen((v) => !v)}
+                className="w-full flex items-center justify-between text-left px-1 py-2 text-xs font-semibold uppercase tracking-wider text-stone-500 hover:text-stone-800"
+              >
+                <span>
+                  {doneOpen ? "▼" : "▶"} Done / no action ({done.length})
+                </span>
+              </button>
+              {doneOpen && (
+                <div className="mt-2 space-y-2">
+                  {done.map((r) => <TaskRow key={r.id} review={r} muted />)}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-function RecentColumn({
+function needsAttention(r: IpReview): boolean {
+  if (r.status === "processing") return true;
+  if (r.status === "failed") return true;
+  if (r.mode === "clearance") return !r.decision;
+  if (r.mode === "monitoring") return (r.open_findings_count ?? 0) > 0;
+  return false;
+}
+
+function Section({
   title,
-  href,
-  reviews,
+  rows,
+  emptyText,
 }: {
   title: string;
-  href: string;
-  reviews: IpReview[];
+  rows: IpReview[];
+  emptyText: string;
 }) {
-  if (reviews.length === 0) return null;
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-          {title}
-        </h3>
-        <Link to={href} className="text-[11px] text-stone-500 hover:text-stone-800">
-          See all →
-        </Link>
-      </div>
-      <div className="space-y-1.5">
-        {reviews.map((r) => (
-          <Link
-            key={r.id}
-            to={`/ip-reviews/${r.id}`}
-            className="flex items-center gap-2.5 rounded-lg border border-stone-200 bg-white p-2.5 hover:border-stone-300 transition-colors"
-          >
-            {r.asset_image_url ? (
-              <img
-                src={r.asset_image_url}
-                alt=""
-                className="w-8 h-8 rounded object-cover border border-stone-200"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded bg-stone-100" />
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-stone-900 truncate">
-                {r.title}
-              </div>
-              <div className="text-[10px] text-stone-400">
-                {r.mode === "monitoring" && r.asset_name
-                  ? `${r.asset_name} · `
-                  : ""}
-                {new Date(r.created_at).toLocaleDateString()}
-              </div>
-            </div>
-            <span
-              className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${
-                r.status === "complete"
-                  ? "bg-emerald-100 text-emerald-700"
-                  : r.status === "failed"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-blue-100 text-blue-700"
-              }`}
-            >
-              {r.status}
-            </span>
-          </Link>
-        ))}
-      </div>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2 px-1">
+        {title}
+      </h2>
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-6 text-center text-xs text-stone-500">
+          {emptyText}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((r) => <TaskRow key={r.id} review={r} />)}
+        </div>
+      )}
     </div>
   );
+}
+
+const DECISION_LABEL: Record<string, { label: string; cls: string }> = {
+  approved: { label: "Approved", cls: "bg-emerald-100 text-emerald-700" },
+  approved_with_note: { label: "Approved (note)", cls: "bg-emerald-100 text-emerald-700" },
+  needs_edit: { label: "Needs edit", cls: "bg-amber-100 text-amber-700" },
+  needs_license: { label: "Needs license", cls: "bg-amber-100 text-amber-700" },
+  escalate: { label: "Escalate", cls: "bg-red-100 text-red-700" },
+  do_not_use: { label: "Do not use", cls: "bg-red-100 text-red-700" },
+  monitor: { label: "Monitor", cls: "bg-blue-100 text-blue-700" },
+};
+
+/**
+ * Inbox-style row. The right-hand chip is the "primary signal" — the
+ * single most important state for that task type — so the user can scan
+ * vertically and find the actionable thing without reading the row.
+ */
+function TaskRow({ review, muted = false }: { review: IpReview; muted?: boolean }) {
+  const primary = primarySignal(review);
+  const created = new Date(review.created_at).toLocaleDateString();
+  return (
+    <Link
+      to={`/ip-reviews/${review.id}`}
+      className={`flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 hover:border-stone-300 transition-colors ${
+        muted ? "opacity-70" : ""
+      }`}
+    >
+      {review.asset_image_url ? (
+        <img
+          src={review.asset_image_url}
+          alt=""
+          className="w-12 h-12 rounded-lg object-cover border border-stone-200 shrink-0"
+        />
+      ) : (
+        <div className="w-12 h-12 rounded-lg bg-stone-100 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm text-stone-900 truncate">
+          {review.title}
+        </div>
+        <div className="text-[11px] text-stone-400">
+          {review.mode === "monitoring" ? "Monitoring" : "Clearance"}
+          {review.mode === "monitoring" && review.asset_name ? ` · ${review.asset_name}` : ""}
+          {" · "}{created}
+        </div>
+      </div>
+      <span
+        className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase whitespace-nowrap ${primary.cls}`}
+      >
+        {primary.label}
+      </span>
+    </Link>
+  );
+}
+
+function primarySignal(r: IpReview): { label: string; cls: string } {
+  if (r.status === "processing") {
+    return { label: "Processing", cls: "bg-blue-100 text-blue-700" };
+  }
+  if (r.status === "failed") {
+    return { label: "Failed", cls: "bg-red-100 text-red-700" };
+  }
+  if (r.mode === "monitoring") {
+    const n = r.open_findings_count ?? 0;
+    if (n === 0) return { label: "0 findings", cls: "bg-stone-100 text-stone-500" };
+    return { label: `${n} finding${n === 1 ? "" : "s"}`, cls: "bg-red-100 text-red-700" };
+  }
+  // clearance
+  if (r.decision) {
+    return DECISION_LABEL[r.decision] ?? { label: r.decision, cls: "bg-stone-100 text-stone-600" };
+  }
+  const flagged = r.flagged_match_count ?? 0;
+  if (flagged > 0) {
+    return {
+      label: `${flagged} flagged`,
+      cls: "bg-amber-100 text-amber-700",
+    };
+  }
+  return { label: "Awaiting review", cls: "bg-stone-100 text-stone-600" };
 }
 
 function LegacyView({
@@ -243,7 +275,7 @@ function LegacyView({
           onClick={clearMode}
           className="text-[11px] text-stone-500 hover:text-stone-800"
         >
-          ← Back to IP review
+          ← Back to inbox
         </button>
       </div>
       <div className="mb-6">
