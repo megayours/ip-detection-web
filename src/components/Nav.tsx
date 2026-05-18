@@ -3,6 +3,12 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 // Settings page hosts tenant-level API key management.
 import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
+import { listIpReviews, needsAttention } from "../api";
+
+/** Inbox badge polling cadence. Cheap server-side aggregation + small payload,
+ *  but no need to refetch every few seconds — the badge is a glanceable
+ *  notification, not a live counter. */
+const INBOX_POLL_MS = 60_000;
 
 const DEMO_MAILTO =
   "mailto:antonio.palma@megayours.com?subject=MegaYours%20Demo%20Request";
@@ -13,6 +19,33 @@ export default function Nav() {
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [inboxCount, setInboxCount] = useState(0);
+
+  // Poll the inbox count while the user is signed in. Refetch on path
+  // change too — when the lawyer locks a decision and navigates back,
+  // the badge updates without waiting for the next tick.
+  useEffect(() => {
+    if (!user) {
+      setInboxCount(0);
+      return;
+    }
+    let alive = true;
+    async function refresh() {
+      try {
+        const { reviews } = await listIpReviews({ limit: 200 });
+        if (!alive) return;
+        setInboxCount(reviews.filter(needsAttention).length);
+      } catch {
+        // Non-fatal — badge just stays at the prior value.
+      }
+    }
+    void refresh();
+    const t = setInterval(refresh, INBOX_POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [user, pathname]);
 
   // Close the user dropdown on outside click.
   useEffect(() => {
@@ -55,8 +88,19 @@ export default function Nav() {
               <Link to="/registry" className={linkClass("/registry")}>
                 Registry
               </Link>
-              <Link to="/clearance" className={linkClass("/clearance")}>
+              <Link
+                to="/clearance"
+                className={`${linkClass("/clearance")} inline-flex items-center gap-1.5`}
+              >
                 IP review
+                {inboxCount > 0 && (
+                  <span
+                    title={`${inboxCount} item${inboxCount === 1 ? "" : "s"} need your attention`}
+                    className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none"
+                  >
+                    {inboxCount > 99 ? "99+" : inboxCount}
+                  </span>
+                )}
               </Link>
               <Link to="/monitor" className={linkClass("/monitor")}>
                 Monitor

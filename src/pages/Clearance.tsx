@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { listIpReviews, type IpReview } from "../api";
+import { listIpReviews, needsAttention, type IpReview } from "../api";
 import ClearanceBrands from "./ClearanceBrands";
 import ClearanceVisual from "./ClearanceVisual";
 
@@ -138,14 +138,6 @@ function Inbox() {
       )}
     </div>
   );
-}
-
-function needsAttention(r: IpReview): boolean {
-  if (r.status === "processing") return true;
-  if (r.status === "failed") return true;
-  if (r.mode === "clearance") return !r.decision;
-  if (r.mode === "monitoring") return (r.open_findings_count ?? 0) > 0;
-  return false;
 }
 
 function Section({

@@ -1326,6 +1326,26 @@ export interface IpReviewMatchDecision {
   decided_at: string;
 }
 
+/**
+ * Inbox classification: does this review need lawyer attention?
+ *
+ * - `processing` / `failed` always need attention (regardless of mode).
+ * - Clearance: needs attention until a `decision` is locked.
+ * - Monitoring: needs attention while at least one open finding remains
+ *   (open = not dismissed, not an approved-licensee hit). Worker-set
+ *   `open_findings_count` comes from the list endpoint.
+ *
+ * Shared between Clearance.tsx (inbox sections) and Nav.tsx (top-bar
+ * attention badge) — keep them in sync by exporting from one place.
+ */
+export function needsAttention(r: IpReview): boolean {
+  if (r.status === "processing") return true;
+  if (r.status === "failed") return true;
+  if (r.mode === "clearance") return !r.decision;
+  if (r.mode === "monitoring") return (r.open_findings_count ?? 0) > 0;
+  return false;
+}
+
 export function setIpReviewMatchDecision(
   reviewId: string,
   matchId: string,
