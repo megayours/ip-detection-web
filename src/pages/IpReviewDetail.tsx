@@ -490,19 +490,20 @@ function MatchCard({
 
   return (
     <div className={`rounded-2xl border bg-white p-4 ${cardBorder}`}>
-      <div className="flex flex-col md:flex-row items-start gap-4">
-        {/* Image pair — input vs reference. Same dimensions so the lawyer
-            can compare at a glance. */}
-        <div className="flex items-start gap-3 shrink-0">
+      <div className="flex flex-col gap-4">
+        {/* Image pair — input vs reference. Full-width side-by-side so the
+            visual comparison is the dominant element on the card; details
+            follow below. */}
+        <div className="grid grid-cols-2 gap-3">
           <figure className="text-center">
             {assetImageUrl ? (
               <img
                 src={assetImageUrl}
                 alt=""
-                className="w-32 h-32 lg:w-36 lg:h-36 rounded-lg object-contain bg-stone-50 border border-stone-200"
+                className="w-full aspect-square rounded-lg object-contain bg-stone-50 border border-stone-200"
               />
             ) : (
-              <div className="w-32 h-32 lg:w-36 lg:h-36 rounded-lg bg-stone-100" />
+              <div className="w-full aspect-square rounded-lg bg-stone-100" />
             )}
             <figcaption className="text-[10px] uppercase tracking-wider text-stone-400 mt-1">
               Input
@@ -513,10 +514,10 @@ function MatchCard({
               <img
                 src={m.reference_images[0].image_url}
                 alt=""
-                className="w-32 h-32 lg:w-36 lg:h-36 rounded-lg object-contain bg-stone-50 border border-stone-200"
+                className="w-full aspect-square rounded-lg object-contain bg-stone-50 border border-stone-200"
               />
             ) : (
-              <div className="w-32 h-32 lg:w-36 lg:h-36 rounded-lg bg-stone-100" />
+              <div className="w-full aspect-square rounded-lg bg-stone-100" />
             )}
             <figcaption className="text-[10px] uppercase tracking-wider text-stone-400 mt-1">
               Reference
@@ -524,7 +525,7 @@ function MatchCard({
           </figure>
         </div>
 
-        <div className="flex-1 min-w-0 w-full">
+        <div className="min-w-0 w-full">
           <div className="flex items-start justify-between gap-2 flex-wrap">
             <div className="min-w-0">
               <div className="font-semibold text-sm text-stone-900 truncate">
