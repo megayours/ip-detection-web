@@ -279,10 +279,20 @@ const RIGHTS_LABEL: Record<RightsType, string> = {
   publicity: "Publicity / likeness",
 };
 
-// Tooltip copy. Surfaces on hover so the user can decode each segment
-// without leaving the page. A character match fires both copyright and
-// publicity, which can make the two columns look identical — explain
-// the distinction in plain language here.
+// One-line plain-English subtitle, shown directly under the label so a
+// non-lawyer can decode each rights type without hovering. Tooltip below
+// has the full explanation.
+const RIGHTS_SUBTITLE: Record<RightsType, string> = {
+  copyright: "Creative works (art, characters)",
+  trademark: "Brand names & logos",
+  design: "Product shape & appearance",
+  publicity: "A real person's image or name",
+};
+
+// Tooltip copy — long-form explanation on hover. A single match can fire
+// multiple rights (e.g. a character match fires both copyright and
+// publicity), so identical scores across two segments mean the same
+// match contributed to both, not that they're separately scored.
 const RIGHTS_TOOLTIP: Record<RightsType, string> = {
   copyright:
     "Original creative works (illustrations, characters, designs). Protection arises on creation; no registration needed.",
@@ -291,7 +301,7 @@ const RIGHTS_TOOLTIP: Record<RightsType, string> = {
   design:
     "Registered design protecting a product's appearance or ornamental aspects (shape, pattern, packaging).",
   publicity:
-    "Right of an identifiable person — or a fictional character associated with one — to control commercial use of their likeness. Often fires alongside copyright for character assets.",
+    "Controls commercial use of a real person's likeness — name, face, voice. For fictional characters tied to a real performer, it can fire alongside copyright.",
 };
 
 const RISK_COLOR: Record<RiskBand, { box: string; chip: string; text: string }> = {
@@ -302,43 +312,52 @@ const RISK_COLOR: Record<RiskBand, { box: string; chip: string; text: string }> 
 };
 
 /**
- * Compact 2x2 risk-by-IP-type grid that lives inside the page header.
- * Replaces the older full-width 4-card banner — each cell is a small
- * pill with the rights label, risk band, top-score percentage, and
- * match count. Hover reveals a one-sentence explainer.
+ * Risk-by-IP-type grid. Each match routes to one *or more* rights types
+ * (e.g. a "character" match fires both copyright and publicity from the
+ * same evidence), so the segments aren't independently scored — two
+ * segments with identical scores almost always reflect the *same match*
+ * counted twice. We merge rights that share a match set into a single
+ * card to make that explicit, instead of showing the same number twice
+ * and confusing the reader.
  */
 function RiskStrip({
   segments,
 }: {
   segments: Record<RightsType, { risk_band: RiskBand; top_score: number; match_ids: string[] }>;
 }) {
+  const groups = useMemo(() => groupSegmentsByMatches(segments), [segments]);
   return (
     <div>
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 mb-1.5">
         Risk by IP type
       </h2>
       <div className="grid grid-cols-2 gap-2">
-        {(["copyright", "trademark", "design", "publicity"] as const).map((r) => {
-          const s = segments[r];
-          const c = RISK_COLOR[s.risk_band];
-          const n = s.match_ids.length;
+        {groups.map((g) => {
+          const c = RISK_COLOR[g.risk_band];
+          const n = g.match_ids.length;
+          const tooltip = g.rights.map((r) => `${RIGHTS_LABEL[r]} — ${RIGHTS_TOOLTIP[r]}`).join("\n\n");
           return (
             <div
-              key={r}
-              title={RIGHTS_TOOLTIP[r]}
+              key={g.rights.join("+")}
+              title={tooltip}
               className={`rounded-lg border px-3 py-2 ${c.box} cursor-help`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold text-stone-700 truncate">
-                  {RIGHTS_LABEL[r]}
-                </span>
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${c.chip}`}>
-                  {s.risk_band}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold text-stone-700 truncate">
+                    {g.rights.map((r) => RIGHTS_LABEL[r]).join(" + ")}
+                  </div>
+                  <div className="text-[10px] text-stone-500 truncate">
+                    {g.rights.map((r) => RIGHTS_SUBTITLE[r]).join(" · ")}
+                  </div>
+                </div>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${c.chip}`}>
+                  {g.risk_band}
                 </span>
               </div>
-              <div className="flex items-baseline gap-2 mt-1">
+              <div className="flex items-baseline gap-2 mt-1.5">
                 <span className={`text-lg font-bold leading-none ${c.text}`}>
-                  {Math.round(s.top_score * 100)}%
+                  {Math.round(g.top_score * 100)}%
                 </span>
                 <span className="text-[10px] text-stone-500">
                   {n} match{n === 1 ? "" : "es"}
@@ -350,6 +369,51 @@ function RiskStrip({
       </div>
     </div>
   );
+}
+
+interface RiskGroup {
+  rights: RightsType[];
+  risk_band: RiskBand;
+  top_score: number;
+  match_ids: string[];
+}
+
+/**
+ * Group rights segments that share an identical match set. Segments with
+ * matches are merged on the *sorted match_ids signature*; empty segments
+ * (no matches, score 0, band "clear") stay as individual cards so the
+ * reader still sees the 4 IP categories. Order is preserved per
+ * ALL_RIGHTS so the strip reads left→right consistently.
+ */
+function groupSegmentsByMatches(
+  segments: Record<RightsType, { risk_band: RiskBand; top_score: number; match_ids: string[] }>,
+): RiskGroup[] {
+  const order: RightsType[] = ["copyright", "trademark", "design", "publicity"];
+  const groups: RiskGroup[] = [];
+  const seenKeys = new Map<string, RiskGroup>();
+  for (const r of order) {
+    const s = segments[r];
+    if (!s) continue;
+    if (s.match_ids.length === 0) {
+      groups.push({ rights: [r], risk_band: s.risk_band, top_score: s.top_score, match_ids: [] });
+      continue;
+    }
+    const key = [...s.match_ids].sort().join("|");
+    const existing = seenKeys.get(key);
+    if (existing) {
+      existing.rights.push(r);
+    } else {
+      const g: RiskGroup = {
+        rights: [r],
+        risk_band: s.risk_band,
+        top_score: s.top_score,
+        match_ids: s.match_ids,
+      };
+      seenKeys.set(key, g);
+      groups.push(g);
+    }
+  }
+  return groups;
 }
 
 function VerdictLines({ lines }: { lines: string[] }) {
@@ -557,9 +621,10 @@ function MatchCard({
               <span
                 key={r}
                 title={RIGHTS_TOOLTIP[r]}
-                className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-stone-100 text-stone-700 cursor-help"
+                className="px-2 py-0.5 rounded text-[10px] bg-stone-100 text-stone-700 cursor-help"
               >
-                {RIGHTS_LABEL[r]}
+                <span className="font-semibold">{RIGHTS_LABEL[r]}</span>
+                <span className="text-stone-500"> · {RIGHTS_SUBTITLE[r]}</span>
               </span>
             ))}
             {m.in_scope_territories.slice(0, 4).map((t) => (
