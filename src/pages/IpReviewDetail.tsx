@@ -4,6 +4,7 @@ import {
   deleteIpReview,
   dismissIpReviewFinding,
   getIpReview,
+  getMonitoringSettings,
   openIpReviewFindingTakedownPacket,
   openIpReviewReport,
   listMonitoredDomains,
@@ -17,6 +18,7 @@ import {
   type IpReviewMatchDecision,
   type IpReviewMatchDecisionValue,
   type MonitoredDomain,
+  type MonitoringSettings,
   type RightsType,
   type RiskBand,
 } from "../api";
@@ -169,7 +171,11 @@ function Header({
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-              {!showDecisionCtas && <StatusPill status={review.status} />}
+              {isMonitoring ? (
+                <MonitoringStatusPill review={review} />
+              ) : (
+                !showDecisionCtas && <StatusPill status={review.status} />
+              )}
               {showDecisionCtas && (
                 <DecisionCta review={review} onDecide={onDecide} />
               )}
@@ -248,6 +254,106 @@ function DecisionCta({
       </button>
     </>
   );
+}
+
+/**
+ * Monitoring header pill. A monitoring review is never really "complete"
+ * — the initial scan finishes but the scheduler keeps running on cadence.
+ * Show either: a live "Scraping" state during the initial run, or the
+ * next scheduled run computed from the linked platforms' last_run_at and
+ * the tenant's monitoring frequency. Falls back to a neutral "Active"
+ * label while the data is still loading or when no schedule can be
+ * computed (e.g. no platforms linked).
+ */
+function MonitoringStatusPill({ review }: { review: IpReview }) {
+  const [domains, setDomains] = useState<MonitoredDomain[] | null>(null);
+  const [settings, setSettings] = useState<MonitoringSettings | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      listMonitoredDomains().catch(() => ({ domains: [] as MonitoredDomain[] })),
+      getMonitoringSettings().catch(() => ({ settings: null as MonitoringSettings | null })),
+    ]).then(([d, s]) => {
+      if (!alive) return;
+      setDomains(d.domains);
+      setSettings(s.settings);
+    });
+    return () => { alive = false; };
+  }, [review.id]);
+
+  if (review.status === "processing") {
+    return (
+      <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-700">
+        Scraping
+      </span>
+    );
+  }
+  if (review.status === "failed") {
+    return <StatusPill status="failed" />;
+  }
+
+  const next = computeNextRun(review, domains, settings);
+  if (!next) {
+    return (
+      <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-stone-100 text-stone-600">
+        Active
+      </span>
+    );
+  }
+  return (
+    <span
+      className="px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-stone-100 text-stone-700"
+      title={next.absolute}
+    >
+      Next run · {next.label}
+    </span>
+  );
+}
+
+const FREQUENCY_MS: Record<string, number> = {
+  daily: 24 * 60 * 60 * 1000,
+  weekly: 7 * 24 * 60 * 60 * 1000,
+};
+
+function computeNextRun(
+  review: IpReview,
+  domains: MonitoredDomain[] | null,
+  settings: MonitoringSettings | null,
+): { label: string; absolute: string } | null {
+  if (!domains || !settings) return null;
+  const platformIds = new Set(review.monitored_platforms);
+  if (platformIds.size === 0) return null;
+  const linked = domains.filter((d) => platformIds.has(d.id));
+  if (linked.length === 0) return null;
+  const intervalMs = FREQUENCY_MS[settings.monitoring_frequency] ?? FREQUENCY_MS.weekly;
+
+  // A platform that's never run yet pulls "next run" to "due now" — the
+  // scheduler will pick it up on its next tick. Otherwise the earliest
+  // (last_run + interval) across platforms is the next run for this review.
+  let earliest: number | null = null;
+  for (const d of linked) {
+    const t = d.last_run_at ? new Date(d.last_run_at).getTime() + intervalMs : Date.now();
+    if (earliest === null || t < earliest) earliest = t;
+  }
+  if (earliest === null) return null;
+  const date = new Date(earliest);
+  return {
+    label: formatRelativeFuture(date),
+    absolute: date.toLocaleString(),
+  };
+}
+
+function formatRelativeFuture(date: Date): string {
+  const diff = date.getTime() - Date.now();
+  if (diff <= 60_000) return "due now";
+  const mins = Math.round(diff / 60_000);
+  if (mins < 60) return `in ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `in ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 14) return `in ${days} d`;
+  return date.toLocaleDateString();
 }
 
 function StatusPill({ status }: { status: IpReview["status"] }) {
@@ -929,6 +1035,9 @@ function MonitoringView({
   const findings = review.findings ?? [];
   const [hideApproved, setHideApproved] = useState(true);
   const [showDismissed, setShowDismissed] = useState(false);
+  // Enforcement-priority filter driven by the clickable banner cards.
+  // "all" = no filter; clicking a band card toggles its filter on/off.
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   // Optimistically-dismissed result_ids — the server reload eventually
   // replaces this once `dismissed_at` lands in the polled payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
@@ -958,9 +1067,12 @@ function MonitoringView({
       const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
       if (isDismissed && !showDismissed) return false;
       if (hideApproved && f.is_approved_licensee) return false;
+      if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
+        return false;
+      }
       return true;
     });
-  }, [findings, hideApproved, showDismissed, dismissing]);
+  }, [findings, hideApproved, showDismissed, dismissing, priorityFilter]);
 
   // Counts ignore dismissed findings — the priority banner reflects the
   // outstanding workload, not the historical total.
@@ -1024,7 +1136,11 @@ function MonitoringView({
 
   return (
     <>
-      <PriorityBanner counts={counts} />
+      <PriorityBanner
+        counts={counts}
+        active={priorityFilter}
+        onSelect={setPriorityFilter}
+      />
 
       <MonitoringFilterContext
         review={review}
@@ -1128,15 +1244,48 @@ function ScrapingInProgress({ platforms }: { platforms: MonitoredDomain[] }) {
   );
 }
 
-function PriorityBanner({ counts }: { counts: { high: number; med: number; low: number; total: number } }) {
+type PriorityFilter = "all" | "high" | "med" | "low";
+
+function priorityBand(p: number): "high" | "med" | "low" {
+  if (p >= 0.75) return "high";
+  if (p >= 0.5) return "med";
+  return "low";
+}
+
+function PriorityBanner({
+  counts,
+  active,
+  onSelect,
+}: {
+  counts: { high: number; med: number; low: number; total: number };
+  active: PriorityFilter;
+  onSelect: (f: PriorityFilter) => void;
+}) {
+  // Clicking the active card clears the filter — toggle semantics let the
+  // banner double as both "show me X" and "back to all". Total always
+  // resets to "all" since it represents the unfiltered view.
+  const toggle = (band: "high" | "med" | "low") =>
+    onSelect(active === band ? "all" : band);
   return (
     <div>
       <h2 className="text-sm font-bold text-stone-900 mb-2">Enforcement priority</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <PriorityCard label="High" value={counts.high} sub="≥ 0.75" tone="red" />
-        <PriorityCard label="Medium" value={counts.med} sub="0.50–0.74" tone="amber" />
-        <PriorityCard label="Low" value={counts.low} sub="< 0.50" tone="yellow" />
-        <PriorityCard label="Total" value={counts.total} sub="across all platforms" tone="stone" />
+        <PriorityCard
+          label="High" value={counts.high} sub="≥ 0.75" tone="red"
+          active={active === "high"} onClick={() => toggle("high")}
+        />
+        <PriorityCard
+          label="Medium" value={counts.med} sub="0.50–0.74" tone="amber"
+          active={active === "med"} onClick={() => toggle("med")}
+        />
+        <PriorityCard
+          label="Low" value={counts.low} sub="< 0.50" tone="yellow"
+          active={active === "low"} onClick={() => toggle("low")}
+        />
+        <PriorityCard
+          label="Total" value={counts.total} sub="across all platforms" tone="stone"
+          active={active === "all"} onClick={() => onSelect("all")}
+        />
       </div>
     </div>
   );
@@ -1147,24 +1296,35 @@ function PriorityCard({
   value,
   sub,
   tone,
+  active,
+  onClick,
 }: {
   label: string;
   value: number;
   sub: string;
   tone: "red" | "amber" | "yellow" | "stone";
+  active: boolean;
+  onClick: () => void;
 }) {
   const cls = {
-    red: { box: "border-red-200 bg-red-50/60", text: "text-red-700" },
-    amber: { box: "border-amber-200 bg-amber-50/60", text: "text-amber-700" },
-    yellow: { box: "border-yellow-200 bg-yellow-50/60", text: "text-yellow-700" },
-    stone: { box: "border-stone-200 bg-stone-50/40", text: "text-stone-700" },
+    red: { box: "border-red-200 bg-red-50/60", text: "text-red-700", ring: "ring-red-400" },
+    amber: { box: "border-amber-200 bg-amber-50/60", text: "text-amber-700", ring: "ring-amber-400" },
+    yellow: { box: "border-yellow-200 bg-yellow-50/60", text: "text-yellow-700", ring: "ring-yellow-400" },
+    stone: { box: "border-stone-200 bg-stone-50/40", text: "text-stone-700", ring: "ring-stone-400" },
   }[tone];
   return (
-    <div className={`rounded-2xl border p-4 ${cls.box}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`text-left rounded-2xl border p-4 transition-shadow hover:shadow-sm focus:outline-none ${cls.box} ${
+        active ? `ring-2 ${cls.ring}` : ""
+      }`}
+    >
       <div className="text-xs font-semibold text-stone-700">{label}</div>
       <div className={`text-2xl font-bold mt-2 ${cls.text}`}>{value}</div>
       <div className="text-[11px] text-stone-500 mt-0.5">{sub}</div>
-    </div>
+    </button>
   );
 }
 
