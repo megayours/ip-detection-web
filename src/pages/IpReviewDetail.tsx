@@ -282,10 +282,13 @@ function MonitoringStatusPill({ review }: { review: IpReview }) {
     return () => { alive = false; };
   }, [review.id]);
 
-  if (review.status === "processing") {
+  // A monitor_run is currently pending or executing for one of this
+  // review's platforms — supersedes the next-run countdown.
+  if (review.status === "processing" || review.monitoring_run_in_progress) {
     return (
-      <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-700">
-        Scraping
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-700">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+        In progress
       </span>
     );
   }
@@ -1130,9 +1133,11 @@ function MonitoringView({
     }
   }
 
-  const isFresh =
-    findings.length === 0 &&
-    Date.now() - new Date(review.created_at).getTime() < 10 * 60 * 1000;
+  // Empty-state copy hint: "still scraping" vs. "really nothing yet".
+  // The header pill already shows In progress / Next run — keep the
+  // findings list quiet about run state.
+  const runActive =
+    review.status === "processing" || !!review.monitoring_run_in_progress;
 
   return (
     <>
@@ -1149,10 +1154,6 @@ function MonitoringView({
         refreshing={refreshing}
         refreshError={refreshError}
       />
-
-      {isFresh && (
-        <ScrapingInProgress platforms={platformDomains} />
-      )}
 
       <div className="rounded-2xl border border-stone-200 bg-white">
         <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between flex-wrap gap-y-2">
@@ -1185,7 +1186,7 @@ function MonitoringView({
         </div>
         {visible.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
-            {isFresh
+            {runActive
               ? "Waiting for the first findings to arrive…"
               : (
                 <>
@@ -1210,37 +1211,6 @@ function MonitoringView({
         )}
       </div>
     </>
-  );
-}
-
-function ScrapingInProgress({ platforms }: { platforms: MonitoredDomain[] }) {
-  return (
-    <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-        <span className="text-sm font-semibold text-blue-900">
-          Scraping in progress
-        </span>
-      </div>
-      <p className="text-xs text-blue-800 mb-2">
-        We've started monitoring the platforms below. Initial findings usually
-        appear within 30-60 seconds; this page refreshes automatically.
-      </p>
-      {platforms.length > 0 && (
-        <ul className="space-y-0.5 text-[11px] text-blue-800">
-          {platforms.map((p) => (
-            <li key={p.id}>
-              · {p.domain}
-              {p.last_run_at && (
-                <span className="text-blue-600/70">
-                  {" "}— last run {new Date(p.last_run_at).toLocaleString()}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 

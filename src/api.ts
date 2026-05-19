@@ -1299,6 +1299,7 @@ export interface IpReview {
   asset_image_url?: string;
   inspiration_image_urls?: string[];
   monitored_ip?: { id: string; name: string } | null;
+  monitoring_run_in_progress?: boolean;
   findings?: IpReviewFinding[];
   match_decisions?: IpReviewMatchDecision[];
   // Inbox counts — populated by GET /api/ip-reviews list responses.
