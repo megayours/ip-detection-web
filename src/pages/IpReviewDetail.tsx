@@ -35,7 +35,9 @@ export default function IpReviewDetail() {
   const navigate = useNavigate();
   const [review, setReview] = useState<IpReview | null>(null);
   const [error, setError] = useState("");
-  const [legalOpen, setLegalOpen] = useState(false);
+  // Decision modal: `null` = closed, otherwise the pending decision the
+  // user clicked. Lets the modal prefill rationale + tailor the heading.
+  const [pendingDecision, setPendingDecision] = useState<IpReviewDecision | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -77,10 +79,6 @@ export default function IpReviewDetail() {
     );
   }
 
-  const hasFlagged = (review.match_decisions ?? []).some(
-    (d) => d.decision === "flag",
-  );
-
   async function handleDelete() {
     if (!confirm("Delete this review?")) return;
     await deleteIpReview(id);
@@ -91,8 +89,7 @@ export default function IpReviewDetail() {
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       <Header
         review={review}
-        hasFlagged={hasFlagged}
-        onOpenLegalReview={() => setLegalOpen(true)}
+        onDecide={(d) => setPendingDecision(d)}
         onDelete={handleDelete}
       />
       {review.status === "processing" && <ProcessingNotice />}
@@ -124,10 +121,11 @@ export default function IpReviewDetail() {
         <MonitoringView review={review} onUpdated={reload} />
       )}
 
-      {legalOpen && (
-        <LegalReviewModal
+      {pendingDecision && (
+        <DecisionModal
           review={review}
-          onClose={() => setLegalOpen(false)}
+          pending={pendingDecision}
+          onClose={() => setPendingDecision(null)}
           onUpdated={reload}
         />
       )}
@@ -137,24 +135,18 @@ export default function IpReviewDetail() {
 
 function Header({
   review,
-  hasFlagged,
-  onOpenLegalReview,
+  onDecide,
   onDelete,
 }: {
   review: IpReview;
-  hasFlagged: boolean;
-  onOpenLegalReview: () => void;
+  onDecide: (d: IpReviewDecision) => void;
   onDelete: () => void;
 }) {
   const isMonitoring = review.mode === "monitoring";
   const showRiskStrip =
     review.mode === "clearance" && review.status === "complete" && !!review.result;
-  // Legal review button is gated on at least one flagged match — the user
-  // shouldn't lock a decision before they've actually triaged the matches.
-  // Once a decision is locked, keep the button visible (rebadged) so they
-  // can revise it.
-  const showLegalReviewButton =
-    !isMonitoring && review.status === "complete" && (hasFlagged || !!review.decision);
+  const showDecisionCtas =
+    !isMonitoring && review.status === "complete";
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5">
       <div className="flex items-start gap-5">
@@ -177,19 +169,9 @@ function Header({
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-              <StatusPill status={review.status} />
-              {showLegalReviewButton && (
-                <button
-                  type="button"
-                  onClick={onOpenLegalReview}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                    review.decision
-                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                      : "bg-stone-900 text-white hover:bg-stone-800"
-                  }`}
-                >
-                  {review.decision ? "Decision locked" : "Legal review"}
-                </button>
+              {!showDecisionCtas && <StatusPill status={review.status} />}
+              {showDecisionCtas && (
+                <DecisionCta review={review} onDecide={onDecide} />
               )}
               {!isMonitoring && review.status === "complete" && (
                 <ExportPdfButton reviewId={review.id} />
@@ -210,6 +192,61 @@ function Header({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Header CTA for the binary clearance decision. Before a decision is
+ * locked, shows two primary buttons (Clear asset / Do not clear). After,
+ * collapses into a colored verdict pill with an inline Edit affordance
+ * so the reviewer can revise.
+ */
+function DecisionCta({
+  review,
+  onDecide,
+}: {
+  review: IpReview;
+  onDecide: (d: IpReviewDecision) => void;
+}) {
+  if (review.decision === "cleared") {
+    return (
+      <button
+        type="button"
+        onClick={() => onDecide("cleared")}
+        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+      >
+        Cleared · Edit
+      </button>
+    );
+  }
+  if (review.decision === "not_cleared") {
+    return (
+      <button
+        type="button"
+        onClick={() => onDecide("not_cleared")}
+        className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700"
+      >
+        Not cleared · Edit
+      </button>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onDecide("cleared")}
+        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700"
+      >
+        Clear asset
+      </button>
+      <button
+        type="button"
+        onClick={() => onDecide("not_cleared")}
+        className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-semibold hover:bg-red-50"
+      >
+        Do not clear
+      </button>
+    </>
   );
 }
 
@@ -677,31 +714,27 @@ function ContextSection({ review }: { review: IpReview }) {
   );
 }
 
-const DECISION_OPTIONS: Array<{ value: IpReviewDecision; label: string }> = [
-  { value: "approved", label: "Approved" },
-  { value: "approved_with_note", label: "Approved with note" },
-  { value: "needs_edit", label: "Needs edit" },
-  { value: "needs_license", label: "Needs license" },
-  { value: "escalate", label: "Escalate" },
-  { value: "do_not_use", label: "Do not use" },
-  { value: "monitor", label: "Monitor" },
-];
-
-function LegalReviewModal({
+/**
+ * Confirmation modal for the binary clearance decision. Rationale is
+ * required when marking *Not cleared* — that's the path that blocks the
+ * asset, so the reviewer must say why. Optional when clearing.
+ */
+function DecisionModal({
   review,
+  pending,
   onClose,
   onUpdated,
 }: {
   review: IpReview;
+  pending: IpReviewDecision;
   onClose: () => void;
   onUpdated: () => void;
 }) {
-  const [decision, setDecision] = useState<IpReviewDecision | "">(review.decision ?? "");
-  const [rationale, setRationale] = useState(review.decision_rationale ?? "");
+  const prefill = review.decision === pending ? review.decision_rationale ?? "" : "";
+  const [rationale, setRationale] = useState(prefill);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
-  // Close on Escape — modal users expect it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -710,13 +743,18 @@ function LegalReviewModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const isCleared = pending === "cleared";
+  const rationaleRequired = !isCleared;
+  const trimmed = rationale.trim();
+  const canSave = !saving && (!rationaleRequired || trimmed.length > 0);
+
   async function save() {
     setSaving(true);
     setErr("");
     try {
       await updateIpReviewDecision(review.id, {
-        decision: decision || null,
-        decision_rationale: rationale.trim() || null,
+        decision: pending,
+        decision_rationale: trimmed || null,
       });
       onUpdated();
       onClose();
@@ -727,9 +765,13 @@ function LegalReviewModal({
     }
   }
 
-  const flaggedCount = (review.match_decisions ?? []).filter(
-    (d) => d.decision === "flag",
-  ).length;
+  const heading = isCleared ? "Clear this asset" : "Do not clear this asset";
+  const subtitle = isCleared
+    ? "Marks the review as cleared. Rationale optional."
+    : "Marks the review as not cleared. Rationale required.";
+  const confirmCls = isCleared
+    ? "bg-emerald-600 hover:bg-emerald-700"
+    : "bg-red-600 hover:bg-red-700";
 
   return (
     <div
@@ -744,10 +786,8 @@ function LegalReviewModal({
       >
         <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
           <div>
-            <h3 className="font-bold text-stone-900">Legal review</h3>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              {flaggedCount} flagged match{flaggedCount === 1 ? "" : "es"} on this asset
-            </div>
+            <h3 className="font-bold text-stone-900">{heading}</h3>
+            <div className="text-[11px] text-stone-500 mt-0.5">{subtitle}</div>
           </div>
           <button
             onClick={onClose}
@@ -758,26 +798,18 @@ function LegalReviewModal({
           </button>
         </div>
         <div className="p-5 overflow-y-auto">
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {DECISION_OPTIONS.map((d) => (
-              <button
-                key={d.value}
-                onClick={() => setDecision(d.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  decision === d.value
-                    ? "border-stone-900 bg-stone-900 text-white"
-                    : "border-stone-200 bg-white text-stone-600 hover:border-stone-300"
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
+          <label className="block text-[11px] uppercase tracking-wider text-stone-500 mb-1.5">
+            Rationale{rationaleRequired && <span className="text-red-600"> *</span>}
+          </label>
           <textarea
             value={rationale}
             onChange={(e) => setRationale(e.target.value)}
-            rows={4}
-            placeholder="Reasoning (visible on the report)…"
+            rows={5}
+            placeholder={
+              isCleared
+                ? "Optional — visible on the report."
+                : "Required — explain why the asset is not cleared. Visible on the report."
+            }
             className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
           />
           {err && <div className="text-xs text-red-600 mt-2">{err}</div>}
@@ -796,10 +828,10 @@ function LegalReviewModal({
           </button>
           <button
             onClick={save}
-            disabled={saving || !decision}
-            className="px-4 py-2 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
+            disabled={!canSave}
+            className={`px-4 py-2 rounded-lg text-white text-xs font-semibold disabled:opacity-50 ${confirmCls}`}
           >
-            {saving ? "Saving…" : review.decision ? "Update decision" : "Lock decision"}
+            {saving ? "Saving…" : isCleared ? "Confirm: Clear asset" : "Confirm: Do not clear"}
           </button>
         </div>
       </div>

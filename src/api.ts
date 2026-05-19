@@ -1223,14 +1223,7 @@ export function revokeApiKey(id: string) {
 
 export type IpReviewMode = "clearance" | "monitoring";
 export type IpReviewStatus = "processing" | "complete" | "failed";
-export type IpReviewDecision =
-  | "approved"
-  | "approved_with_note"
-  | "needs_edit"
-  | "needs_license"
-  | "escalate"
-  | "do_not_use"
-  | "monitor";
+export type IpReviewDecision = "cleared" | "not_cleared";
 
 export type RightsType = "copyright" | "trademark" | "design" | "publicity";
 export type RiskBand = "high" | "medium" | "low" | "clear";

@@ -168,13 +168,8 @@ function Section({
 }
 
 const DECISION_LABEL: Record<string, { label: string; cls: string }> = {
-  approved: { label: "Approved", cls: "bg-emerald-100 text-emerald-700" },
-  approved_with_note: { label: "Approved (note)", cls: "bg-emerald-100 text-emerald-700" },
-  needs_edit: { label: "Needs edit", cls: "bg-amber-100 text-amber-700" },
-  needs_license: { label: "Needs license", cls: "bg-amber-100 text-amber-700" },
-  escalate: { label: "Escalate", cls: "bg-red-100 text-red-700" },
-  do_not_use: { label: "Do not use", cls: "bg-red-100 text-red-700" },
-  monitor: { label: "Monitor", cls: "bg-blue-100 text-blue-700" },
+  cleared: { label: "Cleared", cls: "bg-emerald-100 text-emerald-700" },
+  not_cleared: { label: "Not cleared", cls: "bg-red-100 text-red-700" },
 };
 
 /**
@@ -235,13 +230,6 @@ function primarySignal(r: IpReview): { label: string; cls: string } {
   // clearance
   if (r.decision) {
     return DECISION_LABEL[r.decision] ?? { label: r.decision, cls: "bg-stone-100 text-stone-600" };
-  }
-  const flagged = r.flagged_match_count ?? 0;
-  if (flagged > 0) {
-    return {
-      label: `${flagged} flagged`,
-      cls: "bg-amber-100 text-amber-700",
-    };
   }
   return { label: "Awaiting review", cls: "bg-stone-100 text-stone-600" };
 }
