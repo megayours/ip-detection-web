@@ -71,15 +71,21 @@ export default function IpReviewDetail() {
   }, [review, reload]);
 
   // Snap the page scroll to each match card so the reference image lines
-  // up vertically with the sticky input on the left. Proximity (not
-  // mandatory) so light scrolling near the top doesn't yank you down.
+  // up vertically with the sticky input on the left. Apply to both html
+  // and body — different browsers / CSS configs put the actual scroll
+  // container on one or the other. Proximity (not mandatory) so light
+  // scrolling near the top doesn't yank you down.
   useEffect(() => {
     if (review?.mode !== "clearance") return;
     const html = document.documentElement;
-    const prev = html.style.scrollSnapType;
+    const body = document.body;
+    const prevHtml = html.style.scrollSnapType;
+    const prevBody = body.style.scrollSnapType;
     html.style.scrollSnapType = "y proximity";
+    body.style.scrollSnapType = "y proximity";
     return () => {
-      html.style.scrollSnapType = prev;
+      html.style.scrollSnapType = prevHtml;
+      body.style.scrollSnapType = prevBody;
     };
   }, [review?.mode]);
 
@@ -1009,7 +1015,8 @@ function MatchCard({
   return (
     <div
       onClick={onActivate}
-      className={`rounded-2xl border bg-white p-4 cursor-pointer snap-start scroll-mt-4 ${cardBorder}`}
+      style={{ scrollSnapAlign: "start", scrollMarginTop: "1rem" }}
+      className={`rounded-2xl border bg-white p-4 cursor-pointer ${cardBorder}`}
     >
       <div className="flex flex-col gap-4">
         <figure className="text-center">
