@@ -11,6 +11,7 @@ import {
   setIpReviewMatchDecision,
   triggerMonitoringRun,
   updateIpReviewDecision,
+  type AnnotationShape,
   type IpReview,
   type IpReviewDecision,
   type IpReviewFinding,
@@ -22,6 +23,7 @@ import {
   type RightsType,
   type RiskBand,
 } from "../api";
+import { AnnotationCanvas, type Tool } from "../components/AnnotationCanvas";
 
 /**
  * Result page for a single guided IP review. Mirrors the PDF layout 1:1
@@ -562,10 +564,6 @@ function MatchedReferences({
   decisions: IpReviewMatchDecision[];
   onUpdated: () => void;
 }) {
-  // Sort by combined detection score, most-likely first. Dedup defensively
-  // in case the worker ever emits the same match.id twice — the row layout
-  // pairs each match with the input image, so a duplicate would just clutter
-  // the comparison.
   const sorted = useMemo(() => {
     const seen = new Set<string>();
     const unique: IpReviewMatch[] = [];
@@ -585,28 +583,168 @@ function MatchedReferences({
     return map;
   }, [decisions]);
 
+  // Active match drives the sticky panel: which match's annotations the
+  // editor is bound to. Derive the effective ID from explicit selection +
+  // fallback to highest-scoring match (so the lawyer lands on the most
+  // likely problem without a setState-in-effect cascade).
+  const [explicitActiveId, setExplicitActiveId] = useState<string | null>(null);
+  const activeId =
+    (explicitActiveId && sorted.some((m) => m.id === explicitActiveId)
+      ? explicitActiveId
+      : sorted[0]?.id) ?? null;
+
+  const activeDecision = activeId ? decisionByMatch.get(activeId) ?? null : null;
+
   return (
     <div>
       <h2 className="text-sm font-bold text-stone-900 mb-2">Matched references</h2>
       <p className="text-xs text-stone-500 mb-3">
-        Most likely at the top. Compare the input image with each reference, then
-        flag potential infringements or dismiss the false positives.
+        Most likely at the top. Click a match to compare it side-by-side with
+        the input — flag it, draw on the input to show the artist what needs
+        to change, then either flag the rest or dismiss the false positives.
       </p>
       {sorted.length === 0 ? (
         <div className="text-xs text-stone-400">No matches above threshold.</div>
       ) : (
-        <div className="space-y-3">
-          {sorted.map((m) => (
-            <MatchCard
-              key={m.id}
-              m={m}
-              reviewId={reviewId}
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 md:col-span-6">
+            <StickyInputPanel
               assetImageUrl={assetImageUrl}
-              decision={decisionByMatch.get(m.id) ?? null}
+              reviewId={reviewId}
+              activeMatch={sorted.find((m) => m.id === activeId) ?? null}
+              activeDecision={activeDecision}
               onUpdated={onUpdated}
             />
-          ))}
+          </div>
+          <div className="col-span-12 md:col-span-6 space-y-3">
+            {sorted.map((m) => (
+              <MatchCard
+                key={m.id}
+                m={m}
+                reviewId={reviewId}
+                decision={decisionByMatch.get(m.id) ?? null}
+                active={m.id === activeId}
+                onActivate={() => setExplicitActiveId(m.id)}
+                onUpdated={onUpdated}
+              />
+            ))}
+          </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sticky left panel: input image + annotation editor + toolbar. Bound to
+ * the currently-active match. Drawing only persists when the active match
+ * is flagged (annotations live on the decision row). When no decision yet
+ * or the match is dismissed, the canvas is read-only with a hint.
+ */
+function StickyInputPanel({
+  assetImageUrl,
+  reviewId,
+  activeMatch,
+  activeDecision,
+  onUpdated,
+}: {
+  assetImageUrl: string;
+  reviewId: string;
+  activeMatch: IpReviewMatch | null;
+  activeDecision: IpReviewMatchDecision | null;
+  onUpdated: () => void;
+}) {
+  const [tool, setTool] = useState<Tool>("pen");
+  const [local, setLocal] = useState<AnnotationShape[]>(activeDecision?.annotations ?? []);
+  const [saving, setSaving] = useState(false);
+
+  // Reset local shapes when active match changes or server-side annotations
+  // change identity. Keep local state otherwise so in-flight strokes don't
+  // flash during the auto-save round-trip.
+  useEffect(() => {
+    setLocal(activeDecision?.annotations ?? []);
+  }, [activeMatch?.id, activeDecision?.annotations]);
+
+  const canDraw = activeMatch !== null && activeDecision?.decision === "flag";
+
+  async function persist(next: AnnotationShape[]) {
+    if (!activeMatch || activeDecision?.decision !== "flag") return;
+    setSaving(true);
+    try {
+      await setIpReviewMatchDecision(reviewId, activeMatch.id, {
+        decision: "flag",
+        note: activeDecision.note,
+        annotations: next.length > 0 ? next : null,
+      });
+      onUpdated();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to save annotations");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleChange(next: AnnotationShape[]) {
+    setLocal(next);
+    void persist(next);
+  }
+
+  return (
+    <div className="sticky top-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] uppercase tracking-wider text-stone-400">
+          Input
+        </div>
+        {saving && <div className="text-[10px] text-stone-400">Saving…</div>}
+      </div>
+      <div className="aspect-square w-full">
+        {assetImageUrl ? (
+          <AnnotationCanvas
+            key={activeMatch?.id ?? "none"}
+            src={assetImageUrl}
+            value={local}
+            onChange={canDraw ? handleChange : undefined}
+            tool={canDraw ? tool : undefined}
+            readOnly={!canDraw}
+          />
+        ) : (
+          <div className="w-full h-full rounded-lg bg-stone-100" />
+        )}
+      </div>
+      <div className="mt-3 flex items-center gap-1 flex-wrap">
+        {(["pen", "ellipse", "arrow", "text"] as Tool[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            disabled={!canDraw}
+            onClick={() => setTool(t)}
+            className={`px-2 py-1 rounded-md text-[11px] font-semibold border ${
+              tool === t && canDraw
+                ? "bg-stone-900 text-white border-stone-900"
+                : "border-stone-300 text-stone-700 hover:bg-stone-50"
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {t === "pen" ? "Pen" : t === "ellipse" ? "Circle" : t === "arrow" ? "Arrow" : "Text"}
+          </button>
+        ))}
+        <button
+          type="button"
+          disabled={!canDraw || local.length === 0}
+          onClick={() => handleChange([])}
+          className="ml-auto px-2 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Clear
+        </button>
+      </div>
+      {!activeMatch && (
+        <p className="mt-2 text-[11px] text-stone-400">
+          Select a match on the right to start comparing.
+        </p>
+      )}
+      {activeMatch && !canDraw && (
+        <p className="mt-2 text-[11px] text-stone-400">
+          Flag this match to draw feedback for the artist.
+        </p>
       )}
     </div>
   );
@@ -625,14 +763,16 @@ const DECISION_LABEL: Record<IpReviewMatchDecisionValue, string> = {
 function MatchCard({
   m,
   reviewId,
-  assetImageUrl,
   decision,
+  active,
+  onActivate,
   onUpdated,
 }: {
   m: IpReviewMatch;
   reviewId: string;
-  assetImageUrl: string;
   decision: IpReviewMatchDecision | null;
+  active: boolean;
+  onActivate: () => void;
   onUpdated: () => void;
 }) {
   const [showJustification, setShowJustification] = useState(false);
@@ -643,7 +783,10 @@ function MatchCard({
   async function commit(next: IpReviewMatchDecisionValue | null, note: string | null) {
     setSaving(true);
     try {
-      await setIpReviewMatchDecision(reviewId, m.id, { decision: next, note });
+      // Preserve existing annotations on a flag re-save; drop them when
+      // un-flagging or dismissing (the decision row is deleted on null).
+      const annotations = next === "flag" ? decision?.annotations ?? null : null;
+      await setIpReviewMatchDecision(reviewId, m.id, { decision: next, note, annotations });
       onUpdated();
       setNoteOpen(false);
     } catch (e) {
@@ -654,49 +797,34 @@ function MatchCard({
   }
 
   const current = decision?.decision ?? null;
-  const cardBorder =
-    current === "flag"
+  const cardBorder = active
+    ? "border-stone-900 ring-2 ring-stone-900/10"
+    : current === "flag"
       ? "border-red-200"
       : current === "dismiss"
         ? "border-stone-200 bg-stone-50/40"
         : "border-stone-200";
 
   return (
-    <div className={`rounded-2xl border bg-white p-4 ${cardBorder}`}>
+    <div
+      onClick={onActivate}
+      className={`rounded-2xl border bg-white p-4 cursor-pointer ${cardBorder}`}
+    >
       <div className="flex flex-col gap-4">
-        {/* Image pair — input vs reference. Full-width side-by-side so the
-            visual comparison is the dominant element on the card; details
-            follow below. */}
-        <div className="grid grid-cols-2 gap-3">
-          <figure className="text-center">
-            {assetImageUrl ? (
-              <img
-                src={assetImageUrl}
-                alt=""
-                className="w-full aspect-square rounded-lg object-contain bg-stone-50 border border-stone-200"
-              />
-            ) : (
-              <div className="w-full aspect-square rounded-lg bg-stone-100" />
-            )}
-            <figcaption className="text-[10px] uppercase tracking-wider text-stone-400 mt-1">
-              Input
-            </figcaption>
-          </figure>
-          <figure className="text-center">
-            {m.reference_images?.[0]?.image_url ? (
-              <img
-                src={m.reference_images[0].image_url}
-                alt=""
-                className="w-full aspect-square rounded-lg object-contain bg-stone-50 border border-stone-200"
-              />
-            ) : (
-              <div className="w-full aspect-square rounded-lg bg-stone-100" />
-            )}
-            <figcaption className="text-[10px] uppercase tracking-wider text-stone-400 mt-1">
-              Reference
-            </figcaption>
-          </figure>
-        </div>
+        <figure className="text-center">
+          {m.reference_images?.[0]?.image_url ? (
+            <img
+              src={m.reference_images[0].image_url}
+              alt=""
+              className="w-full aspect-square rounded-lg object-contain bg-stone-50 border border-stone-200"
+            />
+          ) : (
+            <div className="w-full aspect-square rounded-lg bg-stone-100" />
+          )}
+          <figcaption className="text-[10px] uppercase tracking-wider text-stone-400 mt-1">
+            Reference
+          </figcaption>
+        </figure>
 
         <div className="min-w-0 w-full">
           <div className="flex items-start justify-between gap-2 flex-wrap">

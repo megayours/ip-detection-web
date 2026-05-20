@@ -1311,11 +1311,18 @@ export interface IpReview {
 
 export type IpReviewMatchDecisionValue = "flag" | "dismiss";
 
+export type AnnotationShape =
+  | { kind: "pen"; points: [number, number][]; color: string; width: number }
+  | { kind: "ellipse"; cx: number; cy: number; rx: number; ry: number; color: string; width: number }
+  | { kind: "arrow"; x1: number; y1: number; x2: number; y2: number; color: string; width: number }
+  | { kind: "text"; x: number; y: number; text: string; color: string; size: number };
+
 export interface IpReviewMatchDecision {
   review_id: string;
   match_id: string;
   decision: IpReviewMatchDecisionValue;
   note: string | null;
+  annotations: AnnotationShape[] | null;
   decided_by_account_id: string | null;
   decided_at: string;
 }
@@ -1343,7 +1350,11 @@ export function needsAttention(r: IpReview): boolean {
 export function setIpReviewMatchDecision(
   reviewId: string,
   matchId: string,
-  patch: { decision: IpReviewMatchDecisionValue | null; note: string | null },
+  patch: {
+    decision: IpReviewMatchDecisionValue | null;
+    note: string | null;
+    annotations?: AnnotationShape[] | null;
+  },
 ) {
   return request<{ decision: IpReviewMatchDecision | null }>(
     `/api/ip-reviews/${reviewId}/matches/${matchId}`,
