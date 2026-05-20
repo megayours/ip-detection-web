@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deleteIpReview,
@@ -728,18 +728,16 @@ function StickyAssetPanel({
   const activeDecision = activeMatchId ? decisionByMatch.get(activeMatchId) ?? null : null;
 
   const [tool, setTool] = useState<Tool>("pen");
-  const [local, setLocal] = useState<AnnotationShape[]>(activeDecision?.annotations ?? []);
+  // Per-match local cache of drawings. Local edits always win over the
+  // server reads — so if the user draws on A, switches to B, then back to
+  // A, A's drawings restore even while the post-draw GET is still in
+  // flight. Server is the source of truth on first view (no cache entry).
+  const [localByMatch, setLocalByMatch] = useState<Record<string, AnnotationShape[]>>({});
   const [saving, setSaving] = useState(false);
 
-  // Sync local shapes when the active match changes. The AnnotationCanvas
-  // key={activeMatchId} below remounts the editor for free.
-  const lastSyncedRef = useRef<string | null>(null);
-  if (lastSyncedRef.current !== activeMatchId) {
-    lastSyncedRef.current = activeMatchId;
-    // setState during render is OK when guarded by a ref check — React
-    // bails out re-render if the next value equals the previous.
-    setLocal(activeDecision?.annotations ?? []);
-  }
+  const display: AnnotationShape[] = activeMatchId
+    ? localByMatch[activeMatchId] ?? activeDecision?.annotations ?? []
+    : [];
 
   const canDraw = activeMatch !== null;
 
@@ -763,7 +761,8 @@ function StickyAssetPanel({
   }
 
   function handleChange(next: AnnotationShape[]) {
-    setLocal(next);
+    if (!activeMatchId) return;
+    setLocalByMatch((prev) => ({ ...prev, [activeMatchId]: next }));
     void persist(next);
   }
 
@@ -780,7 +779,7 @@ function StickyAssetPanel({
           <AnnotationCanvas
             key={activeMatchId ?? "none"}
             src={assetImageUrl}
-            value={local}
+            value={display}
             onChange={canDraw ? handleChange : undefined}
             tool={canDraw ? tool : undefined}
             readOnly={!canDraw}
@@ -807,7 +806,7 @@ function StickyAssetPanel({
         ))}
         <button
           type="button"
-          disabled={!canDraw || local.length === 0}
+          disabled={!canDraw || display.length === 0}
           onClick={() => handleChange([])}
           className="ml-auto px-2 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed"
         >
