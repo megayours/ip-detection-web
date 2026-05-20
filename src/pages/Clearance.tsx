@@ -97,46 +97,50 @@ function Inbox() {
         </div>
       </div>
 
-      <div className="flex items-center gap-6 border-b border-stone-200 mb-2">
-        <TabButton
-          active={tab === "needs"}
-          onClick={() => setTab("needs")}
-          label="Needs attention"
-          count={needs.length}
-          badgeTone={needs.length > 0 ? "red" : "muted"}
-        />
-        <TabButton
-          active={tab === "done"}
-          onClick={() => setTab("done")}
-          label="Done"
-          count={done.length}
-          badgeTone="muted"
-        />
+      <div className="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-6 border-b border-stone-200 px-4">
+          <TabButton
+            active={tab === "needs"}
+            onClick={() => setTab("needs")}
+            label="Needs attention"
+            count={needs.length}
+            badgeTone={needs.length > 0 ? "red" : "muted"}
+          />
+          <TabButton
+            active={tab === "done"}
+            onClick={() => setTab("done")}
+            label="Done"
+            count={done.length}
+            badgeTone="muted"
+          />
+        </div>
+
+        {!loaded && (
+          <div className="text-sm text-stone-400 py-8 text-center">Loading…</div>
+        )}
+        {error && <div className="text-sm text-red-600 py-6 px-4">{error}</div>}
+
+        {loaded && reviews.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-sm text-stone-600">Nothing in your inbox.</p>
+            <p className="text-xs text-stone-400 mt-1">
+              Start a clearance review or set up monitoring to populate this list.
+            </p>
+          </div>
+        )}
+
+        {loaded && reviews.length > 0 && (
+          <div className="divide-y divide-stone-100">
+            {rows.length === 0 ? (
+              <div className="py-12 text-center text-xs text-stone-400">
+                {tab === "needs" ? "You're all caught up." : "Nothing here yet."}
+              </div>
+            ) : (
+              rows.map((r) => <TaskRow key={r.id} review={r} muted={tab === "done"} />)
+            )}
+          </div>
+        )}
       </div>
-
-      {!loaded && <div className="text-sm text-stone-400 py-6">Loading…</div>}
-      {error && <div className="text-sm text-red-600 py-6">{error}</div>}
-
-      {loaded && reviews.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-sm text-stone-600">Nothing in your inbox.</p>
-          <p className="text-xs text-stone-400 mt-1">
-            Start a clearance review or set up monitoring to populate this list.
-          </p>
-        </div>
-      )}
-
-      {loaded && reviews.length > 0 && (
-        <div className="divide-y divide-stone-100 border-b border-stone-100">
-          {rows.length === 0 ? (
-            <div className="py-12 text-center text-xs text-stone-400">
-              {tab === "needs" ? "You're all caught up." : "Nothing here yet."}
-            </div>
-          ) : (
-            rows.map((r) => <TaskRow key={r.id} review={r} muted={tab === "done"} />)
-          )}
-        </div>
-      )}
     </div>
   );
 }
