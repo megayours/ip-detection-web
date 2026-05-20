@@ -70,24 +70,6 @@ export default function IpReviewDetail() {
     return () => clearInterval(t);
   }, [review, reload]);
 
-  // Snap the page scroll to each match card so the reference image lines
-  // up vertically with the sticky input on the left. Apply to both html
-  // and body — different browsers / CSS configs put the actual scroll
-  // container on one or the other. Proximity (not mandatory) so light
-  // scrolling near the top doesn't yank you down.
-  useEffect(() => {
-    if (review?.mode !== "clearance") return;
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtml = html.style.scrollSnapType;
-    const prevBody = body.style.scrollSnapType;
-    html.style.scrollSnapType = "y proximity";
-    body.style.scrollSnapType = "y proximity";
-    return () => {
-      html.style.scrollSnapType = prevHtml;
-      body.style.scrollSnapType = prevBody;
-    };
-  }, [review?.mode]);
 
   if (error) {
     return (
@@ -928,31 +910,107 @@ function MatchedReferences({
   const { sortedMatches, decisionByMatch, activeMatchId, setActiveMatchId, reviewId, onUpdated } = useClearance();
   void _matches; void _reviewId; void _decisions; void _onUpdated;
 
+  const active = sortedMatches.find((m) => m.id === activeMatchId) ?? null;
+  const activeDecision = active ? decisionByMatch.get(active.id) ?? null : null;
+
   return (
-    <div>
-      <h2 className="text-sm font-bold text-stone-900 mb-2">Matched references</h2>
-      <p className="text-xs text-stone-500 mb-3">
-        Most likely at the top. Click a match to compare it with the input —
-        draw on the input to show the artist what needs to change, or dismiss
-        the false positives.
-      </p>
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-sm font-bold text-stone-900 mb-1">Matched references</h2>
+        <p className="text-xs text-stone-500">
+          Click a thumbnail to compare with the input. Draw on the input to
+          show the artist what needs to change, or dismiss false positives.
+        </p>
+      </div>
       {sortedMatches.length === 0 ? (
         <div className="text-xs text-stone-400">No matches above threshold.</div>
       ) : (
-        <div className="space-y-3">
-          {sortedMatches.map((m) => (
-            <MatchCard
-              key={m.id}
-              m={m}
+        <>
+          <ThumbnailStrip
+            matches={sortedMatches}
+            decisionByMatch={decisionByMatch}
+            activeId={activeMatchId}
+            onPick={setActiveMatchId}
+          />
+          {active && (
+            <ActiveMatchView
+              m={active}
               reviewId={reviewId}
-              decision={decisionByMatch.get(m.id) ?? null}
-              active={m.id === activeMatchId}
-              onActivate={() => setActiveMatchId(m.id)}
+              decision={activeDecision}
               onUpdated={onUpdated}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Clickable horizontal row of small reference thumbs. Each thumb shows the
+ * IP name, combined-score badge, and a flagged/dismissed indicator so the
+ * lawyer can scan the queue at a glance. Active thumb is outlined.
+ */
+function ThumbnailStrip({
+  matches,
+  decisionByMatch,
+  activeId,
+  onPick,
+}: {
+  matches: IpReviewMatch[];
+  decisionByMatch: Map<string, IpReviewMatchDecision>;
+  activeId: string | null;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+      {matches.map((m) => {
+        const decision = decisionByMatch.get(m.id);
+        const isActive = m.id === activeId;
+        const ref = m.reference_images?.[0]?.image_url;
+        const score = Math.round((m.scores.calibrator_combined ?? 0) * 100);
+        const ringClass = isActive
+          ? "ring-2 ring-stone-900 border-stone-900"
+          : decision?.decision === "flag"
+            ? "border-red-300"
+            : decision?.decision === "dismiss"
+              ? "border-stone-200 opacity-60"
+              : "border-stone-200";
+        return (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => onPick(m.id)}
+            className={`shrink-0 w-28 rounded-lg border bg-white p-1.5 text-left hover:border-stone-400 transition-colors ${ringClass}`}
+            title={m.ip_name || ""}
+          >
+            <div className="w-full aspect-square rounded-md bg-stone-50 border border-stone-200 overflow-hidden">
+              {ref ? (
+                <img src={ref} alt="" className="w-full h-full object-contain" />
+              ) : null}
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-1">
+              <span className="text-[10px] font-semibold text-stone-800 truncate">
+                {m.ip_name || "—"}
+              </span>
+              <span className="text-[9px] text-stone-500 shrink-0">{score}%</span>
+            </div>
+            {decision && (
+              <div className="mt-0.5 text-[8px] uppercase tracking-wider font-bold">
+                <span
+                  className={
+                    decision.decision === "flag"
+                      ? "text-red-600"
+                      : "text-stone-400"
+                  }
+                >
+                  {decision.decision === "flag" ? "Flagged" : "Dismissed"}
+                </span>
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -967,19 +1025,15 @@ const DECISION_LABEL: Record<IpReviewMatchDecisionValue, string> = {
   dismiss: "Dismissed",
 };
 
-function MatchCard({
+function ActiveMatchView({
   m,
   reviewId,
   decision,
-  active,
-  onActivate,
   onUpdated,
 }: {
   m: IpReviewMatch;
   reviewId: string;
   decision: IpReviewMatchDecision | null;
-  active: boolean;
-  onActivate: () => void;
   onUpdated: () => void;
 }) {
   const [showJustification, setShowJustification] = useState(false);
@@ -1004,20 +1058,15 @@ function MatchCard({
   }
 
   const current = decision?.decision ?? null;
-  const cardBorder = active
-    ? "border-stone-900 ring-2 ring-stone-900/10"
-    : current === "flag"
+  const cardBorder =
+    current === "flag"
       ? "border-red-200"
       : current === "dismiss"
         ? "border-stone-200 bg-stone-50/40"
         : "border-stone-200";
 
   return (
-    <div
-      onClick={onActivate}
-      style={{ scrollSnapAlign: "start", scrollMarginTop: "1rem" }}
-      className={`rounded-2xl border bg-white p-4 cursor-pointer ${cardBorder}`}
-    >
+    <div className={`rounded-2xl border bg-white p-4 ${cardBorder}`}>
       <div className="flex flex-col gap-4">
         <figure className="text-center">
           {m.reference_images?.[0]?.image_url ? (
