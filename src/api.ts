@@ -1435,8 +1435,23 @@ export function listIpReviews(filter: { mode?: IpReviewMode; decision?: IpReview
   return request<{ reviews: IpReview[] }>(`/api/ip-reviews${qs ? `?${qs}` : ""}`);
 }
 
-export function getIpReview(id: string) {
-  return request<{ review: IpReview }>(`/api/ip-reviews/${id}`);
+export async function getIpReview(id: string) {
+  const { review } = await request<{ review: IpReview }>(`/api/ip-reviews/${id}`);
+  // Defensive: if any annotations row leaked through as a JSON-encoded
+  // string (legacy data from before the storage fix), parse it here so
+  // consumers can always rely on it being an array | null.
+  if (review.match_decisions) {
+    for (const d of review.match_decisions) {
+      if (typeof d.annotations === "string") {
+        try {
+          d.annotations = JSON.parse(d.annotations) as AnnotationShape[];
+        } catch {
+          d.annotations = null;
+        }
+      }
+    }
+  }
+  return { review };
 }
 
 export function updateIpReviewDecision(

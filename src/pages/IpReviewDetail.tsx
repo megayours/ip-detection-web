@@ -100,8 +100,18 @@ export default function IpReviewDetail() {
     const content = (
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-5">
+          <div className="col-span-12 lg:col-span-5 space-y-4">
             <ClearanceAssetColumn review={review} onUpdated={reload} />
+            {review.status === "complete" && review.result && (
+              <>
+                <RiskStrip segments={review.result.segments} />
+                <ContextSection review={review} />
+                <ScopeDisclosure lines={review.result.scope_disclosure} />
+                {review.result.verdict_lines.length > 0 && (
+                  <VerdictLines lines={review.result.verdict_lines} />
+                )}
+              </>
+            )}
           </div>
           <div className="col-span-12 lg:col-span-7 space-y-6">
             <Header
@@ -109,6 +119,7 @@ export default function IpReviewDetail() {
               onDecide={(d) => setPendingDecision(d)}
               onDelete={handleDelete}
               hideImage
+              hideRiskStrip
             />
             {review.status === "processing" && <ProcessingNotice />}
             {review.status === "failed" && (
@@ -118,19 +129,12 @@ export default function IpReviewDetail() {
               </div>
             )}
             {review.status === "complete" && review.result && (
-              <>
-                <ContextSection review={review} />
-                <ScopeDisclosure lines={review.result.scope_disclosure} />
-                {review.result.verdict_lines.length > 0 && (
-                  <VerdictLines lines={review.result.verdict_lines} />
-                )}
-                <MatchedReferences
-                  matches={review.result.matches}
-                  reviewId={review.id}
-                  decisions={review.match_decisions ?? []}
-                  onUpdated={reload}
-                />
-              </>
+              <MatchedReferences
+                matches={review.result.matches}
+                reviewId={review.id}
+                decisions={review.match_decisions ?? []}
+                onUpdated={reload}
+              />
             )}
           </div>
         </div>
@@ -192,14 +196,17 @@ function Header({
   onDecide,
   onDelete,
   hideImage = false,
+  hideRiskStrip = false,
 }: {
   review: IpReview;
   onDecide: (d: IpReviewDecision) => void;
   onDelete: () => void;
   hideImage?: boolean;
+  hideRiskStrip?: boolean;
 }) {
   const isMonitoring = review.mode === "monitoring";
   const showRiskStrip =
+    !hideRiskStrip &&
     review.mode === "clearance" && review.status === "complete" && !!review.result;
   const showDecisionCtas =
     !isMonitoring && review.status === "complete";
@@ -767,7 +774,7 @@ function StickyAssetPanel({
   }
 
   return (
-    <div className="sticky top-4">
+    <div className="sticky top-4 bg-cream pb-2">
       <div className="flex items-center justify-between mb-2">
         <div className="text-[10px] uppercase tracking-wider text-stone-400">
           Input asset
