@@ -48,10 +48,12 @@ export default function Clearance() {
   return <Inbox />;
 }
 
+type InboxTab = "needs" | "done";
+
 function Inbox() {
   const [reviews, setReviews] = useState<IpReview[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [doneOpen, setDoneOpen] = useState(false);
+  const [tab, setTab] = useState<InboxTab>("needs");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -73,9 +75,11 @@ function Inbox() {
     return { needs, done };
   }, [reviews]);
 
+  const rows = tab === "needs" ? needs : done;
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8">
-      <div className="flex items-start justify-between gap-4 mb-6">
+    <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="flex items-center justify-between gap-4 mb-4">
         <h1 className="text-xl font-bold tracking-tight">Inbox</h1>
         <div className="flex items-center gap-2 shrink-0">
           <Link
@@ -88,20 +92,33 @@ function Inbox() {
             to="/ip-reviews/new/monitoring"
             className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
           >
-            + Infringement Monitoring
+            + Monitoring
           </Link>
         </div>
       </div>
 
-      {!loaded && (
-        <div className="text-sm text-stone-400">Loading…</div>
-      )}
-      {error && (
-        <div className="text-sm text-red-600">{error}</div>
-      )}
+      <div className="flex items-center gap-6 border-b border-stone-200 mb-2">
+        <TabButton
+          active={tab === "needs"}
+          onClick={() => setTab("needs")}
+          label="Needs attention"
+          count={needs.length}
+          badgeTone={needs.length > 0 ? "red" : "muted"}
+        />
+        <TabButton
+          active={tab === "done"}
+          onClick={() => setTab("done")}
+          label="Done"
+          count={done.length}
+          badgeTone="muted"
+        />
+      </div>
+
+      {!loaded && <div className="text-sm text-stone-400 py-6">Loading…</div>}
+      {error && <div className="text-sm text-red-600 py-6">{error}</div>}
 
       {loaded && reviews.length === 0 && (
-        <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-8 text-center">
+        <div className="text-center py-16">
           <p className="text-sm text-stone-600">Nothing in your inbox.</p>
           <p className="text-xs text-stone-400 mt-1">
             Start a clearance review or set up monitoring to populate this list.
@@ -110,80 +127,71 @@ function Inbox() {
       )}
 
       {loaded && reviews.length > 0 && (
-        <>
-          <Section
-            title={`Needs attention (${needs.length})`}
-            rows={needs}
-            emptyText="You're all caught up."
-          />
-          {done.length > 0 && (
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => setDoneOpen((v) => !v)}
-                className="w-full flex items-center justify-between text-left px-1 py-2 text-xs font-semibold uppercase tracking-wider text-stone-500 hover:text-stone-800"
-              >
-                <span>
-                  {doneOpen ? "▼" : "▶"} Done / no action ({done.length})
-                </span>
-              </button>
-              {doneOpen && (
-                <div className="mt-2 space-y-2">
-                  {done.map((r) => <TaskRow key={r.id} review={r} muted />)}
-                </div>
-              )}
+        <div className="divide-y divide-stone-100 border-b border-stone-100">
+          {rows.length === 0 ? (
+            <div className="py-12 text-center text-xs text-stone-400">
+              {tab === "needs" ? "You're all caught up." : "Nothing here yet."}
             </div>
+          ) : (
+            rows.map((r) => <TaskRow key={r.id} review={r} muted={tab === "done"} />)
           )}
-        </>
+        </div>
       )}
     </div>
   );
 }
 
-function Section({
-  title,
-  rows,
-  emptyText,
+function TabButton({
+  active,
+  onClick,
+  label,
+  count,
+  badgeTone,
 }: {
-  title: string;
-  rows: IpReview[];
-  emptyText: string;
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+  badgeTone: "red" | "muted";
 }) {
+  const badgeCls =
+    badgeTone === "red" && count > 0
+      ? "bg-red-100 text-red-700"
+      : "bg-stone-100 text-stone-500";
   return (
-    <div>
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2 px-1">
-        {title}
-      </h2>
-      {rows.length === 0 ? (
-        <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-6 text-center text-xs text-stone-500">
-          {emptyText}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {rows.map((r) => <TaskRow key={r.id} review={r} />)}
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 -mb-px py-2 border-b-2 text-sm font-medium transition-colors ${
+        active
+          ? "border-stone-900 text-stone-900"
+          : "border-transparent text-stone-500 hover:text-stone-800"
+      }`}
+    >
+      {label}
+      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${badgeCls}`}>
+        {count}
+      </span>
+    </button>
   );
 }
 
 const DECISION_LABEL: Record<string, { label: string; cls: string }> = {
-  cleared: { label: "Cleared", cls: "bg-emerald-100 text-emerald-700" },
-  not_cleared: { label: "Not cleared", cls: "bg-red-100 text-red-700" },
+  cleared: { label: "Cleared", cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+  not_cleared: { label: "Not cleared", cls: "bg-red-50 text-red-700 border-red-100" },
 };
 
 /**
- * Inbox-style row. The right-hand chip is the "primary signal" — the
- * single most important state for that task type — so the user can scan
- * vertically and find the actionable thing without reading the row.
+ * Compact single-line task row, Gmail/Linear-inspired. Borders come from
+ * the parent's `divide-y` so rows pack tightly without doubling lines.
  */
 function TaskRow({ review, muted = false }: { review: IpReview; muted?: boolean }) {
   const primary = primarySignal(review);
-  const created = new Date(review.created_at).toLocaleDateString();
+  const when = relativeDate(review.created_at);
   return (
     <Link
       to={`/ip-reviews/${review.id}`}
-      className={`flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 hover:border-stone-300 transition-colors ${
+      className={`group flex items-center gap-3 px-2 py-1.5 hover:bg-stone-50 transition-colors ${
         muted ? "opacity-70" : ""
       }`}
     >
@@ -191,25 +199,27 @@ function TaskRow({ review, muted = false }: { review: IpReview; muted?: boolean 
         <img
           src={review.asset_image_url}
           alt=""
-          className="w-12 h-12 rounded-lg object-cover border border-stone-200 shrink-0"
+          className="w-8 h-8 rounded object-cover border border-stone-200 shrink-0"
         />
       ) : (
-        <div className="w-12 h-12 rounded-lg bg-stone-100 shrink-0" />
+        <div className="w-8 h-8 rounded bg-stone-100 shrink-0" />
       )}
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-sm text-stone-900 truncate">
-          {review.title}
-        </div>
-        <div className="text-[11px] text-stone-400">
-          {review.mode === "monitoring" ? "Monitoring" : "Clearance"}
-          {review.mode === "monitoring" && review.asset_name ? ` · ${review.asset_name}` : ""}
-          {" · "}{created}
-        </div>
-      </div>
       <span
-        className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase whitespace-nowrap ${primary.cls}`}
+        className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 shrink-0 w-20"
+        title={review.mode}
+      >
+        {review.mode === "monitoring" ? "Monitor" : "Clearance"}
+      </span>
+      <span className="flex-1 min-w-0 text-sm text-stone-900 font-medium truncate">
+        {review.title}
+      </span>
+      <span
+        className={`hidden sm:inline-block px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase whitespace-nowrap shrink-0 ${primary.cls}`}
       >
         {primary.label}
+      </span>
+      <span className="text-[11px] text-stone-400 tabular-nums shrink-0 w-14 text-right">
+        {when}
       </span>
     </Link>
   );
@@ -217,21 +227,36 @@ function TaskRow({ review, muted = false }: { review: IpReview; muted?: boolean 
 
 function primarySignal(r: IpReview): { label: string; cls: string } {
   if (r.status === "processing") {
-    return { label: "Processing", cls: "bg-blue-100 text-blue-700" };
+    return { label: "Processing", cls: "bg-blue-50 text-blue-700 border-blue-100" };
   }
   if (r.status === "failed") {
-    return { label: "Failed", cls: "bg-red-100 text-red-700" };
+    return { label: "Failed", cls: "bg-red-50 text-red-700 border-red-100" };
   }
   if (r.mode === "monitoring") {
     const n = r.open_findings_count ?? 0;
-    if (n === 0) return { label: "0 findings", cls: "bg-stone-100 text-stone-500" };
-    return { label: `${n} finding${n === 1 ? "" : "s"}`, cls: "bg-red-100 text-red-700" };
+    if (n === 0) return { label: "0 findings", cls: "bg-stone-50 text-stone-500 border-stone-100" };
+    return { label: `${n} finding${n === 1 ? "" : "s"}`, cls: "bg-red-50 text-red-700 border-red-100" };
   }
   // clearance
   if (r.decision) {
-    return DECISION_LABEL[r.decision] ?? { label: r.decision, cls: "bg-stone-100 text-stone-600" };
+    return DECISION_LABEL[r.decision] ?? { label: r.decision, cls: "bg-stone-50 text-stone-600 border-stone-100" };
   }
-  return { label: "Awaiting review", cls: "bg-stone-100 text-stone-600" };
+  return { label: "Awaiting review", cls: "bg-stone-50 text-stone-600 border-stone-100" };
+}
+
+/** Linear-style short relative time: "5m", "3h", "2d", "Mar 14". */
+function relativeDate(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diff = Math.max(0, now - then);
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "now";
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function LegacyView({
