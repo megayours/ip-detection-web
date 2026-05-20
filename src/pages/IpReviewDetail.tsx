@@ -101,7 +101,6 @@ export default function IpReviewDetail() {
       <div className="max-w-screen-2xl mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 lg:col-span-6 space-y-3">
-            <ClearanceAssetColumn review={review} onUpdated={reload} />
             {review.status === "complete" && review.result && (
               <>
                 <RiskStrip segments={review.result.segments} compact />
@@ -112,6 +111,7 @@ export default function IpReviewDetail() {
                 />
               </>
             )}
+            <ClearanceAssetColumn review={review} onUpdated={reload} />
           </div>
           <div className="col-span-12 lg:col-span-6 space-y-6">
             <Header
