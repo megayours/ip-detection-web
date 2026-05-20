@@ -99,46 +99,27 @@ export default function IpReviewDetail() {
     const matches = review.result?.matches ?? [];
     const decisions = review.match_decisions ?? [];
     const content = (
-      <div className="max-w-screen-2xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-6 space-y-3">
-            {review.status === "complete" && review.result && (
-              <>
-                <RiskStrip segments={review.result.segments} compact />
-                <ContextSection review={review} compact />
-                <FindingsCard
-                  verdictLines={review.result.verdict_lines}
-                  scopeLines={review.result.scope_disclosure}
-                />
-              </>
-            )}
-            <ClearanceAssetColumn review={review} onUpdated={reload} />
+      <div className="max-w-screen-2xl mx-auto px-6 py-4 space-y-3">
+        <Header
+          review={review}
+          onDecide={(d) => setPendingDecision(d)}
+          onDelete={handleDelete}
+          hideImage
+          hideRiskStrip
+        />
+        {review.status === "processing" && <ProcessingNotice />}
+        {review.status === "failed" && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            Review failed. The detection job hit an error — check the worker logs
+            or rerun the wizard.
           </div>
-          <div className="col-span-12 lg:col-span-6 space-y-6">
-            <Header
-              review={review}
-              onDecide={(d) => setPendingDecision(d)}
-              onDelete={handleDelete}
-              hideImage
-              hideRiskStrip
-            />
-            {review.status === "processing" && <ProcessingNotice />}
-            {review.status === "failed" && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                Review failed. The detection job hit an error — check the worker logs
-                or rerun the wizard.
-              </div>
-            )}
-            {review.status === "complete" && review.result && (
-              <MatchedReferences
-                matches={review.result.matches}
-                reviewId={review.id}
-                decisions={review.match_decisions ?? []}
-                onUpdated={reload}
-              />
-            )}
-          </div>
-        </div>
+        )}
+        {review.status === "complete" && review.result && (
+          <ClearanceComparison
+            review={review}
+            reload={reload}
+          />
+        )}
         {pendingDecision && (
           <DecisionModal
             review={review}
@@ -617,47 +598,6 @@ function groupSegmentsByMatches(
   return groups;
 }
 
-/**
- * Compact sidebar card combining the verdict bullets ("What this means")
- * with the search-scope disclaimer collapsed into a <details>. Scope is
- * legal-required disclosure but rarely the focus during review.
- */
-function FindingsCard({
-  verdictLines,
-  scopeLines,
-}: {
-  verdictLines: string[];
-  scopeLines: string[];
-}) {
-  if (verdictLines.length === 0 && scopeLines.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2">
-      <h2 className="text-[10px] uppercase tracking-wider text-stone-500 mb-1.5 font-semibold">
-        Findings
-      </h2>
-      {verdictLines.length > 0 && (
-        <ul className="space-y-1 text-[12px] text-stone-700 list-disc pl-4 leading-snug">
-          {verdictLines.map((l, i) => (
-            <li key={i}>{l}</li>
-          ))}
-        </ul>
-      )}
-      {scopeLines.length > 0 && (
-        <details className="mt-2 group">
-          <summary className="text-[10px] uppercase tracking-wider text-stone-500 cursor-pointer hover:text-stone-700 select-none">
-            Search scope
-          </summary>
-          <ul className="mt-1.5 space-y-1 text-[11px] text-stone-500 list-disc pl-4 leading-snug">
-            {scopeLines.map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </div>
-  );
-}
-
 const SOURCE_LABEL: Record<string, string> = {
   euipo_trademark: "EUIPO registered trademark",
   wipo_design: "WIPO Hague registered design",
@@ -745,44 +685,26 @@ function ClearanceProvider({
 }
 
 /**
- * Sticky left column for the clearance page. Renders the input image with
- * the annotation editor + toolbar at the top of the page so the lawyer can
- * compare against the input from any scroll position. Drawing on a match
- * that has no decision yet auto-flags it (drawing = "this concerns me").
+ * Square frame used for BOTH the input image and the active reference. By
+ * using the same wrapper on both sides, the two images render at identical
+ * size and Y position when placed in a grid of equal-width columns. The
+ * `max-h-[70vh]` keeps the pair from overflowing the viewport on shorter
+ * monitors — the column width still wins on wide monitors.
  */
-function ClearanceAssetColumn({
-  review,
-  onUpdated,
-}: {
-  review: IpReview;
-  onUpdated: () => void;
-}) {
-  const ctx = useContext(ClearanceContext);
-  // Pre-result render path: review still processing. Show the bare input.
-  if (!ctx) {
-    return (
-      <div className="sticky top-4">
-        {review.asset_image_url ? (
-          <img
-            src={review.asset_image_url}
-            alt=""
-            className="w-full aspect-square rounded-xl object-contain bg-stone-50 border border-stone-200"
-          />
-        ) : (
-          <div className="w-full aspect-square rounded-xl bg-stone-100" />
-        )}
-      </div>
-    );
-  }
+function ImageFrame({ children }: { children: React.ReactNode }) {
   return (
-    <StickyAssetPanel
-      assetImageUrl={review.asset_image_url ?? ""}
-      onUpdated={onUpdated}
-    />
+    <div className="w-full max-w-[70vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden">
+      {children}
+    </div>
   );
 }
 
-function StickyAssetPanel({
+/**
+ * Left column for the comparison: input image + annotation toolbar. Drawing
+ * on the image implicitly flags the currently-active match (the drawing is
+ * itself the signal of concern).
+ */
+function InputComparisonColumn({
   assetImageUrl,
   onUpdated,
 }: {
@@ -794,12 +716,7 @@ function StickyAssetPanel({
   const activeDecision = activeMatchId ? decisionByMatch.get(activeMatchId) ?? null : null;
 
   const [tool, setTool] = useState<Tool>("pen");
-  // Per-match local cache of drawings. Local edits always win over the
-  // server reads — so if the user draws on A, switches to B, then back to
-  // A, A's drawings restore even while the post-draw GET is still in
-  // flight. Server is the source of truth on first view (no cache entry).
   const [localByMatch, setLocalByMatch] = useState<Record<string, AnnotationShape[]>>({});
-  const [saving, setSaving] = useState(false);
 
   const display: AnnotationShape[] = activeMatchId
     ? localByMatch[activeMatchId] ?? activeDecision?.annotations ?? []
@@ -809,10 +726,7 @@ function StickyAssetPanel({
 
   async function persist(next: AnnotationShape[]) {
     if (!activeMatch) return;
-    setSaving(true);
     try {
-      // Drawing implicitly flags the match: it's a signal of concern.
-      // Preserve any existing note; default to null for new decisions.
       await setIpReviewMatchDecision(reviewId, activeMatch.id, {
         decision: "flag",
         note: activeDecision?.note ?? null,
@@ -821,8 +735,6 @@ function StickyAssetPanel({
       onUpdated();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to save annotations");
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -833,14 +745,8 @@ function StickyAssetPanel({
   }
 
   return (
-    <div className="sticky top-4 bg-cream pb-3 z-10 shadow-[0_8px_8px_-8px_rgba(0,0,0,0.08)]">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[10px] uppercase tracking-wider text-stone-400">
-          Input asset
-        </div>
-        {saving && <div className="text-[10px] text-stone-400">Saving…</div>}
-      </div>
-      <div className="aspect-square w-full">
+    <div className="space-y-2">
+      <ImageFrame>
         {assetImageUrl ? (
           <AnnotationCanvas
             key={activeMatchId ?? "none"}
@@ -851,10 +757,10 @@ function StickyAssetPanel({
             readOnly={!canDraw}
           />
         ) : (
-          <div className="w-full h-full rounded-lg bg-stone-100" />
+          <div className="w-full h-full bg-stone-100" />
         )}
-      </div>
-      <div className="mt-3 flex items-center gap-1 flex-wrap">
+      </ImageFrame>
+      <div className="flex items-center gap-1 flex-wrap">
         {(["pen", "ellipse", "arrow", "text"] as Tool[]).map((t) => (
           <button
             key={t}
@@ -879,49 +785,57 @@ function StickyAssetPanel({
           Clear
         </button>
       </div>
-      {!activeMatch ? (
-        <p className="mt-2 text-[11px] text-stone-400">
-          Select a match below to start annotating.
-        </p>
-      ) : (
-        <p className="mt-2 text-[11px] text-stone-400">
-          Drawing on the input flags <span className="font-semibold text-stone-600">{activeMatch.ip_name || "this match"}</span> and saves the feedback for the artist.
-        </p>
-      )}
     </div>
   );
 }
 
-function MatchedReferences({
-  matches: _matches,
-  reviewId: _reviewId,
-  decisions: _decisions,
-  onUpdated: _onUpdated,
+/**
+ * Top-level layout for the clearance comparison view. Renders a compact
+ * metadata bar + thumbnail strip across the full page width, then a 2-col
+ * grid with input on the left and the active reference on the right. Both
+ * images use ImageFrame so they're guaranteed equal-sized and aligned.
+ */
+function ClearanceComparison({
+  review,
+  reload,
 }: {
-  matches: IpReviewMatch[];
-  reviewId: string;
-  decisions: IpReviewMatchDecision[];
+  review: IpReview;
+  reload: () => void;
+}) {
+  const matches = review.result?.matches ?? [];
+  const decisions = review.match_decisions ?? [];
+  return (
+    <ClearanceProvider
+      matches={matches}
+      decisions={decisions}
+      reviewId={review.id}
+      onUpdated={reload}
+    >
+      <ClearanceComparisonInner review={review} onUpdated={reload} />
+    </ClearanceProvider>
+  );
+}
+
+function ClearanceComparisonInner({
+  review,
+  onUpdated,
+}: {
+  review: IpReview;
   onUpdated: () => void;
 }) {
-  // The list reads from ClearanceContext so the sticky asset column and
-  // the cards stay in sync on active match + decisions. Props are still
-  // accepted (and consumed by the surrounding ClearanceProvider) so
-  // IpReviewDetail's call site doesn't change shape.
-  const { sortedMatches, decisionByMatch, activeMatchId, setActiveMatchId, reviewId, onUpdated } = useClearance();
-  void _matches; void _reviewId; void _decisions; void _onUpdated;
-
+  const {
+    sortedMatches,
+    decisionByMatch,
+    activeMatchId,
+    setActiveMatchId,
+    reviewId,
+  } = useClearance();
   const active = sortedMatches.find((m) => m.id === activeMatchId) ?? null;
   const activeDecision = active ? decisionByMatch.get(active.id) ?? null : null;
 
   return (
     <div className="space-y-3">
-      <div>
-        <h2 className="text-sm font-bold text-stone-900 mb-1">Matched references</h2>
-        <p className="text-xs text-stone-500">
-          Click a thumbnail to compare with the input. Draw on the input to
-          show the artist what needs to change, or dismiss false positives.
-        </p>
-      </div>
+      <MetadataBar review={review} />
       {sortedMatches.length === 0 ? (
         <div className="text-xs text-stone-400">No matches above threshold.</div>
       ) : (
@@ -932,17 +846,152 @@ function MatchedReferences({
             activeId={activeMatchId}
             onPick={setActiveMatchId}
           />
-          {active && (
-            <ActiveMatchView
-              m={active}
-              reviewId={reviewId}
-              decision={activeDecision}
+          <div className="grid grid-cols-2 gap-4">
+            <InputComparisonColumn
+              assetImageUrl={review.asset_image_url ?? ""}
               onUpdated={onUpdated}
             />
-          )}
+            <div className="space-y-2">
+              <ImageFrame>
+                {active?.reference_images?.[0]?.image_url ? (
+                  <img
+                    src={active.reference_images[0].image_url}
+                    alt=""
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-stone-100" />
+                )}
+              </ImageFrame>
+              {active && (
+                <ReferenceDetailsPanel
+                  m={active}
+                  reviewId={reviewId}
+                  decision={activeDecision}
+                  onUpdated={onUpdated}
+                />
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Compact horizontal bar that consolidates the previously stacked Risk,
+ * Context, and Findings sections into a single row above the comparison.
+ * Findings + scope collapse into a <details> so the bar stays short.
+ */
+function MetadataBar({ review }: { review: IpReview }) {
+  if (!review.result) return null;
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 flex items-stretch gap-4 flex-wrap text-[11px]">
+      <RiskPills segments={review.result.segments} />
+      <div className="h-auto w-px bg-stone-200" />
+      <ContextChips review={review} />
+      <div className="h-auto w-px bg-stone-200" />
+      <FindingsExpander
+        verdictLines={review.result.verdict_lines}
+        scopeLines={review.result.scope_disclosure}
+      />
+    </div>
+  );
+}
+
+function RiskPills({
+  segments,
+}: {
+  segments: Record<RightsType, { risk_band: RiskBand; top_score: number; match_ids: string[] }>;
+}) {
+  const groups = useMemo(() => groupSegmentsByMatches(segments), [segments]);
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {groups.map((g) => {
+        const c = RISK_COLOR[g.risk_band];
+        const n = g.match_ids.length;
+        return (
+          <div
+            key={g.rights.join("+")}
+            className={`flex items-center gap-1.5 rounded-md border px-2 py-1 ${c.box}`}
+            title={g.rights.map((r) => `${RIGHTS_LABEL[r]} — ${RIGHTS_TOOLTIP[r]}`).join("\n\n")}
+          >
+            <span className={`text-sm font-bold ${c.text}`}>
+              {Math.round(g.top_score * 100)}%
+            </span>
+            <span className="text-[10px] font-semibold text-stone-700">
+              {g.rights.map((r) => RIGHTS_LABEL[r]).join(" + ")}
+            </span>
+            <span className={`px-1 py-0.5 rounded text-[8px] font-bold uppercase ${c.chip}`}>
+              {g.risk_band}
+            </span>
+            <span className="text-[9px] text-stone-500">
+              {n} match{n === 1 ? "" : "es"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContextChips({ review }: { review: IpReview }) {
+  const items: Array<[string, string]> = [
+    ["Type", review.asset_type || "—"],
+    ["Use", review.intended_use || "—"],
+    ["Placement", review.asset_placement || "—"],
+    ["Territories", review.territories.length ? review.territories.join(", ") : "All"],
+    ["Categories", review.product_categories.length ? review.product_categories.join(", ") : "—"],
+  ];
+  return (
+    <div className="flex items-center gap-3 flex-wrap min-w-0">
+      {items.map(([k, v]) => (
+        <div key={k} className="flex items-baseline gap-1 min-w-0">
+          <span className="text-[9px] uppercase tracking-wider text-stone-500 shrink-0">{k}</span>
+          <span className="text-stone-800 truncate" title={v}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FindingsExpander({
+  verdictLines,
+  scopeLines,
+}: {
+  verdictLines: string[];
+  scopeLines: string[];
+}) {
+  if (verdictLines.length === 0 && scopeLines.length === 0) return null;
+  return (
+    <details className="group">
+      <summary className="cursor-pointer select-none text-[10px] uppercase tracking-wider text-stone-500 hover:text-stone-700 list-none flex items-center gap-1">
+        <span className="group-open:rotate-90 inline-block transition-transform">▶</span>
+        Findings
+      </summary>
+      <div className="mt-2 space-y-2">
+        {verdictLines.length > 0 && (
+          <ul className="space-y-1 text-[11px] text-stone-700 list-disc pl-4 leading-snug">
+            {verdictLines.map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        )}
+        {scopeLines.length > 0 && (
+          <details>
+            <summary className="text-[9px] uppercase tracking-wider text-stone-500 cursor-pointer">
+              Search scope
+            </summary>
+            <ul className="mt-1 space-y-1 text-[10px] text-stone-500 list-disc pl-4 leading-snug">
+              {scopeLines.map((l, i) => (
+                <li key={i}>{l}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -1025,7 +1074,7 @@ const DECISION_LABEL: Record<IpReviewMatchDecisionValue, string> = {
   dismiss: "Dismissed",
 };
 
-function ActiveMatchView({
+function ReferenceDetailsPanel({
   m,
   reviewId,
   decision,
@@ -1044,8 +1093,6 @@ function ActiveMatchView({
   async function commit(next: IpReviewMatchDecisionValue | null, note: string | null) {
     setSaving(true);
     try {
-      // Preserve existing annotations on a flag re-save; drop them when
-      // un-flagging or dismissing (the decision row is deleted on null).
       const annotations = next === "flag" ? decision?.annotations ?? null : null;
       await setIpReviewMatchDecision(reviewId, m.id, { decision: next, note, annotations });
       onUpdated();
@@ -1058,31 +1105,10 @@ function ActiveMatchView({
   }
 
   const current = decision?.decision ?? null;
-  const cardBorder =
-    current === "flag"
-      ? "border-red-200"
-      : current === "dismiss"
-        ? "border-stone-200 bg-stone-50/40"
-        : "border-stone-200";
 
   return (
-    <div className={`rounded-2xl border bg-white p-4 ${cardBorder}`}>
-      <div className="flex flex-col gap-4">
-        <figure className="text-center">
-          {m.reference_images?.[0]?.image_url ? (
-            <img
-              src={m.reference_images[0].image_url}
-              alt=""
-              className="w-full aspect-square rounded-lg object-contain bg-stone-50 border border-stone-200"
-            />
-          ) : (
-            <div className="w-full aspect-square rounded-lg bg-stone-100" />
-          )}
-          <figcaption className="text-[10px] uppercase tracking-wider text-stone-400 mt-1">
-            Reference
-          </figcaption>
-        </figure>
-
+    <div className="rounded-lg border border-stone-200 bg-white p-3">
+      <div className="flex flex-col gap-2">
         <div className="min-w-0 w-full">
           <div className="flex items-start justify-between gap-2 flex-wrap">
             <div className="min-w-0">
@@ -1247,53 +1273,6 @@ function Score({ label, value }: { label: string; value: number }) {
       <span className="text-stone-400">{label}</span>
       <span className="font-semibold">{Math.round(value * 100)}%</span>
     </span>
-  );
-}
-
-function ContextSection({
-  review,
-  compact = false,
-}: {
-  review: IpReview;
-  compact?: boolean;
-}) {
-  const rows: Array<[string, string]> = [
-    ["Asset name", review.asset_name || "—"],
-    ["Asset type", review.asset_type || "—"],
-    ["Intended use", review.intended_use || "—"],
-    ["Placement", review.asset_placement || "—"],
-    ["Territories", review.territories.length ? review.territories.join(", ") : "All"],
-    ["Categories", review.product_categories.length ? review.product_categories.join(", ") : "—"],
-  ];
-  if (compact) {
-    return (
-      <div className="rounded-lg border border-stone-200 bg-stone-50/40 px-3 py-2">
-        <h2 className="text-[10px] uppercase tracking-wider text-stone-500 mb-1.5 font-semibold">
-          Context
-        </h2>
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex items-baseline gap-1.5 min-w-0">
-              <dt className="text-[9px] uppercase tracking-wider text-stone-500 shrink-0">{k}</dt>
-              <dd className="text-stone-800 truncate" title={v}>{v}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-5">
-      <h2 className="text-sm font-bold text-stone-900 mb-2">Context (user-provided)</h2>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-baseline gap-2">
-            <dt className="text-[11px] uppercase tracking-wider text-stone-500 min-w-[100px]">{k}</dt>
-            <dd className="text-stone-800">{v}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
   );
 }
 
