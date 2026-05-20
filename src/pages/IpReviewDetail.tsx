@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deleteIpReview,
@@ -89,6 +89,75 @@ export default function IpReviewDetail() {
     navigate("/clearance");
   }
 
+  const isClearance = review.mode === "clearance";
+
+  if (isClearance) {
+    // The asset column reads activeMatchId from ClearanceContext, so the
+    // provider must wrap both columns. We render the provider even when
+    // there's no result yet — the sticky asset still shows the input.
+    const matches = review.result?.matches ?? [];
+    const decisions = review.match_decisions ?? [];
+    const content = (
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-12 lg:col-span-5">
+            <ClearanceAssetColumn review={review} onUpdated={reload} />
+          </div>
+          <div className="col-span-12 lg:col-span-7 space-y-6">
+            <Header
+              review={review}
+              onDecide={(d) => setPendingDecision(d)}
+              onDelete={handleDelete}
+              hideImage
+            />
+            {review.status === "processing" && <ProcessingNotice />}
+            {review.status === "failed" && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                Review failed. The detection job hit an error — check the worker logs
+                or rerun the wizard.
+              </div>
+            )}
+            {review.status === "complete" && review.result && (
+              <>
+                <ContextSection review={review} />
+                <ScopeDisclosure lines={review.result.scope_disclosure} />
+                {review.result.verdict_lines.length > 0 && (
+                  <VerdictLines lines={review.result.verdict_lines} />
+                )}
+                <MatchedReferences
+                  matches={review.result.matches}
+                  reviewId={review.id}
+                  decisions={review.match_decisions ?? []}
+                  onUpdated={reload}
+                />
+              </>
+            )}
+          </div>
+        </div>
+        {pendingDecision && (
+          <DecisionModal
+            review={review}
+            pending={pendingDecision}
+            onClose={() => setPendingDecision(null)}
+            onUpdated={reload}
+          />
+        )}
+      </div>
+    );
+    return review.status === "complete" && review.result ? (
+      <ClearanceProvider
+        matches={matches}
+        decisions={decisions}
+        reviewId={review.id}
+        onUpdated={reload}
+      >
+        {content}
+      </ClearanceProvider>
+    ) : (
+      content
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       <Header
@@ -104,26 +173,7 @@ export default function IpReviewDetail() {
         </div>
       )}
 
-      {review.mode === "clearance" && review.status === "complete" && review.result && (
-        <>
-          <ContextSection review={review} />
-          <ScopeDisclosure lines={review.result.scope_disclosure} />
-          {review.result.verdict_lines.length > 0 && (
-            <VerdictLines lines={review.result.verdict_lines} />
-          )}
-          <MatchedReferences
-            matches={review.result.matches}
-            reviewId={review.id}
-            assetImageUrl={review.asset_image_url ?? ""}
-            decisions={review.match_decisions ?? []}
-            onUpdated={reload}
-          />
-        </>
-      )}
-
-      {review.mode === "monitoring" && (
-        <MonitoringView review={review} onUpdated={reload} />
-      )}
+      <MonitoringView review={review} onUpdated={reload} />
 
       {pendingDecision && (
         <DecisionModal
@@ -141,10 +191,12 @@ function Header({
   review,
   onDecide,
   onDelete,
+  hideImage = false,
 }: {
   review: IpReview;
   onDecide: (d: IpReviewDecision) => void;
   onDelete: () => void;
+  hideImage?: boolean;
 }) {
   const isMonitoring = review.mode === "monitoring";
   const showRiskStrip =
@@ -154,7 +206,7 @@ function Header({
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5">
       <div className="flex items-start gap-5">
-        {review.asset_image_url && (
+        {!hideImage && review.asset_image_url && (
           <img
             src={review.asset_image_url}
             alt=""
@@ -551,18 +603,41 @@ function sourceLabel(s: string) {
   return SOURCE_LABEL[s] ?? s;
 }
 
-function MatchedReferences({
+/**
+ * Helpers for clearance match state. Both columns (sticky asset + matches
+ * list) read the same `activeMatchId` so the asset panel always knows which
+ * match's annotations it's editing. The state lives on the page-level
+ * `IpReviewDetail` and is threaded through via a small context.
+ */
+type ClearanceCtx = {
+  activeMatchId: string | null;
+  setActiveMatchId: (id: string) => void;
+  sortedMatches: IpReviewMatch[];
+  decisionByMatch: Map<string, IpReviewMatchDecision>;
+  reviewId: string;
+  onUpdated: () => void;
+};
+
+const ClearanceContext = createContext<ClearanceCtx | null>(null);
+
+function useClearance() {
+  const v = useContext(ClearanceContext);
+  if (!v) throw new Error("useClearance must be used inside ClearanceProvider");
+  return v;
+}
+
+function ClearanceProvider({
   matches,
-  reviewId,
-  assetImageUrl,
   decisions,
+  reviewId,
   onUpdated,
+  children,
 }: {
   matches: IpReviewMatch[];
-  reviewId: string;
-  assetImageUrl: string;
   decisions: IpReviewMatchDecision[];
+  reviewId: string;
   onUpdated: () => void;
+  children: React.ReactNode;
 }) {
   const sorted = useMemo(() => {
     const seen = new Set<string>();
@@ -583,97 +658,100 @@ function MatchedReferences({
     return map;
   }, [decisions]);
 
-  // Active match drives the sticky panel: which match's annotations the
-  // editor is bound to. Derive the effective ID from explicit selection +
-  // fallback to highest-scoring match (so the lawyer lands on the most
-  // likely problem without a setState-in-effect cascade).
-  const [explicitActiveId, setExplicitActiveId] = useState<string | null>(null);
-  const activeId =
-    (explicitActiveId && sorted.some((m) => m.id === explicitActiveId)
-      ? explicitActiveId
-      : sorted[0]?.id) ?? null;
-
-  const activeDecision = activeId ? decisionByMatch.get(activeId) ?? null : null;
+  const [explicit, setExplicit] = useState<string | null>(null);
+  const activeMatchId =
+    (explicit && sorted.some((m) => m.id === explicit) ? explicit : sorted[0]?.id) ?? null;
 
   return (
-    <div>
-      <h2 className="text-sm font-bold text-stone-900 mb-2">Matched references</h2>
-      <p className="text-xs text-stone-500 mb-3">
-        Most likely at the top. Click a match to compare it side-by-side with
-        the input — flag it, draw on the input to show the artist what needs
-        to change, then either flag the rest or dismiss the false positives.
-      </p>
-      {sorted.length === 0 ? (
-        <div className="text-xs text-stone-400">No matches above threshold.</div>
-      ) : (
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-12 md:col-span-6">
-            <StickyInputPanel
-              assetImageUrl={assetImageUrl}
-              reviewId={reviewId}
-              activeMatch={sorted.find((m) => m.id === activeId) ?? null}
-              activeDecision={activeDecision}
-              onUpdated={onUpdated}
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6 space-y-3">
-            {sorted.map((m) => (
-              <MatchCard
-                key={m.id}
-                m={m}
-                reviewId={reviewId}
-                decision={decisionByMatch.get(m.id) ?? null}
-                active={m.id === activeId}
-                onActivate={() => setExplicitActiveId(m.id)}
-                onUpdated={onUpdated}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <ClearanceContext.Provider
+      value={{
+        activeMatchId,
+        setActiveMatchId: setExplicit,
+        sortedMatches: sorted,
+        decisionByMatch,
+        reviewId,
+        onUpdated,
+      }}
+    >
+      {children}
+    </ClearanceContext.Provider>
   );
 }
 
 /**
- * Sticky left panel: input image + annotation editor + toolbar. Bound to
- * the currently-active match. Drawing only persists when the active match
- * is flagged (annotations live on the decision row). When no decision yet
- * or the match is dismissed, the canvas is read-only with a hint.
+ * Sticky left column for the clearance page. Renders the input image with
+ * the annotation editor + toolbar at the top of the page so the lawyer can
+ * compare against the input from any scroll position. Drawing on a match
+ * that has no decision yet auto-flags it (drawing = "this concerns me").
  */
-function StickyInputPanel({
+function ClearanceAssetColumn({
+  review,
+  onUpdated,
+}: {
+  review: IpReview;
+  onUpdated: () => void;
+}) {
+  const ctx = useContext(ClearanceContext);
+  // Pre-result render path: review still processing. Show the bare input.
+  if (!ctx) {
+    return (
+      <div className="sticky top-4">
+        {review.asset_image_url ? (
+          <img
+            src={review.asset_image_url}
+            alt=""
+            className="w-full aspect-square rounded-xl object-contain bg-stone-50 border border-stone-200"
+          />
+        ) : (
+          <div className="w-full aspect-square rounded-xl bg-stone-100" />
+        )}
+      </div>
+    );
+  }
+  return (
+    <StickyAssetPanel
+      assetImageUrl={review.asset_image_url ?? ""}
+      onUpdated={onUpdated}
+    />
+  );
+}
+
+function StickyAssetPanel({
   assetImageUrl,
-  reviewId,
-  activeMatch,
-  activeDecision,
   onUpdated,
 }: {
   assetImageUrl: string;
-  reviewId: string;
-  activeMatch: IpReviewMatch | null;
-  activeDecision: IpReviewMatchDecision | null;
   onUpdated: () => void;
 }) {
+  const { activeMatchId, sortedMatches, decisionByMatch, reviewId } = useClearance();
+  const activeMatch = sortedMatches.find((m) => m.id === activeMatchId) ?? null;
+  const activeDecision = activeMatchId ? decisionByMatch.get(activeMatchId) ?? null : null;
+
   const [tool, setTool] = useState<Tool>("pen");
   const [local, setLocal] = useState<AnnotationShape[]>(activeDecision?.annotations ?? []);
   const [saving, setSaving] = useState(false);
 
-  // Reset local shapes when active match changes or server-side annotations
-  // change identity. Keep local state otherwise so in-flight strokes don't
-  // flash during the auto-save round-trip.
-  useEffect(() => {
+  // Sync local shapes when the active match changes. The AnnotationCanvas
+  // key={activeMatchId} below remounts the editor for free.
+  const lastSyncedRef = useRef<string | null>(null);
+  if (lastSyncedRef.current !== activeMatchId) {
+    lastSyncedRef.current = activeMatchId;
+    // setState during render is OK when guarded by a ref check — React
+    // bails out re-render if the next value equals the previous.
     setLocal(activeDecision?.annotations ?? []);
-  }, [activeMatch?.id, activeDecision?.annotations]);
+  }
 
-  const canDraw = activeMatch !== null && activeDecision?.decision === "flag";
+  const canDraw = activeMatch !== null;
 
   async function persist(next: AnnotationShape[]) {
-    if (!activeMatch || activeDecision?.decision !== "flag") return;
+    if (!activeMatch) return;
     setSaving(true);
     try {
+      // Drawing implicitly flags the match: it's a signal of concern.
+      // Preserve any existing note; default to null for new decisions.
       await setIpReviewMatchDecision(reviewId, activeMatch.id, {
         decision: "flag",
-        note: activeDecision.note,
+        note: activeDecision?.note ?? null,
         annotations: next.length > 0 ? next : null,
       });
       onUpdated();
@@ -693,14 +771,14 @@ function StickyInputPanel({
     <div className="sticky top-4">
       <div className="flex items-center justify-between mb-2">
         <div className="text-[10px] uppercase tracking-wider text-stone-400">
-          Input
+          Input asset
         </div>
         {saving && <div className="text-[10px] text-stone-400">Saving…</div>}
       </div>
       <div className="aspect-square w-full">
         {assetImageUrl ? (
           <AnnotationCanvas
-            key={activeMatch?.id ?? "none"}
+            key={activeMatchId ?? "none"}
             src={assetImageUrl}
             value={local}
             onChange={canDraw ? handleChange : undefined}
@@ -736,15 +814,61 @@ function StickyInputPanel({
           Clear
         </button>
       </div>
-      {!activeMatch && (
+      {!activeMatch ? (
         <p className="mt-2 text-[11px] text-stone-400">
-          Select a match on the right to start comparing.
+          Select a match below to start annotating.
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px] text-stone-400">
+          Drawing on the input flags <span className="font-semibold text-stone-600">{activeMatch.ip_name || "this match"}</span> and saves the feedback for the artist.
         </p>
       )}
-      {activeMatch && !canDraw && (
-        <p className="mt-2 text-[11px] text-stone-400">
-          Flag this match to draw feedback for the artist.
-        </p>
+    </div>
+  );
+}
+
+function MatchedReferences({
+  matches: _matches,
+  reviewId: _reviewId,
+  decisions: _decisions,
+  onUpdated: _onUpdated,
+}: {
+  matches: IpReviewMatch[];
+  reviewId: string;
+  decisions: IpReviewMatchDecision[];
+  onUpdated: () => void;
+}) {
+  // The list reads from ClearanceContext so the sticky asset column and
+  // the cards stay in sync on active match + decisions. Props are still
+  // accepted (and consumed by the surrounding ClearanceProvider) so
+  // IpReviewDetail's call site doesn't change shape.
+  const { sortedMatches, decisionByMatch, activeMatchId, setActiveMatchId, reviewId, onUpdated } = useClearance();
+  void _matches; void _reviewId; void _decisions; void _onUpdated;
+
+  return (
+    <div>
+      <h2 className="text-sm font-bold text-stone-900 mb-2">Matched references</h2>
+      <p className="text-xs text-stone-500 mb-3">
+        Most likely at the top. Click a match to compare it with the input —
+        draw on the input to show the artist what needs to change, or dismiss
+        the false positives.
+      </p>
+      {sortedMatches.length === 0 ? (
+        <div className="text-xs text-stone-400">No matches above threshold.</div>
+      ) : (
+        <div className="space-y-3">
+          {sortedMatches.map((m) => (
+            <MatchCard
+              key={m.id}
+              m={m}
+              reviewId={reviewId}
+              decision={decisionByMatch.get(m.id) ?? null}
+              active={m.id === activeMatchId}
+              onActivate={() => setActiveMatchId(m.id)}
+              onUpdated={onUpdated}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
