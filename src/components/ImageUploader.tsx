@@ -46,7 +46,7 @@ export default function ImageUploader({ onUpload, uploading, accept = "image/*",
       <div className="space-y-2">
         <div className="text-stone-300 text-3xl">&#x2191;</div>
         <p className="text-sm text-stone-500 font-medium">{uploading ? "Uploading..." : label}</p>
-        <p className="text-xs text-stone-400">PNG, JPG, WebP up to 50MB</p>
+        <p className="text-xs text-stone-400">PNG, JPG, WebP, SVG up to 50MB</p>
       </div>
     </div>
   );
