@@ -98,22 +98,22 @@ export default function IpReviewDetail() {
     const matches = review.result?.matches ?? [];
     const decisions = review.match_decisions ?? [];
     const content = (
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-screen-2xl mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-5 space-y-4">
+          <div className="col-span-12 lg:col-span-6 space-y-3">
             <ClearanceAssetColumn review={review} onUpdated={reload} />
             {review.status === "complete" && review.result && (
               <>
-                <RiskStrip segments={review.result.segments} />
-                <ContextSection review={review} />
-                <ScopeDisclosure lines={review.result.scope_disclosure} />
-                {review.result.verdict_lines.length > 0 && (
-                  <VerdictLines lines={review.result.verdict_lines} />
-                )}
+                <RiskStrip segments={review.result.segments} compact />
+                <ContextSection review={review} compact />
+                <FindingsCard
+                  verdictLines={review.result.verdict_lines}
+                  scopeLines={review.result.scope_disclosure}
+                />
               </>
             )}
           </div>
-          <div className="col-span-12 lg:col-span-7 space-y-6">
+          <div className="col-span-12 lg:col-span-6 space-y-6">
             <Header
               review={review}
               onDecide={(d) => setPendingDecision(d)}
@@ -492,8 +492,10 @@ const RISK_COLOR: Record<RiskBand, { box: string; chip: string; text: string }> 
  */
 function RiskStrip({
   segments,
+  compact = false,
 }: {
   segments: Record<RightsType, { risk_band: RiskBand; top_score: number; match_ids: string[] }>;
+  compact?: boolean;
 }) {
   const groups = useMemo(() => groupSegmentsByMatches(segments), [segments]);
   return (
@@ -501,11 +503,39 @@ function RiskStrip({
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 mb-1.5">
         Risk by IP type
       </h2>
-      <div className="grid grid-cols-2 gap-2">
+      <div className={compact ? "grid grid-cols-2 gap-1.5" : "grid grid-cols-2 gap-2"}>
         {groups.map((g) => {
           const c = RISK_COLOR[g.risk_band];
           const n = g.match_ids.length;
           const tooltip = g.rights.map((r) => `${RIGHTS_LABEL[r]} — ${RIGHTS_TOOLTIP[r]}`).join("\n\n");
+          if (compact) {
+            return (
+              <div
+                key={g.rights.join("+")}
+                title={tooltip}
+                className={`rounded-md border px-2 py-1.5 ${c.box} cursor-help`}
+              >
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold text-stone-700 truncate leading-tight">
+                      {g.rights.map((r) => RIGHTS_LABEL[r]).join(" + ")}
+                    </div>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className={`text-sm font-bold leading-none ${c.text}`}>
+                        {Math.round(g.top_score * 100)}%
+                      </span>
+                      <span className="text-[9px] text-stone-500">
+                        {n} match{n === 1 ? "" : "es"}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-1 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 ${c.chip}`}>
+                    {g.risk_band}
+                  </span>
+                </div>
+              </div>
+            );
+          }
           return (
             <div
               key={g.rights.join("+")}
@@ -586,15 +616,43 @@ function groupSegmentsByMatches(
   return groups;
 }
 
-function VerdictLines({ lines }: { lines: string[] }) {
+/**
+ * Compact sidebar card combining the verdict bullets ("What this means")
+ * with the search-scope disclaimer collapsed into a <details>. Scope is
+ * legal-required disclosure but rarely the focus during review.
+ */
+function FindingsCard({
+  verdictLines,
+  scopeLines,
+}: {
+  verdictLines: string[];
+  scopeLines: string[];
+}) {
+  if (verdictLines.length === 0 && scopeLines.length === 0) return null;
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5">
-      <h2 className="text-sm font-bold text-stone-900 mb-2">What this means</h2>
-      <ul className="space-y-1.5 text-sm text-stone-700 list-disc pl-5">
-        {lines.map((l, i) => (
-          <li key={i}>{l}</li>
-        ))}
-      </ul>
+    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2">
+      <h2 className="text-[10px] uppercase tracking-wider text-stone-500 mb-1.5 font-semibold">
+        Findings
+      </h2>
+      {verdictLines.length > 0 && (
+        <ul className="space-y-1 text-[12px] text-stone-700 list-disc pl-4 leading-snug">
+          {verdictLines.map((l, i) => (
+            <li key={i}>{l}</li>
+          ))}
+        </ul>
+      )}
+      {scopeLines.length > 0 && (
+        <details className="mt-2 group">
+          <summary className="text-[10px] uppercase tracking-wider text-stone-500 cursor-pointer hover:text-stone-700 select-none">
+            Search scope
+          </summary>
+          <ul className="mt-1.5 space-y-1 text-[11px] text-stone-500 list-disc pl-4 leading-snug">
+            {scopeLines.map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }
@@ -774,7 +832,7 @@ function StickyAssetPanel({
   }
 
   return (
-    <div className="sticky top-4 bg-cream pb-2">
+    <div className="sticky top-4 bg-cream pb-3 z-10 shadow-[0_8px_8px_-8px_rgba(0,0,0,0.08)]">
       <div className="flex items-center justify-between mb-2">
         <div className="text-[10px] uppercase tracking-wider text-stone-400">
           Input asset
@@ -1123,7 +1181,13 @@ function Score({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ContextSection({ review }: { review: IpReview }) {
+function ContextSection({
+  review,
+  compact = false,
+}: {
+  review: IpReview;
+  compact?: boolean;
+}) {
   const rows: Array<[string, string]> = [
     ["Asset name", review.asset_name || "—"],
     ["Asset type", review.asset_type || "—"],
@@ -1132,6 +1196,23 @@ function ContextSection({ review }: { review: IpReview }) {
     ["Territories", review.territories.length ? review.territories.join(", ") : "All"],
     ["Categories", review.product_categories.length ? review.product_categories.join(", ") : "—"],
   ];
+  if (compact) {
+    return (
+      <div className="rounded-lg border border-stone-200 bg-stone-50/40 px-3 py-2">
+        <h2 className="text-[10px] uppercase tracking-wider text-stone-500 mb-1.5 font-semibold">
+          Context
+        </h2>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline gap-1.5 min-w-0">
+              <dt className="text-[9px] uppercase tracking-wider text-stone-500 shrink-0">{k}</dt>
+              <dd className="text-stone-800 truncate" title={v}>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  }
   return (
     <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-5">
       <h2 className="text-sm font-bold text-stone-900 mb-2">Context (user-provided)</h2>
@@ -1268,18 +1349,6 @@ function DecisionModal({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ScopeDisclosure({ lines }: { lines: string[] }) {
-  if (lines.length === 0) return null;
-  return (
-    <div className="rounded-2xl border border-stone-200 bg-stone-50/60 p-5">
-      <h2 className="text-sm font-bold text-stone-900 mb-2">Search scope</h2>
-      <ul className="space-y-1.5 text-xs text-stone-600 list-disc pl-5">
-        {lines.map((l, i) => <li key={i}>{l}</li>)}
-      </ul>
     </div>
   );
 }
