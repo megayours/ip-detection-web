@@ -839,41 +839,44 @@ function ClearanceComparisonInner({
       {sortedMatches.length === 0 ? (
         <div className="text-xs text-stone-400">No matches above threshold.</div>
       ) : (
-        <>
+        // Two-row grid: top row holds the thumbnail strip (left) and the
+        // active-match details (right). Bottom row holds the two images.
+        // grid-rows-[auto_auto] keeps the top row the same height in both
+        // columns, so the input + reference images always start at the
+        // same Y position even when one top cell is taller than the other.
+        <div className="grid grid-cols-2 grid-rows-[auto_auto] gap-x-4 gap-y-2 items-start">
           <ThumbnailStrip
             matches={sortedMatches}
             decisionByMatch={decisionByMatch}
             activeId={activeMatchId}
             onPick={setActiveMatchId}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <InputComparisonColumn
-              assetImageUrl={review.asset_image_url ?? ""}
+          {active ? (
+            <ReferenceDetailsPanel
+              m={active}
+              reviewId={reviewId}
+              decision={activeDecision}
               onUpdated={onUpdated}
             />
-            <div className="space-y-2">
-              <ImageFrame>
-                {active?.reference_images?.[0]?.image_url ? (
-                  <img
-                    src={active.reference_images[0].image_url}
-                    alt=""
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-stone-100" />
-                )}
-              </ImageFrame>
-              {active && (
-                <ReferenceDetailsPanel
-                  m={active}
-                  reviewId={reviewId}
-                  decision={activeDecision}
-                  onUpdated={onUpdated}
-                />
-              )}
-            </div>
-          </div>
-        </>
+          ) : (
+            <div />
+          )}
+          <InputComparisonColumn
+            assetImageUrl={review.asset_image_url ?? ""}
+            onUpdated={onUpdated}
+          />
+          <ImageFrame>
+            {active?.reference_images?.[0]?.image_url ? (
+              <img
+                src={active.reference_images[0].image_url}
+                alt=""
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full bg-stone-100" />
+            )}
+          </ImageFrame>
+        </div>
       )}
     </div>
   );
