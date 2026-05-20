@@ -70,6 +70,19 @@ export default function IpReviewDetail() {
     return () => clearInterval(t);
   }, [review, reload]);
 
+  // Snap the page scroll to each match card so the reference image lines
+  // up vertically with the sticky input on the left. Proximity (not
+  // mandatory) so light scrolling near the top doesn't yank you down.
+  useEffect(() => {
+    if (review?.mode !== "clearance") return;
+    const html = document.documentElement;
+    const prev = html.style.scrollSnapType;
+    html.style.scrollSnapType = "y proximity";
+    return () => {
+      html.style.scrollSnapType = prev;
+    };
+  }, [review?.mode]);
+
   if (error) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-8 text-sm text-red-600">{error}</div>
@@ -996,7 +1009,7 @@ function MatchCard({
   return (
     <div
       onClick={onActivate}
-      className={`rounded-2xl border bg-white p-4 cursor-pointer ${cardBorder}`}
+      className={`rounded-2xl border bg-white p-4 cursor-pointer snap-start scroll-mt-4 ${cardBorder}`}
     >
       <div className="flex flex-col gap-4">
         <figure className="text-center">
