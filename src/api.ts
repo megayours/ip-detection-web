@@ -905,171 +905,117 @@ export function browseGiantbombCatalog(opts: {
   }>(`/api/giantbomb-match/catalog/browse?${qs.toString()}`);
 }
 
-// --- Admin (cross-tenant IP reference management) ---
+// --- Admin (unified cross-source IP catalog management) ---
 
 export interface AdminIpSummary {
-  id: string;                     // trademark_id; "" when unsynced
-  name: string;
-  description: string | null;
-  guidelines: string | null;
-  tenant_id: string;
-  tenant_label: string | null;    // email domain or tenant name
+  id: string;
+  source: string;
+  name: string | null;
+  entity_type: string | null;
   image_count: number;
   indexed_count: number;
   centroid_ready: boolean;
-  created_at: string;
-  synced: boolean;                // false = storage only, no DB row yet
+  has_caption: boolean;
+  updated_at: string;
 }
 
 export interface AdminIpImage {
   key: string;
   url: string;
-  size: number;
-  etag: string;
-  last_modified: string | null;
-  db_status: string;
+  image_id: string | null;
+  status: string;
   indexed: boolean;
 }
 
-export interface AdminIpMetadata {
-  description?: string;
-  guidelines?: string;
-  [key: string]: unknown;
-}
-
 export interface AdminIpDetail {
-  id: string | null;              // trademark_id
-  name: string;
+  id: string;
+  source: string;
+  name: string | null;
   description: string | null;
   guidelines: string | null;
+  entity_type: string | null;
+  aliases: string[];
+  caption_text: string | null;
+  caption_model: string | null;
+  centroid_ready: boolean;
   tenant_id: string | null;
-  metadata: AdminIpMetadata | null;
   images: AdminIpImage[];
-  summary: {
-    s3_count: number;
-    db_count: number;
-    indexed_count: number;
-  };
+  created_at: string;
+  updated_at: string;
 }
 
-export interface IpSyncResult {
-  ip: string;
-  trademark_id: string;
-  added: number;
-  changed: number;
-  removed: number;
-  unchanged: number;
-}
+/** Catalog sources the admin can filter by. */
+export const ADMIN_SOURCES = [
+  "tenant_trademark",
+  "euipo_trademark",
+  "wipo_design",
+  "giantbomb",
+  "anilist",
+] as const;
+export type AdminSource = (typeof ADMIN_SOURCES)[number];
 
-export interface SyncResult {
-  scannedIps: number;
-  totalAdded: number;
-  totalChanged: number;
-  totalRemoved: number;
-  perIp: IpSyncResult[];
-  errors: { ip: string; error: string }[];
-  durationMs: number;
-}
-
-export interface SyncStatus {
-  last_run_at: number | null;
-  last_result: SyncResult | null;
-}
-
-export function listAdminIps() {
-  return request<{ ips: AdminIpSummary[] }>("/api/admin/ips");
-}
-
-export function createAdminIp(payload: {
-  name: string;
-  description?: string;
-  guidelines?: string;
-}) {
-  return request<{ ip: { id: string; name: string; tenant_id: string } }>(
-    "/api/admin/ips",
-    { method: "POST", body: JSON.stringify(payload) }
+export function searchAdminIps(opts: {
+  source?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const qs = new URLSearchParams();
+  if (opts.source) qs.set("source", opts.source);
+  if (opts.q) qs.set("q", opts.q);
+  if (opts.limit != null) qs.set("limit", String(opts.limit));
+  if (opts.offset != null) qs.set("offset", String(opts.offset));
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return request<{ ips: AdminIpSummary[]; total: number; limit: number; offset: number }>(
+    `/api/admin/ips${suffix}`
   );
 }
 
-export function getAdminIp(name: string) {
-  return request<AdminIpDetail>(`/api/admin/ips/${encodeURIComponent(name)}`);
+export function getAdminIp(id: string) {
+  return request<AdminIpDetail>(`/api/admin/ips/${encodeURIComponent(id)}`);
 }
 
 export function patchAdminIp(
-  name: string,
-  patch: { description?: string | null; guidelines?: string | null }
+  id: string,
+  patch: { description?: string | null; guidelines?: string | null; caption_text?: string | null }
 ) {
-  return request<{ name: string; description?: string; guidelines?: string }>(
-    `/api/admin/ips/${encodeURIComponent(name)}`,
+  return request<{ id: string; caption_reembed_job_id: string | null }>(
+    `/api/admin/ips/${encodeURIComponent(id)}`,
     { method: "PATCH", body: JSON.stringify(patch) }
   );
 }
 
-export function deleteAdminIp(name: string) {
-  return request<{ ok: boolean; deleted: number }>(
-    `/api/admin/ips/${encodeURIComponent(name)}`,
+export function deleteAdminIp(id: string) {
+  return request<{ ok: boolean; deleted_uploads: number }>(
+    `/api/admin/ips/${encodeURIComponent(id)}`,
     { method: "DELETE" }
   );
 }
 
-export async function uploadAdminImages(name: string, files: File[]) {
+export async function uploadAdminImages(id: string, files: File[]) {
   const form = new FormData();
   for (const f of files) form.append("images", f);
 
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(
-    `${API}/api/admin/ips/${encodeURIComponent(name)}/images`,
-    { method: "POST", headers, body: form }
-  );
+  const res = await fetch(`${API}/api/admin/ips/${encodeURIComponent(id)}/images`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || res.statusText);
   }
-  return res.json() as Promise<{
-    uploaded: { key: string; etag: string }[];
-    sync: IpSyncResult | null;
-  }>;
+  return res.json() as Promise<{ uploaded: number; job_id: string }>;
 }
 
-export function deleteAdminImage(name: string, key: string) {
-  return request<{ ok: boolean; sync: IpSyncResult | null }>(
-    `/api/admin/ips/${encodeURIComponent(name)}/images`,
-    { method: "DELETE", body: JSON.stringify({ key }) }
+export function deleteAdminImage(id: string, imageId: string) {
+  return request<{ ok: boolean }>(
+    `/api/admin/ips/${encodeURIComponent(id)}/images/${encodeURIComponent(imageId)}`,
+    { method: "DELETE" }
   );
-}
-
-export function triggerAdminSync() {
-  return request<SyncResult>("/api/admin/sync", { method: "POST" });
-}
-
-export function getAdminSyncStatus() {
-  return request<SyncStatus>("/api/admin/sync/status");
-}
-
-export interface ReindexResult {
-  target_count: number;
-  enqueued: number;
-  total_reset: number;
-  total_removed_augmented: number;
-  results: Array<{
-    trademark_id: string;
-    reset: number;
-    removed_augmented: number;
-    job_id: string | null;
-    error?: string;
-  }>;
-}
-
-export function triggerAdminReindex(opts: {
-  all_tenants?: boolean;
-  trademark_ids?: string[];
-} = {}) {
-  return request<ReindexResult>("/api/admin/reindex", {
-    method: "POST",
-    body: JSON.stringify(opts),
-  });
 }
 
 // --- Brand monitoring (scrape target sites for IP infringements) ---

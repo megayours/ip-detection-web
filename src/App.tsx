@@ -160,7 +160,7 @@ export default function App() {
           element={<AdminRoute><Admin /></AdminRoute>}
         />
         <Route
-          path="/admin/ips/:name"
+          path="/admin/ips/:id"
           element={<AdminRoute><AdminIpDetail /></AdminRoute>}
         />
       </Routes>
