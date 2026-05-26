@@ -610,6 +610,17 @@ function sourceLabel(s: string) {
 }
 
 /**
+ * Unified sort/badge score. Exact-IP matches rank by the calibrated combined
+ * score; look-alikes (distinct IP, no calibrator signal) rank by raw visual
+ * similarity. Both render in one strip sorted by this value.
+ */
+function displayScore(m: IpReviewMatch): number {
+  return m.relationship === "lookalike"
+    ? m.scores.visual_similarity ?? 0
+    : m.scores.calibrator_combined ?? 0;
+}
+
+/**
  * Helpers for clearance match state. Both columns (sticky asset + matches
  * list) read the same `activeMatchId` so the asset panel always knows which
  * match's annotations it's editing. The state lives on the page-level
@@ -653,9 +664,7 @@ function ClearanceProvider({
       seen.add(m.id);
       unique.push(m);
     }
-    return unique.sort(
-      (a, b) => (b.scores.calibrator_combined ?? 0) - (a.scores.calibrator_combined ?? 0),
-    );
+    return unique.sort((a, b) => displayScore(b) - displayScore(a));
   }, [matches]);
 
   const decisionByMatch = useMemo(() => {
@@ -802,7 +811,13 @@ function ClearanceComparison({
   review: IpReview;
   reload: () => void;
 }) {
-  const matches = review.result?.matches ?? [];
+  // Fold look-alikes into the same list as exact-IP matches so the strip is one
+  // queue sorted by score. Tagged here so display/sort treats them distinctly
+  // regardless of whether the backend set `relationship`.
+  const lookalikes = (review.result?.lookalikes ?? []).map(
+    (m) => ({ ...m, relationship: "lookalike" as const }),
+  );
+  const matches = [...(review.result?.matches ?? []), ...lookalikes];
   const decisions = review.match_decisions ?? [];
   return (
     <ClearanceProvider
@@ -878,7 +893,6 @@ function ClearanceComparisonInner({
           </ImageFrame>
         </div>
       )}
-      <LookalikesSection lookalikes={review.result?.lookalikes ?? []} />
     </div>
   );
 }
@@ -1021,7 +1035,8 @@ function ThumbnailStrip({
         const decision = decisionByMatch.get(m.id);
         const isActive = m.id === activeId;
         const ref = m.reference_images?.[0]?.image_url;
-        const score = Math.round((m.scores.calibrator_combined ?? 0) * 100);
+        const score = Math.round(displayScore(m) * 100);
+        const isLookalike = m.relationship === "lookalike";
         const ringClass = isActive
           ? "ring-2 ring-stone-900 border-stone-900"
           : decision?.decision === "flag"
@@ -1048,6 +1063,11 @@ function ThumbnailStrip({
               </span>
               <span className="text-[9px] text-stone-500 shrink-0">{score}%</span>
             </div>
+            {isLookalike && (
+              <div className="mt-0.5 text-[8px] uppercase tracking-wider font-bold text-amber-600">
+                Look-alike
+              </div>
+            )}
             {decision && (
               <div className="mt-0.5 text-[8px] uppercase tracking-wider font-bold">
                 <span
@@ -1064,57 +1084,6 @@ function ThumbnailStrip({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-/**
- * Read-only "Visually similar" band. Renders IpReviewResult.lookalikes —
- * candidates the VLM ruled a *distinct* IP but that resemble the asset closely
- * enough to flag (e.g. Wooloo for a Lamball query). Kept separate from the
- * exact-IP matches above: no decision/annotation affordances, just a heads-up
- * grid the reviewer can scan for potential infringement leads.
- */
-function LookalikesSection({ lookalikes }: { lookalikes: IpReviewMatch[] }) {
-  if (lookalikes.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2">
-      <div className="flex items-baseline gap-2">
-        <span className="text-[11px] font-semibold text-stone-700">
-          Visually similar
-        </span>
-        <span className="text-[10px] text-stone-400">
-          distinct IP per automated check — resemblance may warrant review
-        </span>
-      </div>
-      <div className="mt-2 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        {lookalikes.map((m) => {
-          const ref = m.reference_images?.[0]?.image_url;
-          const sim = Math.round((m.scores.visual_similarity ?? 0) * 100);
-          return (
-            <div
-              key={m.id}
-              className="shrink-0 w-28 rounded-lg border border-stone-200 bg-white p-1.5"
-              title={m.justification || m.ip_name || ""}
-            >
-              <div className="w-full aspect-square rounded-md bg-stone-50 border border-stone-200 overflow-hidden">
-                {ref ? (
-                  <img src={ref} alt="" className="w-full h-full object-contain" />
-                ) : null}
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-1">
-                <span className="text-[10px] font-semibold text-stone-800 truncate">
-                  {m.ip_name || "—"}
-                </span>
-                <span className="text-[9px] text-stone-500 shrink-0">{sim}%</span>
-              </div>
-              <div className="text-[8px] text-stone-400 truncate">
-                {sourceLabel(m.catalog_source)}
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -1173,6 +1142,11 @@ function ReferenceDetailsPanel({
               <div className="text-[11px] text-stone-500 mt-0.5">
                 {sourceLabel(m.catalog_source)}
               </div>
+              {m.relationship === "lookalike" && (
+                <div className="text-[11px] text-amber-600 mt-0.5">
+                  Look-alike — distinct IP per automated check, resemblance may warrant review
+                </div>
+              )}
             </div>
             {current && (
               <span
