@@ -52,7 +52,6 @@ export default function ClearanceReviewNew() {
   const [assetFile, setAssetFile] = useState<File | null>(null);
   const [assetPreview, setAssetPreview] = useState<string>("");
 
-  const [assetName, setAssetName] = useState("");
   const [assetType, setAssetType] = useState<string>("");
   const [intendedUse, setIntendedUse] = useState("");
   const [placement, setPlacement] = useState<"central" | "incidental" | "">("");
@@ -77,7 +76,7 @@ export default function ClearanceReviewNew() {
   }, [assetFile]);
 
   const step1Done = !!assetFile;
-  const step2Done = step1Done && !!assetType && !!placement;
+  const step2Done = step1Done && !!assetType;
   const step3Done = step2Done; // territories + categories optional, but card still unlocks step 4
   const step4Done = step3Done; // inspiration board optional
   const canSubmit = step1Done && step2Done && !!title.trim() && !submitting;
@@ -103,7 +102,6 @@ export default function ClearanceReviewNew() {
       const ctx: IpReviewContext = {
         title: title.trim(),
         mode: "clearance",
-        asset_name: assetName.trim() || undefined,
         asset_type: assetType || undefined,
         intended_use: intendedUse.trim() || undefined,
         asset_placement: placement || undefined,
@@ -167,14 +165,6 @@ export default function ClearanceReviewNew() {
         disabled={!step1Done}
       >
         <div className="space-y-3">
-          <input
-            type="text"
-            value={assetName}
-            onChange={(e) => setAssetName(e.target.value)}
-            placeholder="Asset name (optional) — e.g. 'Bandit, the studio mascot'"
-            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
-          />
-
           <div>
             <div className="text-xs font-semibold text-stone-700 mb-1.5">
               What kind of asset?
@@ -198,7 +188,8 @@ export default function ClearanceReviewNew() {
 
           <div>
             <div className="text-xs font-semibold text-stone-700 mb-1.5">
-              Is this asset central to the work or incidental / background?
+              Is this asset central to the work or incidental / background?{" "}
+              <span className="font-normal text-stone-400">(optional)</span>
             </div>
             <div className="flex gap-1.5">
               {(["central", "incidental"] as const).map((p) => (
