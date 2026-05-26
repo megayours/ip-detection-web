@@ -1200,6 +1200,9 @@ export interface IpReviewMatch {
   justification: string | null;
   closest_ref: string | null;
   reference_images: { id: string; image_url: string }[];
+  // "lookalike" for entries in IpReviewResult.lookalikes — visually close but
+  // a distinct IP per the VLM.
+  relationship?: "lookalike";
 }
 
 export interface IpReviewResult {
@@ -1208,6 +1211,9 @@ export interface IpReviewResult {
   image_height: number;
   segments: Record<RightsType, IpReviewSegment>;
   matches: IpReviewMatch[];
+  // Visually-similar-but-distinct IPs (e.g. Wooloo for a Lamball query),
+  // surfaced as a secondary band separate from the exact-IP `matches`.
+  lookalikes?: IpReviewMatch[];
   verdict_lines: string[];
   scope_disclosure: string[];
   context_echo: Record<string, unknown>;

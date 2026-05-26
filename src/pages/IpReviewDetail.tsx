@@ -878,6 +878,7 @@ function ClearanceComparisonInner({
           </ImageFrame>
         </div>
       )}
+      <LookalikesSection lookalikes={review.result?.lookalikes ?? []} />
     </div>
   );
 }
@@ -1063,6 +1064,57 @@ function ThumbnailStrip({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Read-only "Visually similar" band. Renders IpReviewResult.lookalikes —
+ * candidates the VLM ruled a *distinct* IP but that resemble the asset closely
+ * enough to flag (e.g. Wooloo for a Lamball query). Kept separate from the
+ * exact-IP matches above: no decision/annotation affordances, just a heads-up
+ * grid the reviewer can scan for potential infringement leads.
+ */
+function LookalikesSection({ lookalikes }: { lookalikes: IpReviewMatch[] }) {
+  if (lookalikes.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-3 py-2">
+      <div className="flex items-baseline gap-2">
+        <span className="text-[11px] font-semibold text-stone-700">
+          Visually similar
+        </span>
+        <span className="text-[10px] text-stone-400">
+          distinct IP per automated check — resemblance may warrant review
+        </span>
+      </div>
+      <div className="mt-2 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {lookalikes.map((m) => {
+          const ref = m.reference_images?.[0]?.image_url;
+          const sim = Math.round((m.scores.visual_similarity ?? 0) * 100);
+          return (
+            <div
+              key={m.id}
+              className="shrink-0 w-28 rounded-lg border border-stone-200 bg-white p-1.5"
+              title={m.justification || m.ip_name || ""}
+            >
+              <div className="w-full aspect-square rounded-md bg-stone-50 border border-stone-200 overflow-hidden">
+                {ref ? (
+                  <img src={ref} alt="" className="w-full h-full object-contain" />
+                ) : null}
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-1">
+                <span className="text-[10px] font-semibold text-stone-800 truncate">
+                  {m.ip_name || "—"}
+                </span>
+                <span className="text-[9px] text-stone-500 shrink-0">{sim}%</span>
+              </div>
+              <div className="text-[8px] text-stone-400 truncate">
+                {sourceLabel(m.catalog_source)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
