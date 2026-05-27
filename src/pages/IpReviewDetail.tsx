@@ -1841,9 +1841,22 @@ function FindingRow({
             {f.domain}
           </span>
           {isDismissed && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">
-              dismissed
-            </span>
+            f.dismissal_reason?.startsWith("dead_link") ? (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700"
+                title={`Listing gone (${f.availability ?? f.dismissal_reason})${
+                  f.last_checked_at
+                    ? ` · checked ${new Date(f.last_checked_at).toLocaleDateString()}`
+                    : ""
+                }`}
+              >
+                dead link
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">
+                dismissed
+              </span>
+            )
           )}
           {f.is_approved_licensee && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">

@@ -1332,6 +1332,9 @@ export interface IpReviewFinding {
   enforcement_priority: number;
   found_at: string;
   dismissed_at: string | null;
+  availability: string | null;
+  dismissal_reason: string | null;
+  last_checked_at: string | null;
 }
 
 export interface IpReviewContext {
