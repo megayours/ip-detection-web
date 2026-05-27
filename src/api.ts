@@ -1321,6 +1321,7 @@ export interface IpReviewFinding {
   availability: string | null;
   dismissal_reason: string | null;
   last_checked_at: string | null;
+  source_method: string | null;
 }
 
 export interface IpReviewContext {

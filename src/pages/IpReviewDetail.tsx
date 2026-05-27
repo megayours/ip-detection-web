@@ -1626,6 +1626,22 @@ function priorityBand(p: number): "high" | "med" | "low" {
   return "low";
 }
 
+// Short, highlighted label for the scrape method that surfaced a finding.
+function methodChip(method: string): { label: string; cls: string } {
+  switch (method) {
+    case "nodriver_direct":
+      return { label: "direct", cls: "bg-violet-100 text-violet-700" };
+    case "serper_google":
+      return { label: "google", cls: "bg-blue-100 text-blue-700" };
+    case "brave_sidestep":
+      return { label: "brave", cls: "bg-teal-100 text-teal-700" };
+    case "scrapfly_direct":
+      return { label: "scrapfly", cls: "bg-orange-100 text-orange-700" };
+    default:
+      return { label: method, cls: "bg-stone-100 text-stone-600" };
+  }
+}
+
 function PriorityBanner({
   counts,
   active,
@@ -1857,6 +1873,14 @@ function FindingRow({
                 dismissed
               </span>
             )
+          )}
+          {f.source_method && (
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`}
+              title={`Found via ${f.source_method}`}
+            >
+              {methodChip(f.source_method).label}
+            </span>
           )}
           {f.is_approved_licensee && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">
