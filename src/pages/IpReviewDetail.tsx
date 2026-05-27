@@ -1943,15 +1943,37 @@ function FindingComparison({
         <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
           Found on {f.domain}
         </figcaption>
-        <ImageFrame>
-          {f.image_url ? (
-            <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
-              <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
+        {f.screenshot_url ? (
+          // Real listing-page screenshot — the most useful view of the finding.
+          <>
+            <a
+              href={f.page_url}
+              target="_blank"
+              rel="noreferrer"
+              title="Open listing"
+              className="flex justify-center bg-stone-50 border border-stone-200 rounded-lg overflow-hidden"
+            >
+              <img src={f.screenshot_url} alt="listing page" className="max-h-[72vh] w-auto object-contain" />
             </a>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
-          )}
-        </ImageFrame>
+            {f.image_url && (
+              <div className="flex items-center gap-2 justify-center mt-2 text-[10px] uppercase tracking-wide text-stone-400">
+                matched image
+                <img src={f.image_url} alt="matched" className="w-12 h-12 rounded object-cover border border-stone-200" />
+              </div>
+            )}
+          </>
+        ) : (
+          // No screenshot yet (enrichment pending / failed) — show the match image.
+          <ImageFrame>
+            {f.image_url ? (
+              <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
+                <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
+              </a>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
+            )}
+          </ImageFrame>
+        )}
       </figure>
 
       <div className="flex items-center gap-2 flex-wrap">

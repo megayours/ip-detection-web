@@ -1331,6 +1331,7 @@ export interface IpReviewFinding {
   infringement_type: string | null;
   infringement_reasoning: string | null;
   license_status: string | null;
+  screenshot_url: string | null;
 }
 
 export interface IpReviewContext {
