@@ -6,15 +6,13 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
+import RegistryAudit from "./pages/RegistryAudit";
 import RegistryWizard from "./pages/RegistryWizard";
 import Cases from "./pages/Cases";
 import CaseDetail from "./pages/CaseDetail";
-import Monitor from "./pages/Monitor";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
-import MonitoringReviewNew from "./pages/MonitoringReviewNew";
 import IpReviewDetail from "./pages/IpReviewDetail";
-import IpReviewAudit from "./pages/IpReviewAudit";
 import BrandsCatalog from "./pages/BrandsCatalog";
 import DesignsCatalog from "./pages/DesignsCatalog";
 import PopCultureCatalog from "./pages/PopCultureCatalog";
@@ -93,6 +91,10 @@ export default function App() {
           path="/registry/:id"
           element={<ProtectedRoute><RegistryDetail /></ProtectedRoute>}
         />
+        <Route
+          path="/registry/:id/audit"
+          element={<ProtectedRoute><RegistryAudit /></ProtectedRoute>}
+        />
         <Route path="/trademarks" element={<Navigate to="/registry" replace />} />
         <Route path="/trademarks/:id" element={<RedirectTrademark />} />
         <Route
@@ -105,16 +107,8 @@ export default function App() {
           element={<ProtectedRoute><ClearanceReviewNew /></ProtectedRoute>}
         />
         <Route
-          path="/ip-reviews/new/monitoring"
-          element={<ProtectedRoute><MonitoringReviewNew /></ProtectedRoute>}
-        />
-        <Route
           path="/ip-reviews/:id"
           element={<ProtectedRoute><IpReviewDetail /></ProtectedRoute>}
-        />
-        <Route
-          path="/ip-reviews/:id/audit"
-          element={<ProtectedRoute><IpReviewAudit /></ProtectedRoute>}
         />
         <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
         <Route
@@ -136,10 +130,6 @@ export default function App() {
         <Route
           path="/cases/:id"
           element={<ProtectedRoute><CaseDetail /></ProtectedRoute>}
-        />
-        <Route
-          path="/monitor"
-          element={<ProtectedRoute><Monitor /></ProtectedRoute>}
         />
         <Route
           path="/settings"

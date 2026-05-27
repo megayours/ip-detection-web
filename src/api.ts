@@ -1295,8 +1295,8 @@ export interface MonitorAuditRun {
   candidates: MonitorAuditCandidate[];
 }
 
-export async function getIpReviewAudit(id: string) {
-  return request<{ runs: MonitorAuditRun[] }>(`/api/ip-reviews/${id}/audit`);
+export async function getIpMonitoringAudit(ipId: string) {
+  return request<{ runs: MonitorAuditRun[] }>(`/api/ip/${ipId}/monitoring/audit`);
 }
 
 export interface IpLicense {
@@ -1359,20 +1359,82 @@ export async function openIpReviewReport(id: string): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+// --- IP-scoped monitoring (platforms + findings live under the IP) ---
+
+/** Platforms (monitored domains) wired to a single IP. */
+export function listIpMonitoringPlatforms(ipId: string) {
+  return request<{ platforms: MonitoredDomain[] }>(
+    `/api/ip/${ipId}/monitoring/platforms`,
+  );
+}
+
+/** Add a platform by bare host or full URL — the backend normalises it. */
+export function addIpMonitoringPlatform(ipId: string, domain: string) {
+  return request<{ platform: MonitoredDomain; jobs_enqueued: number }>(
+    `/api/ip/${ipId}/monitoring/platforms`,
+    { method: "POST", body: JSON.stringify({ domain }) },
+  );
+}
+
+export function setIpMonitoringPlatformEnabled(
+  ipId: string,
+  domainId: string,
+  enabled: boolean,
+) {
+  return request<{ platform: MonitoredDomain }>(
+    `/api/ip/${ipId}/monitoring/platforms/${domainId}`,
+    { method: "PATCH", body: JSON.stringify({ enabled }) },
+  );
+}
+
+export function removeIpMonitoringPlatform(ipId: string, domainId: string) {
+  return request<{ ok: boolean }>(
+    `/api/ip/${ipId}/monitoring/platforms/${domainId}`,
+    { method: "DELETE" },
+  );
+}
+
+/** "Refresh now" — fans out one run per linked platform server-side. */
+export function triggerIpMonitoringRun(ipId: string) {
+  return request<{ jobs_enqueued: number }>(`/api/ip/${ipId}/monitoring/runs`, {
+    method: "POST",
+  });
+}
+
+export function listIpMonitoringFindings(
+  ipId: string,
+  opts: { include_dismissed?: boolean } = {},
+) {
+  const params = new URLSearchParams();
+  if (opts.include_dismissed) params.set("include_dismissed", "true");
+  const qs = params.toString();
+  return request<{
+    findings: IpReviewFinding[];
+    monitoring_run_in_progress: boolean;
+  }>(`/api/ip/${ipId}/monitoring/findings${qs ? `?${qs}` : ""}`);
+}
+
+export function dismissIpFinding(ipId: string, resultId: string) {
+  return request<{ ok: boolean }>(
+    `/api/ip/${ipId}/monitoring/findings/${resultId}/dismiss`,
+    { method: "POST" },
+  );
+}
+
 /**
  * Fetch a per-finding takedown packet with the bearer token attached and
  * open it in a new tab. Anchor `href` navigation doesn't carry the
  * Authorization header, so the request would 401 — instead we pull the
  * PDF as a Blob and hand the browser a blob: URL.
  */
-export async function openIpReviewFindingTakedownPacket(
-  reviewId: string,
+export async function openIpFindingTakedownPacket(
+  ipId: string,
   resultId: string,
 ): Promise<void> {
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(
-    `${API}/api/ip-reviews/${reviewId}/findings/${resultId}/takedown-packet.pdf`,
+    `${API}/api/ip/${ipId}/monitoring/findings/${resultId}/takedown-packet.pdf`,
     { headers },
   );
   if (!res.ok) {
@@ -1384,57 +1446,4 @@ export async function openIpReviewFindingTakedownPacket(
   window.open(url, "_blank", "noopener,noreferrer");
   // Revoke after a beat — early revoke kills the open in some browsers.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-export function dismissIpReviewFinding(reviewId: string, resultId: string) {
-  return request<{ ok: boolean }>(
-    `/api/ip-reviews/${reviewId}/findings/${resultId}/dismiss`,
-    { method: "POST" },
-  );
-}
-
-export interface MonitoringReviewContext {
-  title: string;
-  monitored_ip_catalog_id: string;
-  /** Existing monitored_domains IDs the user kept selected. */
-  monitored_platforms?: string[];
-  /** New URLs (or hostnames) the user typed — backend creates the
-   *  corresponding monitored_domains rows idempotently. */
-  new_platform_urls?: string[];
-  notes?: string;
-}
-
-export class IpNeedsKeywordsError extends Error {
-  ip_id: string;
-  constructor(ip_id: string, message = "IP has no monitoring keywords yet.") {
-    super(message);
-    this.name = "IpNeedsKeywordsError";
-    this.ip_id = ip_id;
-  }
-}
-
-export async function createMonitoringReview(ctx: MonitoringReviewContext) {
-  const form = new FormData();
-  form.append("title", ctx.title);
-  form.append("mode", "monitoring");
-  form.append("monitored_ip_catalog_id", ctx.monitored_ip_catalog_id);
-  if (ctx.notes) form.append("notes", ctx.notes);
-  if (ctx.monitored_platforms?.length) form.append("monitored_platforms", JSON.stringify(ctx.monitored_platforms));
-  if (ctx.new_platform_urls?.length) form.append("new_platform_urls", JSON.stringify(ctx.new_platform_urls));
-
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${API}/api/ip-reviews`, { method: "POST", headers, body: form });
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({ error: res.statusText }))) as {
-      error?: string;
-      ip_id?: string;
-      message?: string;
-    };
-    if (err.error === "ip_needs_keywords" && err.ip_id) {
-      throw new IpNeedsKeywordsError(err.ip_id, err.message);
-    }
-    throw new Error(err.error || res.statusText);
-  }
-  return res.json() as Promise<{ id: string; platforms: string[] }>;
 }

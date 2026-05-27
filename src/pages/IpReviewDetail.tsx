@@ -2,25 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deleteIpReview,
-  addIpLicense,
-  dismissIpReviewFinding,
   getIpReview,
-  getMonitoringSettings,
-  openIpReviewFindingTakedownPacket,
   openIpReviewReport,
-  listMonitoredDomains,
   setIpReviewMatchDecision,
-  triggerMonitoringRun,
   updateIpReviewDecision,
   type AnnotationShape,
   type IpReview,
   type IpReviewDecision,
-  type IpReviewFinding,
   type IpReviewMatch,
   type IpReviewMatchDecision,
   type IpReviewMatchDecisionValue,
-  type MonitoredDomain,
-  type MonitoringSettings,
   type RightsType,
   type RiskBand,
 } from "../api";
@@ -60,14 +51,8 @@ export default function IpReviewDetail() {
   useEffect(() => {
     if (!review) return;
     // Clearance: poll only while the detection job is running.
-    // Monitoring: poll every 10s — findings are produced asynchronously
-    // by the scheduler, so a "complete" status still expects fresh data
-    // to keep flowing in.
-    let interval: number | null = null;
-    if (review.status === "processing") interval = 3000;
-    else if (review.mode === "monitoring") interval = 10000;
-    if (interval == null) return;
-    const t = setInterval(reload, interval);
+    if (review.status !== "processing") return;
+    const t = setInterval(reload, 3000);
     return () => clearInterval(t);
   }, [review, reload]);
 
@@ -91,66 +76,20 @@ export default function IpReviewDetail() {
     navigate("/clearance");
   }
 
-  const isClearance = review.mode === "clearance";
-
-  if (isClearance) {
-    // The asset column reads activeMatchId from ClearanceContext, so the
-    // provider must wrap both columns. We render the provider even when
-    // there's no result yet — the sticky asset still shows the input.
-    const matches = review.result?.matches ?? [];
-    const decisions = review.match_decisions ?? [];
-    const content = (
-      <div className="max-w-screen-2xl mx-auto px-6 py-4 space-y-3">
-        <Header
-          review={review}
-          onDecide={(d) => setPendingDecision(d)}
-          onDelete={handleDelete}
-          hideImage
-          hideRiskStrip
-        />
-        {review.status === "processing" && <ProcessingNotice />}
-        {review.status === "failed" && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            Review failed. The detection job hit an error — check the worker logs
-            or rerun the wizard.
-          </div>
-        )}
-        {review.status === "complete" && review.result && (
-          <ClearanceComparison
-            review={review}
-            reload={reload}
-          />
-        )}
-        {pendingDecision && (
-          <DecisionModal
-            review={review}
-            pending={pendingDecision}
-            onClose={() => setPendingDecision(null)}
-            onUpdated={reload}
-          />
-        )}
-      </div>
-    );
-    return review.status === "complete" && review.result ? (
-      <ClearanceProvider
-        matches={matches}
-        decisions={decisions}
-        reviewId={review.id}
-        onUpdated={reload}
-      >
-        {content}
-      </ClearanceProvider>
-    ) : (
-      content
-    );
-  }
-
-  return (
-    <div className="max-w-screen-2xl mx-auto px-6 py-8 space-y-6">
+  // Clearance-only page. Monitoring now lives IP-scoped under /registry/:id.
+  // The asset column reads activeMatchId from ClearanceContext, so the
+  // provider must wrap both columns. We render the provider even when
+  // there's no result yet — the sticky asset still shows the input.
+  const matches = review.result?.matches ?? [];
+  const decisions = review.match_decisions ?? [];
+  const content = (
+    <div className="max-w-screen-2xl mx-auto px-6 py-4 space-y-3">
       <Header
         review={review}
         onDecide={(d) => setPendingDecision(d)}
         onDelete={handleDelete}
+        hideImage
+        hideRiskStrip
       />
       {review.status === "processing" && <ProcessingNotice />}
       {review.status === "failed" && (
@@ -159,9 +98,12 @@ export default function IpReviewDetail() {
           or rerun the wizard.
         </div>
       )}
-
-      <MonitoringView review={review} onUpdated={reload} />
-
+      {review.status === "complete" && review.result && (
+        <ClearanceComparison
+          review={review}
+          reload={reload}
+        />
+      )}
       {pendingDecision && (
         <DecisionModal
           review={review}
@@ -171,6 +113,18 @@ export default function IpReviewDetail() {
         />
       )}
     </div>
+  );
+  return review.status === "complete" && review.result ? (
+    <ClearanceProvider
+      matches={matches}
+      decisions={decisions}
+      reviewId={review.id}
+      onUpdated={reload}
+    >
+      {content}
+    </ClearanceProvider>
+  ) : (
+    content
   );
 }
 
@@ -187,17 +141,13 @@ function Header({
   hideImage?: boolean;
   hideRiskStrip?: boolean;
 }) {
-  const isMonitoring = review.mode === "monitoring";
   const showRiskStrip =
-    !hideRiskStrip &&
-    review.mode === "clearance" && review.status === "complete" && !!review.result;
-  const showDecisionCtas =
-    !isMonitoring && review.status === "complete";
+    !hideRiskStrip && review.status === "complete" && !!review.result;
+  const showDecisionCtas = review.status === "complete";
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-4">
       <div className="flex items-start gap-5">
-        {/* Monitoring already pins one IP — the asset image is redundant noise. */}
-        {!hideImage && !isMonitoring && review.asset_image_url && (
+        {!hideImage && review.asset_image_url && (
           <img
             src={review.asset_image_url}
             alt=""
@@ -209,22 +159,16 @@ function Header({
             <div className="min-w-0">
               <h1 className="text-xl font-bold tracking-tight truncate">{review.title}</h1>
               <div className="text-xs text-stone-400 mt-0.5">
-                {isMonitoring
-                  ? `Monitoring review${review.monitored_ip?.name ? ` · ${review.monitored_ip.name}` : ""}`
-                  : "Clearance review"}
+                Clearance review
                 {" · "}created {new Date(review.created_at).toLocaleString()}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-              {isMonitoring ? (
-                <MonitoringStatusPill review={review} />
-              ) : (
-                !showDecisionCtas && <StatusPill status={review.status} />
-              )}
+              {!showDecisionCtas && <StatusPill status={review.status} />}
               {showDecisionCtas && (
                 <DecisionCta review={review} onDecide={onDecide} />
               )}
-              {!isMonitoring && review.status === "complete" && (
+              {review.status === "complete" && (
                 <ExportPdfButton reviewId={review.id} />
               )}
               <button
@@ -299,109 +243,6 @@ function DecisionCta({
       </button>
     </>
   );
-}
-
-/**
- * Monitoring header pill. A monitoring review is never really "complete"
- * — the initial scan finishes but the scheduler keeps running on cadence.
- * Show either: a live "Scraping" state during the initial run, or the
- * next scheduled run computed from the linked platforms' last_run_at and
- * the tenant's monitoring frequency. Falls back to a neutral "Active"
- * label while the data is still loading or when no schedule can be
- * computed (e.g. no platforms linked).
- */
-function MonitoringStatusPill({ review }: { review: IpReview }) {
-  const [domains, setDomains] = useState<MonitoredDomain[] | null>(null);
-  const [settings, setSettings] = useState<MonitoringSettings | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    Promise.all([
-      listMonitoredDomains().catch(() => ({ domains: [] as MonitoredDomain[] })),
-      getMonitoringSettings().catch(() => ({ settings: null as MonitoringSettings | null })),
-    ]).then(([d, s]) => {
-      if (!alive) return;
-      setDomains(d.domains);
-      setSettings(s.settings);
-    });
-    return () => { alive = false; };
-  }, [review.id]);
-
-  // A monitor_run is currently pending or executing for one of this
-  // review's platforms — supersedes the next-run countdown.
-  if (review.status === "processing" || review.monitoring_run_in_progress) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-blue-100 text-blue-700">
-        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-        In progress
-      </span>
-    );
-  }
-  if (review.status === "failed") {
-    return <StatusPill status="failed" />;
-  }
-
-  const next = computeNextRun(review, domains, settings);
-  if (!next) {
-    return (
-      <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-stone-100 text-stone-600">
-        Active
-      </span>
-    );
-  }
-  return (
-    <span
-      className="px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-stone-100 text-stone-700"
-      title={next.absolute}
-    >
-      Next run · {next.label}
-    </span>
-  );
-}
-
-const FREQUENCY_MS: Record<string, number> = {
-  daily: 24 * 60 * 60 * 1000,
-  weekly: 7 * 24 * 60 * 60 * 1000,
-};
-
-function computeNextRun(
-  review: IpReview,
-  domains: MonitoredDomain[] | null,
-  settings: MonitoringSettings | null,
-): { label: string; absolute: string } | null {
-  if (!domains || !settings) return null;
-  const platformIds = new Set(review.monitored_platforms);
-  if (platformIds.size === 0) return null;
-  const linked = domains.filter((d) => platformIds.has(d.id));
-  if (linked.length === 0) return null;
-  const intervalMs = FREQUENCY_MS[settings.monitoring_frequency] ?? FREQUENCY_MS.weekly;
-
-  // A platform that's never run yet pulls "next run" to "due now" — the
-  // scheduler will pick it up on its next tick. Otherwise the earliest
-  // (last_run + interval) across platforms is the next run for this review.
-  let earliest: number | null = null;
-  for (const d of linked) {
-    const t = d.last_run_at ? new Date(d.last_run_at).getTime() + intervalMs : Date.now();
-    if (earliest === null || t < earliest) earliest = t;
-  }
-  if (earliest === null) return null;
-  const date = new Date(earliest);
-  return {
-    label: formatRelativeFuture(date),
-    absolute: date.toLocaleString(),
-  };
-}
-
-function formatRelativeFuture(date: Date): string {
-  const diff = date.getTime() - Date.now();
-  if (diff <= 60_000) return "due now";
-  const mins = Math.round(diff / 60_000);
-  if (mins < 60) return `in ${mins} min`;
-  const hours = Math.round(mins / 60);
-  if (hours < 48) return `in ${hours} h`;
-  const days = Math.round(hours / 24);
-  if (days < 14) return `in ${days} d`;
-  return date.toLocaleDateString();
 }
 
 function StatusPill({ status }: { status: IpReview["status"] }) {
@@ -1432,367 +1273,6 @@ function DecisionModal({
   );
 }
 
-// --- Monitoring-mode view ----------------------------------------------
-
-function MonitoringView({
-  review,
-  onUpdated,
-}: {
-  review: IpReview;
-  onUpdated: () => void;
-}) {
-  const findings = review.findings ?? [];
-  const [showDismissed, setShowDismissed] = useState(false);
-  // Enforcement-priority filter driven by the clickable banner cards.
-  // "all" = no filter; clicking a band card toggles its filter on/off.
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
-  // Marketplace/domain tab filter ("all" = every site).
-  const [domainFilter, setDomainFilter] = useState<string>("all");
-  // Optimistically-dismissed result_ids — the server reload eventually
-  // replaces this once `dismissed_at` lands in the polled payload.
-  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
-  const [domains, setDomains] = useState<MonitoredDomain[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState("");
-  // Center-stage comparison: the active finding shown large.
-  const [activeId, setActiveId] = useState<string | null>(null);
-
-  // Pull all tenant domains once so we can label `monitored_platforms`
-  // ids by hostname and show their last_run_at in the empty state.
-  useEffect(() => {
-    let alive = true;
-    listMonitoredDomains()
-      .then(({ domains }) => alive && setDomains(domains))
-      .catch(() => { /* non-fatal — the empty-state still renders */ });
-    return () => { alive = false; };
-  }, []);
-
-  const platformDomains = useMemo(() => {
-    const byId = new Map(domains.map((d) => [d.id, d]));
-    return review.monitored_platforms
-      .map((id) => byId.get(id))
-      .filter((d): d is MonitoredDomain => !!d);
-  }, [domains, review.monitored_platforms]);
-
-  const visible = useMemo(() => {
-    return findings.filter((f) => {
-      const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
-      if (isDismissed && !showDismissed) return false;
-      if (domainFilter !== "all" && f.domain !== domainFilter) return false;
-      if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter]);
-
-  // Marketplace tabs: live (non-dismissed) finding count per domain, busiest first.
-  const domainTabs = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const f of findings) {
-      if (f.dismissed_at || dismissing.has(f.result_id)) continue;
-      m.set(f.domain, (m.get(f.domain) ?? 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [findings, dismissing]);
-
-  // Keep the selected finding valid as filters change; default to the top one.
-  useEffect(() => {
-    if (visible.length === 0) {
-      if (activeId !== null) setActiveId(null);
-      return;
-    }
-    if (!activeId || !visible.some((f) => f.result_id === activeId)) {
-      setActiveId(visible[0].result_id);
-    }
-  }, [visible, activeId]);
-
-  const active = visible.find((f) => f.result_id === activeId) ?? null;
-
-  // Counts ignore dismissed findings — the priority banner reflects the
-  // outstanding workload, not the historical total.
-  const counts = useMemo(() => {
-    const live = findings.filter(
-      (f) => !f.dismissed_at && !dismissing.has(f.result_id),
-    );
-    const high = live.filter((f) => f.enforcement_priority >= 0.75).length;
-    const med = live.filter(
-      (f) => f.enforcement_priority >= 0.5 && f.enforcement_priority < 0.75
-    ).length;
-    const low = live.filter((f) => f.enforcement_priority < 0.5).length;
-    return { high, med, low, total: live.length };
-  }, [findings, dismissing]);
-
-  const dismissedCount = findings.filter(
-    (f) => !!f.dismissed_at || dismissing.has(f.result_id),
-  ).length;
-
-  async function handleDismiss(f: IpReviewFinding) {
-    if (dismissing.has(f.result_id)) return;
-    setDismissing((prev) => new Set(prev).add(f.result_id));
-    try {
-      await dismissIpReviewFinding(review.id, f.result_id);
-      onUpdated();
-    } catch (e) {
-      setDismissing((prev) => {
-        const next = new Set(prev);
-        next.delete(f.result_id);
-        return next;
-      });
-      alert(e instanceof Error ? e.message : "Failed to dismiss finding");
-    }
-  }
-
-  async function handleRefresh() {
-    if (refreshing) return;
-    setRefreshing(true);
-    setRefreshError("");
-    try {
-      // Fire one run per linked domain; the API fans out per IP keyword
-      // server-side. Errors on one domain don't abort the rest.
-      const results = await Promise.allSettled(
-        review.monitored_platforms.map((id) => triggerMonitoringRun(id))
-      );
-      const rejected = results.filter((r) => r.status === "rejected");
-      if (rejected.length === results.length && rejected.length > 0) {
-        setRefreshError("All refresh requests failed — try again later.");
-      }
-      // Findings poll on its own cadence; one immediate reload pulls
-      // whatever's already landed before the worker finishes.
-      onUpdated();
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
-  // Empty-state copy hint: "still scraping" vs. "really nothing yet".
-  // The header pill already shows In progress / Next run — keep the
-  // findings list quiet about run state.
-  const runActive =
-    review.status === "processing" || !!review.monitoring_run_in_progress;
-
-  return (
-    <>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <PriorityBanner
-          counts={counts}
-          active={priorityFilter}
-          onSelect={setPriorityFilter}
-        />
-        <MonitoringFilterContext
-          review={review}
-          platformDomains={platformDomains}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
-          refreshError={refreshError}
-        />
-      </div>
-
-      <div className="rounded-2xl border border-stone-200 bg-white">
-        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between flex-wrap gap-y-2">
-          <h2 className="text-sm font-bold text-stone-900">
-            Findings ({visible.length})
-          </h2>
-          <div className="flex items-center gap-4">
-            <label
-              className={`flex items-center gap-2 text-[11px] ${
-                dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={showDismissed}
-                onChange={(e) => setShowDismissed(e.target.checked)}
-                disabled={dismissedCount === 0}
-              />
-              Show dismissed ({dismissedCount})
-            </label>
-          </div>
-        </div>
-        {domainTabs.length > 1 && (
-          <div className="px-5 py-2 border-b border-stone-100 flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setDomainFilter("all")}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                domainFilter === "all" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-              }`}
-            >
-              All
-            </button>
-            {domainTabs.map(([domain, n]) => (
-              <button
-                key={domain}
-                type="button"
-                onClick={() => setDomainFilter(domain)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                  domainFilter === domain ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                }`}
-              >
-                {domain} <span className="opacity-60">{n}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {visible.length === 0 ? (
-          <div className="px-5 py-8 text-sm text-stone-400 text-center">
-            {runActive
-              ? "Waiting for the first findings to arrive…"
-              : (
-                <>
-                  No findings yet. Click <span className="font-semibold">Refresh now</span>
-                  {" "}above, or wait for the next scheduled run.
-                </>
-              )}
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row">
-            {/* Index: pick a finding to compare */}
-            <div className="lg:w-72 shrink-0 lg:border-r border-stone-100 divide-y divide-stone-100 lg:max-h-[80vh] lg:overflow-y-auto">
-              {visible.map((f) => (
-                <FindingListItem
-                  key={f.result_id}
-                  f={f}
-                  selected={f.result_id === activeId}
-                  isDismissed={!!f.dismissed_at || dismissing.has(f.result_id)}
-                  onSelect={() => setActiveId(f.result_id)}
-                />
-              ))}
-            </div>
-            {/* Center stage: side-by-side comparison of the active finding */}
-            <div className="flex-1 min-w-0 p-5">
-              {active ? (
-                <FindingComparison
-                  key={active.result_id}
-                  f={active}
-                  reviewId={review.id}
-                  ipCatalogId={review.monitored_ip_catalog_id}
-                  isDismissed={!!active.dismissed_at || dismissing.has(active.result_id)}
-                  isDismissing={dismissing.has(active.result_id) && !active.dismissed_at}
-                  onDismiss={() => handleDismiss(active)}
-                  onUpdated={onUpdated}
-                />
-              ) : (
-                <div className="text-sm text-stone-400">Select a finding to compare.</div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-type PriorityFilter = "all" | "high" | "med" | "low";
-
-function priorityBand(p: number): "high" | "med" | "low" {
-  if (p >= 0.75) return "high";
-  if (p >= 0.5) return "med";
-  return "low";
-}
-
-// Short, highlighted label for the scrape method that surfaced a finding.
-function methodChip(method: string): { label: string; cls: string } {
-  switch (method) {
-    case "nodriver_direct":
-      return { label: "direct", cls: "bg-violet-100 text-violet-700" };
-    case "serper_google":
-      return { label: "google", cls: "bg-blue-100 text-blue-700" };
-    case "brave_sidestep":
-      return { label: "brave", cls: "bg-teal-100 text-teal-700" };
-    case "scrapfly_direct":
-      return { label: "scrapfly", cls: "bg-orange-100 text-orange-700" };
-    default:
-      return { label: method, cls: "bg-stone-100 text-stone-600" };
-  }
-}
-
-function PriorityBanner({
-  counts,
-  active,
-  onSelect,
-}: {
-  counts: { high: number; med: number; low: number; total: number };
-  active: PriorityFilter;
-  onSelect: (f: PriorityFilter) => void;
-}) {
-  // Compact toggle pills: clicking the active band clears back to "all".
-  const pill = (
-    band: PriorityFilter,
-    label: string,
-    value: number,
-    tones: { base: string; on: string },
-    title: string,
-  ) => {
-    const isActive = active === band;
-    return (
-      <button
-        type="button"
-        onClick={() => onSelect(isActive && band !== "all" ? "all" : band)}
-        aria-pressed={isActive}
-        title={title}
-        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-          isActive ? tones.on : tones.base
-        }`}
-      >
-        {label} <span className="font-bold tabular-nums">{value}</span>
-      </button>
-    );
-  };
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {pill("high", "High", counts.high,
-        { base: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100", on: "border-red-600 bg-red-600 text-white" },
-        "Enforcement priority ≥ 0.75")}
-      {pill("med", "Medium", counts.med,
-        { base: "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100", on: "border-amber-500 bg-amber-500 text-white" },
-        "0.50–0.74")}
-      {pill("low", "Low", counts.low,
-        { base: "border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100", on: "border-yellow-500 bg-yellow-500 text-white" },
-        "< 0.50")}
-      {pill("all", "All", counts.total,
-        { base: "border-stone-200 bg-stone-100 text-stone-700 hover:bg-stone-200", on: "border-stone-900 bg-stone-900 text-white" },
-        "All findings, across platforms")}
-    </div>
-  );
-}
-
-function MonitoringFilterContext({
-  review,
-  platformDomains,
-  onRefresh,
-  refreshing,
-  refreshError,
-}: {
-  review: IpReview;
-  platformDomains: MonitoredDomain[];
-  onRefresh: () => void;
-  refreshing: boolean;
-  refreshError: string;
-}) {
-  const platformLabel = platformDomains.length > 0
-    ? platformDomains.map((d) => d.domain).join(", ")
-    : review.monitored_platforms.length > 0
-      ? `${review.monitored_platforms.length} platform(s)`
-      : "All monitored";
-  return (
-    <div className="flex items-center gap-3 flex-wrap text-xs text-stone-500">
-      <span className="truncate max-w-[28rem]">
-        <span className="uppercase tracking-wider text-stone-400">Platforms: </span>
-        {platformLabel}
-      </span>
-      {refreshError && <span className="text-red-600">{refreshError}</span>}
-      <button
-        onClick={onRefresh}
-        disabled={refreshing || review.monitored_platforms.length === 0}
-        className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
-      >
-        {refreshing ? "Refreshing…" : "Refresh now"}
-      </button>
-    </div>
-  );
-}
-
 function ExportPdfButton({ reviewId }: { reviewId: string }) {
   const [loading, setLoading] = useState(false);
   return (
@@ -1813,297 +1293,5 @@ function ExportPdfButton({ reviewId }: { reviewId: string }) {
     >
       {loading ? "Preparing…" : "Export PDF"}
     </button>
-  );
-}
-
-function TakedownPacketButton({ reviewId, resultId }: { reviewId: string; resultId: string }) {
-  const [loading, setLoading] = useState(false);
-  return (
-    <button
-      type="button"
-      disabled={loading}
-      onClick={async () => {
-        setLoading(true);
-        try {
-          await openIpReviewFindingTakedownPacket(reviewId, resultId);
-        } catch (e) {
-          alert(e instanceof Error ? e.message : "Failed to open takedown packet");
-        } finally {
-          setLoading(false);
-        }
-      }}
-      className="px-2.5 py-1 rounded-md bg-stone-900 text-white text-[11px] font-semibold hover:bg-stone-800 disabled:opacity-50"
-    >
-      {loading ? "Preparing…" : "Takedown packet"}
-    </button>
-  );
-}
-
-// Compact, selectable index row. Clicking loads it into the comparison panel.
-function FindingListItem({
-  f,
-  selected,
-  isDismissed,
-  onSelect,
-}: {
-  f: IpReviewFinding;
-  selected: boolean;
-  isDismissed: boolean;
-  onSelect: () => void;
-}) {
-  const priorityCls =
-    f.enforcement_priority >= 0.75
-      ? "text-red-700"
-      : f.enforcement_priority >= 0.5
-        ? "text-amber-700"
-        : "text-stone-500";
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition-colors ${
-        selected ? "bg-stone-100" : "hover:bg-stone-50"
-      } ${isDismissed ? "opacity-50" : ""}`}
-    >
-      {f.image_url ? (
-        <img src={f.image_url} alt="" className="w-12 h-12 rounded object-cover border border-stone-200 shrink-0" />
-      ) : (
-        <div className="w-12 h-12 rounded bg-stone-100 shrink-0" />
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-stone-900 truncate">{f.domain}</span>
-          {f.source_method && (
-            <span className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${methodChip(f.source_method).cls}`}>
-              {methodChip(f.source_method).label}
-            </span>
-          )}
-        </div>
-        <div className="text-[11px] text-stone-500 truncate">
-          sim {Math.round((f.similarity_score ?? 0) * 100)}%
-          {f.vlm_verdict ? ` · vlm ${f.vlm_verdict}` : ""}
-        </div>
-      </div>
-      <div className={`text-sm font-bold shrink-0 ${priorityCls}`}>
-        {f.enforcement_priority.toFixed(2)}
-      </div>
-    </button>
-  );
-}
-
-// Center-stage comparison: the protected IP reference next to the marketplace
-// listing image, large and object-contained so a reviewer can adjudicate
-// infringement at a glance — mirroring the clearance comparison UX.
-function FindingComparison({
-  f,
-  reviewId,
-  ipCatalogId,
-  isDismissed,
-  isDismissing,
-  onDismiss,
-  onUpdated,
-}: {
-  f: IpReviewFinding;
-  reviewId: string;
-  ipCatalogId: string | null;
-  isDismissed: boolean;
-  isDismissing: boolean;
-  onDismiss: () => void;
-  onUpdated: () => void;
-}) {
-  const priorityCls =
-    f.enforcement_priority >= 0.75
-      ? "text-red-700"
-      : f.enforcement_priority >= 0.5
-        ? "text-amber-700"
-        : "text-stone-700";
-  const [licensing, setLicensing] = useState(false);
-  const canLicense = !!ipCatalogId && (!!f.seller_name || !!f.seller_url);
-  // Enrichment hit a reCAPTCHA / bot-wall — the screenshot is the challenge
-  // page, not the listing.
-  const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
-
-  async function handleLicense() {
-    if (!ipCatalogId || licensing) return;
-    setLicensing(true);
-    try {
-      await addIpLicense(ipCatalogId, {
-        domain: f.domain,
-        seller_name: f.seller_name,
-        seller_url: f.seller_url,
-      });
-      onUpdated(); // backfill dismisses this + any sibling finding from the seller
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to add license");
-    } finally {
-      setLicensing(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <figure className="m-0">
-        <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
-          Found on {f.domain}
-          {isChallenge && (
-            <span className="ml-1.5 text-red-600 normal-case">⚠ bot-wall page (not the listing)</span>
-          )}
-        </figcaption>
-        {f.screenshot_url ? (
-          // Real listing-page screenshot — the most useful view of the finding.
-          <>
-            <a
-              href={f.page_url}
-              target="_blank"
-              rel="noreferrer"
-              title="Open listing"
-              className="flex justify-center bg-stone-50 border border-stone-200 rounded-lg overflow-hidden"
-            >
-              <img src={f.screenshot_url} alt="listing page" className="max-h-[72vh] w-auto object-contain" />
-            </a>
-            {f.image_url && (
-              <div className="flex items-center gap-2 justify-center mt-2 text-[10px] uppercase tracking-wide text-stone-400">
-                matched image
-                <img src={f.image_url} alt="matched" className="w-12 h-12 rounded object-cover border border-stone-200" />
-              </div>
-            )}
-          </>
-        ) : (
-          // No screenshot yet (enrichment pending / failed) — show the match image.
-          <ImageFrame>
-            {f.image_url ? (
-              <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
-                <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
-              </a>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
-            )}
-          </ImageFrame>
-        )}
-      </figure>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
-        <span className="text-[10px] uppercase tracking-wider text-stone-400">priority</span>
-        {f.source_method && (
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
-            {methodChip(f.source_method).label}
-          </span>
-        )}
-        {f.vlm_verdict && (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
-            vlm: {f.vlm_verdict}
-            {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
-          </span>
-        )}
-        {isChallenge && (
-          <span
-            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-red-100 text-red-700"
-            title="Listing-page enrichment was blocked by a bot-wall / reCAPTCHA — details deferred to a later run"
-          >
-            challenge
-          </span>
-        )}
-        {isDismissed && (
-          f.dismissal_reason === "licensed" ? (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">licensed</span>
-          ) : f.dismissal_reason?.startsWith("dead_link") ? (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700">dead link</span>
-          ) : (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">dismissed</span>
-          )
-        )}
-      </div>
-
-      {/* Listing context (from VLM enrichment) — what's on sale, type, where */}
-      {f.listing_title && (
-        <h3 className="text-sm font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
-      )}
-
-      <div className="flex items-center gap-2 flex-wrap text-[11px]">
-        {f.price && (
-          <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-semibold">{f.price}</span>
-        )}
-        {f.infringement_type && (
-          <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 uppercase tracking-wide font-semibold">
-            {f.infringement_type.replace(/_/g, " ")}
-          </span>
-        )}
-        {f.location && <span className="text-stone-500">📍 {f.location}</span>}
-        {f.license_status && (
-          <span
-            className={`px-1.5 py-0.5 rounded font-semibold ${
-              f.license_status === "likely_licensed"
-                ? "bg-emerald-100 text-emerald-700"
-                : f.license_status === "likely_unlicensed"
-                  ? "bg-red-100 text-red-700"
-                  : "bg-stone-100 text-stone-600"
-            }`}
-          >
-            {f.license_status.replace(/_/g, " ")}
-          </span>
-        )}
-      </div>
-
-      {(f.seller_name || f.seller_url) && (
-        <div className="text-[11px] text-stone-600">
-          <span className="text-stone-400">Seller: </span>
-          {f.seller_url ? (
-            <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
-              {f.seller_name || f.seller_url}
-            </a>
-          ) : (
-            <span className="font-medium">{f.seller_name}</span>
-          )}
-        </div>
-      )}
-
-      {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
-        <div className="text-xs text-stone-600 leading-relaxed border-l-2 border-amber-300 pl-2">
-          <span className="font-semibold text-stone-500">Why flagged: </span>
-          {f.match_explanation || f.infringement_reasoning || f.vlm_reasoning}
-        </div>
-      )}
-
-      {f.description_summary && (
-        <p className="text-[11px] text-stone-500 leading-relaxed">{f.description_summary}</p>
-      )}
-
-      {!f.listing_title && !f.seller_name && !f.match_explanation && !f.description_summary && (
-        <p className="text-[11px] text-stone-400 italic">Listing details still being analysed…</p>
-      )}
-
-      <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-400">
-        <span>sim {Math.round((f.similarity_score ?? 0) * 100)}%</span>
-        {f.inliers != null && <span>· inliers {f.inliers}</span>}
-        <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
-        <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline break-all">
-          · open listing ↗
-        </a>
-      </div>
-
-      <div className="flex items-center gap-2 pt-1 flex-wrap">
-        <TakedownPacketButton reviewId={reviewId} resultId={f.result_id} />
-        {canLicense && !isDismissed && (
-          <button
-            type="button"
-            onClick={handleLicense}
-            disabled={licensing}
-            title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
-            className="px-2.5 py-1 rounded-md border border-emerald-300 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-50 disabled:opacity-50"
-          >
-            {licensing ? "Licensing…" : "License this seller"}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onDismiss}
-          disabled={isDismissed || isDismissing}
-          className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
-        >
-          {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
-        </button>
-      </div>
-    </div>
   );
 }

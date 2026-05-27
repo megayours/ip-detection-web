@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-  getIpReviewAudit,
+  getIpMonitoringAudit,
   type MonitorAuditRun,
   type MonitorAuditCandidate,
 } from "../api";
@@ -249,7 +249,7 @@ function RunCard({ run }: { run: MonitorAuditRun }) {
   );
 }
 
-export default function IpReviewAudit() {
+export default function RegistryAudit() {
   const { id } = useParams<{ id: string }>();
   const [runs, setRuns] = useState<MonitorAuditRun[] | null>(null);
   const [error, setError] = useState("");
@@ -257,7 +257,7 @@ export default function IpReviewAudit() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    getIpReviewAudit(id)
+    getIpMonitoringAudit(id)
       .then((r) => !cancelled && setRuns(r.runs))
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : "Failed to load audit"));
     return () => {
@@ -275,8 +275,8 @@ export default function IpReviewAudit() {
             didn’t become a match.
           </p>
         </div>
-        <Link to={`/ip-reviews/${id}`} className="text-sm text-blue-700 hover:underline">
-          ← Back to review
+        <Link to={`/registry/${id}`} className="text-sm text-blue-700 hover:underline">
+          ← Back to IP
         </Link>
       </div>
 

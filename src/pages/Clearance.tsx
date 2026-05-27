@@ -8,9 +8,9 @@ import ClearanceVisual from "./ClearanceVisual";
  * IP review hub. Linear-style inbox of clearance + monitoring tasks.
  *
  * Routing notes:
- *   - Quick-action buttons launch the existing wizards (`/ip-reviews/new`,
- *     `/ip-reviews/new/monitoring`); each row deep-links to
- *     `/ip-reviews/:id`.
+ *   - Quick-action buttons launch the clearance wizard (`/ip-reviews/new`)
+ *     and the registry (monitoring is now IP-scoped under `/registry/:id`);
+ *     each row deep-links to `/ip-reviews/:id`.
  *   - Legacy fast-check tools (Brands / Visual Match) are hidden from the
  *     nav but still reachable via `/clearance?mode=brands|visual` so
  *     power users can keep their bookmarks alive.
@@ -89,10 +89,10 @@ function Inbox() {
             + Clearance
           </Link>
           <Link
-            to="/ip-reviews/new/monitoring"
+            to="/registry"
             className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
           >
-            + Monitoring
+            Monitoring
           </Link>
         </div>
       </div>
