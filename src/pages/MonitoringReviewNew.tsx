@@ -27,7 +27,6 @@ export default function MonitoringReviewNew() {
   const [keptPlatforms, setKeptPlatforms] = useState<string[]>([]);
   const [newUrlDraft, setNewUrlDraft] = useState("");
   const [newUrls, setNewUrls] = useState<string[]>([]);
-  const [licenseesRaw, setLicenseesRaw] = useState("");
   const [title, setTitle] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -60,15 +59,6 @@ export default function MonitoringReviewNew() {
     () => domains.filter((d) => d.ip_catalog_id === ipId),
     [domains, ipId]
   );
-  const licenseesParsed = useMemo(
-    () =>
-      licenseesRaw
-        .split(/[\n,]+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [licenseesRaw]
-  );
-
   // Default new domains pre-selected; reset on IP change so the platform
   // list always reflects the chosen IP.
   useEffect(() => {
@@ -78,7 +68,6 @@ export default function MonitoringReviewNew() {
   const hasKeywords = !!(selectedIp?.keywords && selectedIp.keywords.length > 0);
   const step1Done = !!ipId;
   const step2Done = step1Done && (keptPlatforms.length + newUrls.length > 0);
-  const step3Done = step2Done;
   const canSubmit = step2Done && hasKeywords && !!title.trim() && !submitting;
 
   function toggle(arr: string[], v: string): string[] {
@@ -103,7 +92,6 @@ export default function MonitoringReviewNew() {
         monitored_ip_catalog_id: ipId,
         monitored_platforms: keptPlatforms.length > 0 ? keptPlatforms : undefined,
         new_platform_urls: newUrls.length > 0 ? newUrls : undefined,
-        approved_licensees: licenseesParsed.length > 0 ? licenseesParsed : undefined,
       });
       navigate(`/ip-reviews/${id}`);
     } catch (e) {
@@ -257,41 +245,13 @@ export default function MonitoringReviewNew() {
         </div>
       </WizardCard>
 
-      {/* --- Step 3: Approved licensees --- */}
+      {/* --- Step 3: Name + submit --- */}
       <WizardCard
         step={3}
-        title="Approved licensees (optional)"
-        done={step3Done}
-        active={step2Done && !step3Done}
-        disabled={!step2Done}
-      >
-        <div className="space-y-2">
-          <p className="text-xs text-stone-500">
-            Domains you've already authorized — findings on these are flagged
-            as approved and excluded from the takedown packet.
-          </p>
-          <textarea
-            value={licenseesRaw}
-            onChange={(e) => setLicenseesRaw(e.target.value)}
-            rows={3}
-            placeholder="One per line or comma-separated&#10;e.g. authorized-distributor.com, official-store.com"
-            className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
-          />
-          {licenseesParsed.length > 0 && (
-            <div className="text-[11px] text-stone-400">
-              {licenseesParsed.length} licensee{licenseesParsed.length === 1 ? "" : "s"} parsed.
-            </div>
-          )}
-        </div>
-      </WizardCard>
-
-      {/* --- Step 4: Name + submit --- */}
-      <WizardCard
-        step={4}
         title="Name this review"
         done={false}
-        active={step3Done}
-        disabled={!step3Done}
+        active={step2Done}
+        disabled={!step2Done}
       >
         <div className="space-y-3">
           <input

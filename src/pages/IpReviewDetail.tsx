@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useNavigate, useParams } from "react-router-dom";
 import {
   deleteIpReview,
+  addIpLicense,
   dismissIpReviewFinding,
   getIpReview,
   getMonitoringSettings,
@@ -1441,7 +1442,6 @@ function MonitoringView({
   onUpdated: () => void;
 }) {
   const findings = review.findings ?? [];
-  const [hideApproved, setHideApproved] = useState(true);
   const [showDismissed, setShowDismissed] = useState(false);
   // Enforcement-priority filter driven by the clickable banner cards.
   // "all" = no filter; clicking a band card toggles its filter on/off.
@@ -1493,13 +1493,12 @@ function MonitoringView({
     return findings.filter((f) => {
       const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
       if (isDismissed && !showDismissed) return false;
-      if (hideApproved && f.is_approved_licensee) return false;
       if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
         return false;
       }
       return true;
     });
-  }, [findings, hideApproved, showDismissed, dismissing, priorityFilter]);
+  }, [findings, showDismissed, dismissing, priorityFilter]);
 
   // Keep the selected finding valid as filters change; default to the top one.
   useEffect(() => {
@@ -1598,14 +1597,6 @@ function MonitoringView({
             Findings ({visible.length})
           </h2>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-[11px] text-stone-500">
-              <input
-                type="checkbox"
-                checked={hideApproved}
-                onChange={(e) => setHideApproved(e.target.checked)}
-              />
-              Hide approved licensees
-            </label>
             <label
               className={`flex items-center gap-2 text-[11px] ${
                 dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
@@ -1653,12 +1644,14 @@ function MonitoringView({
                   key={active.result_id}
                   f={active}
                   reviewId={review.id}
+                  ipCatalogId={review.monitored_ip_catalog_id}
                   refImages={refImages}
                   activeRef={activeRef}
                   onSelectRef={setActiveRef}
                   isDismissed={!!active.dismissed_at || dismissing.has(active.result_id)}
                   isDismissing={dismissing.has(active.result_id) && !active.dismissed_at}
                   onDismiss={() => handleDismiss(active)}
+                  onUpdated={onUpdated}
                 />
               ) : (
                 <div className="text-sm text-stone-400">Select a finding to compare.</div>
@@ -1792,12 +1785,6 @@ function MonitoringFilterContext({
   const rows: Array<[string, string]> = [
     ["IP", review.monitored_ip?.name ?? "(unknown)"],
     ["Platforms", platformLabel],
-    [
-      "Approved licensees",
-      review.approved_licensees.length
-        ? review.approved_licensees.join(", ")
-        : "—",
-    ],
   ];
   return (
     <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-5">
@@ -1932,21 +1919,25 @@ function FindingListItem({
 function FindingComparison({
   f,
   reviewId,
+  ipCatalogId,
   refImages,
   activeRef,
   onSelectRef,
   isDismissed,
   isDismissing,
   onDismiss,
+  onUpdated,
 }: {
   f: IpReviewFinding;
   reviewId: string;
+  ipCatalogId: string | null;
   refImages: string[];
   activeRef: number;
   onSelectRef: (i: number) => void;
   isDismissed: boolean;
   isDismissing: boolean;
   onDismiss: () => void;
+  onUpdated: () => void;
 }) {
   const refUrl = refImages[activeRef] ?? refImages[0] ?? null;
   const priorityCls =
@@ -1955,6 +1946,26 @@ function FindingComparison({
       : f.enforcement_priority >= 0.5
         ? "text-amber-700"
         : "text-stone-700";
+  const [licensing, setLicensing] = useState(false);
+  const canLicense = !!ipCatalogId && (!!f.seller_name || !!f.seller_url);
+
+  async function handleLicense() {
+    if (!ipCatalogId || licensing) return;
+    setLicensing(true);
+    try {
+      await addIpLicense(ipCatalogId, {
+        domain: f.domain,
+        seller_name: f.seller_name,
+        seller_url: f.seller_url,
+      });
+      onUpdated(); // backfill dismisses this + any sibling finding from the seller
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to add license");
+    } finally {
+      setLicensing(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2018,11 +2029,10 @@ function FindingComparison({
             {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
           </span>
         )}
-        {f.is_approved_licensee && (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">approved</span>
-        )}
         {isDismissed && (
-          f.dismissal_reason?.startsWith("dead_link") ? (
+          f.dismissal_reason === "licensed" ? (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">licensed</span>
+          ) : f.dismissal_reason?.startsWith("dead_link") ? (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700">dead link</span>
           ) : (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">dismissed</span>
@@ -2036,6 +2046,19 @@ function FindingComparison({
         <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
       </div>
 
+      {(f.seller_name || f.seller_url) && (
+        <div className="text-[11px] text-stone-600">
+          <span className="text-stone-400">Seller: </span>
+          {f.seller_url ? (
+            <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+              {f.seller_name || f.seller_url}
+            </a>
+          ) : (
+            <span className="font-medium">{f.seller_name}</span>
+          )}
+        </div>
+      )}
+
       <a href={f.page_url} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-700 hover:underline break-all">
         {f.page_url} ↗
       </a>
@@ -2044,8 +2067,19 @@ function FindingComparison({
         <p className="text-xs text-stone-600 leading-relaxed border-l-2 border-stone-200 pl-2">{f.vlm_reasoning}</p>
       )}
 
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center gap-2 pt-1 flex-wrap">
         <TakedownPacketButton reviewId={reviewId} resultId={f.result_id} />
+        {canLicense && !isDismissed && (
+          <button
+            type="button"
+            onClick={handleLicense}
+            disabled={licensing}
+            title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
+            className="px-2.5 py-1 rounded-md border border-emerald-300 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {licensing ? "Licensing…" : "License this seller"}
+          </button>
+        )}
         <button
           type="button"
           onClick={onDismiss}

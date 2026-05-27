@@ -1314,7 +1314,6 @@ export interface IpReviewFinding {
   vlm_reasoning: string | null;
   status: string;
   case_id: string | null;
-  is_approved_licensee: boolean;
   enforcement_priority: number;
   found_at: string;
   dismissed_at: string | null;
@@ -1322,6 +1321,8 @@ export interface IpReviewFinding {
   dismissal_reason: string | null;
   last_checked_at: string | null;
   source_method: string | null;
+  seller_name: string | null;
+  seller_url: string | null;
 }
 
 export interface IpReviewContext {
@@ -1442,6 +1443,33 @@ export async function getIpReviewAudit(id: string) {
   return request<{ runs: MonitorAuditRun[] }>(`/api/ip-reviews/${id}/audit`);
 }
 
+export interface IpLicense {
+  id: string;
+  ip_catalog_id: string;
+  domain: string;
+  seller_name: string | null;
+  seller_url: string | null;
+  created_at: string;
+}
+
+export async function listIpLicenses(ipId: string) {
+  return request<{ licenses: IpLicense[] }>(`/api/ip/${ipId}/licenses`);
+}
+
+export async function addIpLicense(
+  ipId: string,
+  input: { domain: string; seller_name?: string | null; seller_url?: string | null },
+) {
+  return request<{ license: IpLicense; dismissed: number }>(`/api/ip/${ipId}/licenses`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteIpLicense(ipId: string, licenseId: string) {
+  return request<{ ok: true }>(`/api/ip/${ipId}/licenses/${licenseId}`, { method: "DELETE" });
+}
+
 export function updateIpReviewDecision(
   id: string,
   patch: { decision: IpReviewDecision | null; decision_rationale: string | null }
@@ -1512,7 +1540,6 @@ export function dismissIpReviewFinding(reviewId: string, resultId: string) {
 export interface MonitoringReviewContext {
   title: string;
   monitored_ip_catalog_id: string;
-  approved_licensees?: string[];
   /** Existing monitored_domains IDs the user kept selected. */
   monitored_platforms?: string[];
   /** New URLs (or hostnames) the user typed — backend creates the
@@ -1536,7 +1563,6 @@ export async function createMonitoringReview(ctx: MonitoringReviewContext) {
   form.append("mode", "monitoring");
   form.append("monitored_ip_catalog_id", ctx.monitored_ip_catalog_id);
   if (ctx.notes) form.append("notes", ctx.notes);
-  if (ctx.approved_licensees?.length) form.append("approved_licensees", JSON.stringify(ctx.approved_licensees));
   if (ctx.monitored_platforms?.length) form.append("monitored_platforms", JSON.stringify(ctx.monitored_platforms));
   if (ctx.new_platform_urls?.length) form.append("new_platform_urls", JSON.stringify(ctx.new_platform_urls));
 
