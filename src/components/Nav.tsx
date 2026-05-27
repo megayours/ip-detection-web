@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 // Settings page hosts tenant-level API key management.
 import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
-import { listIpReviews, needsAttention } from "../api";
+import { listIpReviews, needsAttention, getMonitoringFindingsCount } from "../api";
 
 /** Inbox badge polling cadence. Cheap server-side aggregation + small payload,
  *  but no need to refetch every few seconds — the badge is a glanceable
@@ -20,23 +20,29 @@ export default function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [inboxCount, setInboxCount] = useState(0);
+  const [monitoringCount, setMonitoringCount] = useState(0);
 
-  // Poll the inbox count while the user is signed in. Refetch on path
-  // change too — when the lawyer locks a decision and navigates back,
-  // the badge updates without waiting for the next tick.
+  // Poll the inbox + monitoring badge counts while the user is signed in.
+  // Refetch on path change too — when the lawyer locks a decision or triages
+  // a finding and navigates back, the badge updates without waiting a tick.
   useEffect(() => {
     if (!user) {
       setInboxCount(0);
+      setMonitoringCount(0);
       return;
     }
     let alive = true;
     async function refresh() {
       try {
-        const { reviews } = await listIpReviews({ limit: 200 });
+        const [{ reviews }, { count }] = await Promise.all([
+          listIpReviews({ limit: 200 }),
+          getMonitoringFindingsCount(),
+        ]);
         if (!alive) return;
         setInboxCount(reviews.filter(needsAttention).length);
+        setMonitoringCount(count);
       } catch {
-        // Non-fatal — badge just stays at the prior value.
+        // Non-fatal — badges just stay at the prior value.
       }
     }
     void refresh();
@@ -92,7 +98,7 @@ export default function Nav() {
                 to="/clearance"
                 className={`${linkClass("/clearance")} inline-flex items-center gap-1.5`}
               >
-                IP review
+                IP Review
                 {inboxCount > 0 && (
                   <span
                     title={`${inboxCount} item${inboxCount === 1 ? "" : "s"} need your attention`}
@@ -102,8 +108,19 @@ export default function Nav() {
                   </span>
                 )}
               </Link>
-              <Link to="/monitoring" className={linkClass("/monitoring")}>
+              <Link
+                to="/monitoring"
+                className={`${linkClass("/monitoring")} inline-flex items-center gap-1.5`}
+              >
                 Monitoring
+                {monitoringCount > 0 && (
+                  <span
+                    title={`${monitoringCount} finding${monitoringCount === 1 ? "" : "s"} to review`}
+                    className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none"
+                  >
+                    {monitoringCount > 99 ? "99+" : monitoringCount}
+                  </span>
+                )}
               </Link>
               {user.role === "admin" && (
                 <Link to="/admin" className={linkClass("/admin")}>

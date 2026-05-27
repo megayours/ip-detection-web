@@ -1489,3 +1489,8 @@ export interface MonitoredIpSummary {
 export function listMonitoredIps() {
   return request<{ ips: MonitoredIpSummary[] }>("/api/monitoring/ips");
 }
+
+/** Count of unhandled findings tenant-wide — the nav notification badge. */
+export function getMonitoringFindingsCount() {
+  return request<{ count: number }>("/api/monitoring/findings/count");
+}

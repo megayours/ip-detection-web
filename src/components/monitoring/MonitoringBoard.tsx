@@ -6,6 +6,11 @@ import {
   type IpReviewFinding,
 } from "../../api";
 
+// Shared clean style for the filter-bar dropdowns (IP / platform).
+const FILTER_SELECT =
+  "px-2.5 py-1.5 rounded-lg border border-stone-200 text-[11px] bg-white text-stone-700 " +
+  "max-w-[14rem] focus:outline-none focus:ring-1 focus:ring-stone-300";
+
 /**
  * IP-centric monitoring findings board. Lifted verbatim (visually) from the
  * former monitoring branch of IpReviewDetail — the priority banner, the
@@ -150,77 +155,66 @@ export function MonitoringBoard({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* One clean filter bar: severity pills + IP + platform + dismissed. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <PriorityBanner
           counts={counts}
           active={priorityFilter}
           onSelect={setPriorityFilter}
         />
+        <div className="flex items-center gap-2 flex-wrap">
+          {ipOptions.length > 1 && (
+            <select
+              value={ipFilter}
+              onChange={(e) => setIpFilter(e.target.value)}
+              title="Filter by IP"
+              className={FILTER_SELECT}
+            >
+              <option value="all">All IPs ({ipOptions.reduce((s, [, n]) => s + n, 0)})</option>
+              {ipOptions.map(([name, n]) => (
+                <option key={name} value={name}>
+                  {name} ({n})
+                </option>
+              ))}
+            </select>
+          )}
+          {domainTabs.length > 1 && (
+            <select
+              value={domainFilter}
+              onChange={(e) => setDomainFilter(e.target.value)}
+              title="Filter by platform"
+              className={FILTER_SELECT}
+            >
+              <option value="all">All platforms ({domainTabs.reduce((s, [, n]) => s + n, 0)})</option>
+              {domainTabs.map(([domain, n]) => (
+                <option key={domain} value={domain}>
+                  {domain} ({n})
+                </option>
+              ))}
+            </select>
+          )}
+          <label
+            className={`flex items-center gap-1.5 text-[11px] ${
+              dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={showDismissed}
+              onChange={(e) => setShowDismissed(e.target.checked)}
+              disabled={dismissedCount === 0}
+            />
+            Show dismissed ({dismissedCount})
+          </label>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white">
-        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between flex-wrap gap-y-2">
+        <div className="px-5 py-3 border-b border-stone-200">
           <h2 className="text-sm font-bold text-stone-900">
             Findings ({visible.length})
           </h2>
-          <div className="flex items-center gap-4">
-            {ipOptions.length > 1 && (
-              <label className="flex items-center gap-1.5 text-[11px] text-stone-500">
-                IP
-                <select
-                  value={ipFilter}
-                  onChange={(e) => setIpFilter(e.target.value)}
-                  className="px-2 py-1 rounded-md border border-stone-200 text-[11px] bg-white text-stone-700 max-w-[12rem]"
-                >
-                  <option value="all">All IPs ({ipOptions.reduce((s, [, n]) => s + n, 0)})</option>
-                  {ipOptions.map(([name, n]) => (
-                    <option key={name} value={name}>
-                      {name} ({n})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label
-              className={`flex items-center gap-2 text-[11px] ${
-                dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={showDismissed}
-                onChange={(e) => setShowDismissed(e.target.checked)}
-                disabled={dismissedCount === 0}
-              />
-              Show dismissed ({dismissedCount})
-            </label>
-          </div>
         </div>
-        {domainTabs.length > 1 && (
-          <div className="px-5 py-2 border-b border-stone-100 flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setDomainFilter("all")}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                domainFilter === "all" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-              }`}
-            >
-              All
-            </button>
-            {domainTabs.map(([domain, n]) => (
-              <button
-                key={domain}
-                type="button"
-                onClick={() => setDomainFilter(domain)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                  domainFilter === domain ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                }`}
-              >
-                {domain} <span className="opacity-60">{n}</span>
-              </button>
-            ))}
-          </div>
-        )}
         {visible.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
             {runInProgress
@@ -490,21 +484,47 @@ function FindingComparison({
 
   return (
     <div className="space-y-4">
-      {showIp && f.ip_name && (
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-            {f.ip_name}
-          </span>
-          <span className="text-[10px] uppercase tracking-wider text-stone-400">monitored IP</span>
-        </div>
-      )}
-      <figure className="m-0">
-        <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
-          Found on {f.domain}
-          {isChallenge && (
-            <span className="ml-1.5 text-red-600 normal-case">⚠ bot-wall page (not the listing)</span>
+      {/* Header: IP + listing source on the left, the three actions pinned
+          top-right, kept compact. Context follows below the image. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {showIp && f.ip_name && (
+            <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
+              {f.ip_name}
+            </span>
           )}
-        </figcaption>
+          <div className="text-[11px] text-stone-500 mt-1 truncate">
+            <span className="uppercase tracking-wide text-stone-400">Found on </span>
+            <span className="font-semibold text-stone-700">{f.domain}</span>
+            {isChallenge && (
+              <span className="ml-1.5 text-red-600">⚠ bot-wall page (not the listing)</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <TakedownPacketButton ipId={ipId} resultId={f.result_id} />
+          {canLicense && !isDismissed && (
+            <button
+              type="button"
+              onClick={handleLicense}
+              disabled={licensing}
+              title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
+              className="px-2.5 py-1 rounded-md border border-emerald-300 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-50 disabled:opacity-50"
+            >
+              {licensing ? "Licensing…" : "License this seller"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={isDismissed || isDismissing}
+            className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
+          >
+            {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
+          </button>
+        </div>
+      </div>
+      <figure className="m-0">
         {f.screenshot_url ? (
           // Real listing-page screenshot — the most useful view of the finding.
           <>
@@ -636,29 +656,6 @@ function FindingComparison({
         <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline break-all">
           · open listing ↗
         </a>
-      </div>
-
-      <div className="flex items-center gap-2 pt-1 flex-wrap">
-        <TakedownPacketButton ipId={ipId} resultId={f.result_id} />
-        {canLicense && !isDismissed && (
-          <button
-            type="button"
-            onClick={handleLicense}
-            disabled={licensing}
-            title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
-            className="px-2.5 py-1 rounded-md border border-emerald-300 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-50 disabled:opacity-50"
-          >
-            {licensing ? "Licensing…" : "License this seller"}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onDismiss}
-          disabled={isDismissed || isDismissing}
-          className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
-        >
-          {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
-        </button>
       </div>
     </div>
   );
