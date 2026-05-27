@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-  generateIpKeywords,
   getTrademark,
   deleteTrademark,
   updateTrademark,
@@ -27,19 +26,8 @@ export default function RegistryDetail() {
   const [descDraft, setDescDraft] = useState("");
   const [savingDesc, setSavingDesc] = useState(false);
   const [keywordDraft, setKeywordDraft] = useState("");
-  const [genJobId, setGenJobId] = useState<string | null>(null);
 
   const indexJob = useJobPoller(indexJobId);
-  const genJob = useJobPoller(genJobId);
-
-  useEffect(() => {
-    if (!genJob) return;
-    if (genJob.status === "completed" || genJob.status === "failed") {
-      void load();
-      setGenJobId(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [genJob?.status]);
 
   async function addKeyword() {
     if (!ip || !keywordDraft.trim()) return;
@@ -66,16 +54,6 @@ export default function RegistryDetail() {
     try {
       const { trademark } = await updateTrademark(ip.id, { keywords: next });
       setIp(trademark);
-    } catch (e: any) {
-      setError(e.message);
-    }
-  }
-
-  async function regenerateKeywords() {
-    if (!ip) return;
-    try {
-      const { job_id } = await generateIpKeywords(ip.id, ip.description ?? "");
-      setGenJobId(job_id);
     } catch (e: any) {
       setError(e.message);
     }
@@ -237,27 +215,19 @@ export default function RegistryDetail() {
 
       {/* Monitoring keywords */}
       <div className="border border-stone-200 rounded-xl bg-white p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="text-xs font-medium text-stone-400 uppercase tracking-wider">
-              Monitoring keywords
-            </label>
-            <p className="text-xs text-stone-500 mt-0.5">
-              Used by /monitor to scrape linked sites. Edit freely; "Regenerate" re-runs the VLM against this IP's assets + description.
-            </p>
-          </div>
-          <button
-            onClick={regenerateKeywords}
-            disabled={!!genJobId || images.filter((i) => i.status === "indexed").length === 0}
-            className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-          >
-            {genJobId ? "Generating…" : "Regenerate"}
-          </button>
+        <div>
+          <label className="text-xs font-medium text-stone-400 uppercase tracking-wider">
+            Monitoring keywords
+          </label>
+          <p className="text-xs text-stone-500 mt-0.5">
+            Used by /monitor to scrape linked sites. Add precise search terms
+            (e.g. “pikachu plush”) — generic words like “cartoon” surface noise.
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {(ip.keywords ?? []).length === 0 ? (
             <span className="text-xs text-stone-400 italic">
-              No keywords — generate from assets or add manually.
+              No keywords yet — add them below.
             </span>
           ) : (
             (ip.keywords ?? []).map((k, idx) => (
@@ -298,11 +268,6 @@ export default function RegistryDetail() {
             Add
           </button>
         </div>
-        {genJob?.status === "failed" && (
-          <div className="text-xs text-red-600">
-            Generate failed: {genJob.error ?? "(unknown error)"}
-          </div>
-        )}
       </div>
 
       {/* Index job status */}

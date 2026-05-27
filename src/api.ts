@@ -152,8 +152,7 @@ export function browseDesignCatalog(opts: { q?: string; limit?: number; offset?:
 
 /**
  * Step 1 of the IP-creation wizard. Just the name — description, keywords,
- * and guidelines are added through subsequent wizard steps via updateTrademark
- * and generateIpKeywords.
+ * and guidelines are added through subsequent wizard steps via updateTrademark.
  */
 export function createTrademark(name: string) {
   return request<{ trademark: Trademark }>("/api/ip", {
@@ -183,19 +182,6 @@ export function updateTrademark(
   return request<{ trademark: Trademark }>(`/api/ip/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
-  });
-}
-
-/**
- * Kick off VLM keyword generation for an IP using its uploaded assets + the
- * supplied description (also persists the description). Returns the job id;
- * poll /api/jobs/:id until result.keywords is populated, then reload the IP
- * to pick up the new keywords[] field.
- */
-export function generateIpKeywords(id: string, description: string) {
-  return request<{ job_id: string }>(`/api/ip/${id}/keywords/generate`, {
-    method: "POST",
-    body: JSON.stringify({ description }),
   });
 }
 
