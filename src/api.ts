@@ -1409,6 +1409,52 @@ export async function getIpReview(id: string) {
   return { review };
 }
 
+export interface MonitorAuditCandidate {
+  id: string;
+  kind: "candidate";
+  source_method: string | null;
+  url: string | null;
+  image_url: string | null;
+  top_ip: string | null;
+  similarity_score: number | null;
+  inliers: number | null;
+  vlm_verdict: string | null;
+  vlm_confidence: number | null;
+  vlm_reasoning: string | null;
+  disposition: string | null;
+  created_at: string;
+}
+
+export interface MonitorAuditPage {
+  id: string;
+  kind: "page";
+  source_method: string | null;
+  url: string | null;
+  http_status: number | null;
+  blocked: boolean | null;
+  harvested_count: number | null;
+  screenshot_url: string | null;
+  created_at: string;
+}
+
+export interface MonitorAuditRun {
+  run_id: string;
+  domain: string;
+  keyword: string | null;
+  status: string;
+  error: string | null;
+  results_found: number | null;
+  cases_created: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  pages: MonitorAuditPage[];
+  candidates: MonitorAuditCandidate[];
+}
+
+export async function getIpReviewAudit(id: string) {
+  return request<{ runs: MonitorAuditRun[] }>(`/api/ip-reviews/${id}/audit`);
+}
+
 export function updateIpReviewDecision(
   id: string,
   patch: { decision: IpReviewDecision | null; decision_rationale: string | null }
