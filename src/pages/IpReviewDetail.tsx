@@ -194,9 +194,10 @@ function Header({
   const showDecisionCtas =
     !isMonitoring && review.status === "complete";
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5">
+    <div className="rounded-2xl border border-stone-200 bg-white p-4">
       <div className="flex items-start gap-5">
-        {!hideImage && review.asset_image_url && (
+        {/* Monitoring already pins one IP — the asset image is redundant noise. */}
+        {!hideImage && !isMonitoring && review.asset_image_url && (
           <img
             src={review.asset_image_url}
             alt=""
@@ -1572,19 +1573,20 @@ function MonitoringView({
 
   return (
     <>
-      <PriorityBanner
-        counts={counts}
-        active={priorityFilter}
-        onSelect={setPriorityFilter}
-      />
-
-      <MonitoringFilterContext
-        review={review}
-        platformDomains={platformDomains}
-        onRefresh={handleRefresh}
-        refreshing={refreshing}
-        refreshError={refreshError}
-      />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <PriorityBanner
+          counts={counts}
+          active={priorityFilter}
+          onSelect={setPriorityFilter}
+        />
+        <MonitoringFilterContext
+          review={review}
+          platformDomains={platformDomains}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
+          refreshError={refreshError}
+        />
+      </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white">
         <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between flex-wrap gap-y-2">
@@ -1714,70 +1716,44 @@ function PriorityBanner({
   active: PriorityFilter;
   onSelect: (f: PriorityFilter) => void;
 }) {
-  // Clicking the active card clears the filter — toggle semantics let the
-  // banner double as both "show me X" and "back to all". Total always
-  // resets to "all" since it represents the unfiltered view.
-  const toggle = (band: "high" | "med" | "low") =>
-    onSelect(active === band ? "all" : band);
+  // Compact toggle pills: clicking the active band clears back to "all".
+  const pill = (
+    band: PriorityFilter,
+    label: string,
+    value: number,
+    tones: { base: string; on: string },
+    title: string,
+  ) => {
+    const isActive = active === band;
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(isActive && band !== "all" ? "all" : band)}
+        aria-pressed={isActive}
+        title={title}
+        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+          isActive ? tones.on : tones.base
+        }`}
+      >
+        {label} <span className="font-bold tabular-nums">{value}</span>
+      </button>
+    );
+  };
   return (
-    <div>
-      <h2 className="text-sm font-bold text-stone-900 mb-2">Enforcement priority</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <PriorityCard
-          label="High" value={counts.high} sub="≥ 0.75" tone="red"
-          active={active === "high"} onClick={() => toggle("high")}
-        />
-        <PriorityCard
-          label="Medium" value={counts.med} sub="0.50–0.74" tone="amber"
-          active={active === "med"} onClick={() => toggle("med")}
-        />
-        <PriorityCard
-          label="Low" value={counts.low} sub="< 0.50" tone="yellow"
-          active={active === "low"} onClick={() => toggle("low")}
-        />
-        <PriorityCard
-          label="Total" value={counts.total} sub="across all platforms" tone="stone"
-          active={active === "all"} onClick={() => onSelect("all")}
-        />
-      </div>
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {pill("high", "High", counts.high,
+        { base: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100", on: "border-red-600 bg-red-600 text-white" },
+        "Enforcement priority ≥ 0.75")}
+      {pill("med", "Medium", counts.med,
+        { base: "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100", on: "border-amber-500 bg-amber-500 text-white" },
+        "0.50–0.74")}
+      {pill("low", "Low", counts.low,
+        { base: "border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100", on: "border-yellow-500 bg-yellow-500 text-white" },
+        "< 0.50")}
+      {pill("all", "All", counts.total,
+        { base: "border-stone-200 bg-stone-100 text-stone-700 hover:bg-stone-200", on: "border-stone-900 bg-stone-900 text-white" },
+        "All findings, across platforms")}
     </div>
-  );
-}
-
-function PriorityCard({
-  label,
-  value,
-  sub,
-  tone,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  sub: string;
-  tone: "red" | "amber" | "yellow" | "stone";
-  active: boolean;
-  onClick: () => void;
-}) {
-  const cls = {
-    red: { box: "border-red-200 bg-red-50/60", text: "text-red-700", ring: "ring-red-400" },
-    amber: { box: "border-amber-200 bg-amber-50/60", text: "text-amber-700", ring: "ring-amber-400" },
-    yellow: { box: "border-yellow-200 bg-yellow-50/60", text: "text-yellow-700", ring: "ring-yellow-400" },
-    stone: { box: "border-stone-200 bg-stone-50/40", text: "text-stone-700", ring: "ring-stone-400" },
-  }[tone];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`text-left rounded-2xl border p-4 transition-shadow hover:shadow-sm focus:outline-none ${cls.box} ${
-        active ? `ring-2 ${cls.ring}` : ""
-      }`}
-    >
-      <div className="text-xs font-semibold text-stone-700">{label}</div>
-      <div className={`text-2xl font-bold mt-2 ${cls.text}`}>{value}</div>
-      <div className="text-[11px] text-stone-500 mt-0.5">{sub}</div>
-    </button>
   );
 }
 
@@ -1799,35 +1775,20 @@ function MonitoringFilterContext({
     : review.monitored_platforms.length > 0
       ? `${review.monitored_platforms.length} platform(s)`
       : "All monitored";
-  const rows: Array<[string, string]> = [
-    ["IP", review.monitored_ip?.name ?? "(unknown)"],
-    ["Platforms", platformLabel],
-  ];
   return (
-    <div className="rounded-2xl border border-stone-200 bg-stone-50/40 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-bold text-stone-900">Filter</h2>
-        <div className="flex items-center gap-2">
-          {refreshError && (
-            <span className="text-[11px] text-red-600">{refreshError}</span>
-          )}
-          <button
-            onClick={onRefresh}
-            disabled={refreshing || review.monitored_platforms.length === 0}
-            className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
-          >
-            {refreshing ? "Refreshing…" : "Refresh now"}
-          </button>
-        </div>
-      </div>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-baseline gap-2">
-            <dt className="text-[11px] uppercase tracking-wider text-stone-500 min-w-[120px]">{k}</dt>
-            <dd className="text-stone-800">{v}</dd>
-          </div>
-        ))}
-      </dl>
+    <div className="flex items-center gap-3 flex-wrap text-xs text-stone-500">
+      <span className="truncate max-w-[28rem]">
+        <span className="uppercase tracking-wider text-stone-400">Platforms: </span>
+        {platformLabel}
+      </span>
+      {refreshError && <span className="text-red-600">{refreshError}</span>}
+      <button
+        onClick={onRefresh}
+        disabled={refreshing || review.monitored_platforms.length === 0}
+        className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold disabled:opacity-50"
+      >
+        {refreshing ? "Refreshing…" : "Refresh now"}
+      </button>
     </div>
   );
 }
