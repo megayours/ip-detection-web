@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   getTrademark,
   deleteTrademark,
@@ -15,7 +15,6 @@ import {
 } from "../api";
 import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
-import RuleEditor from "../components/RuleEditor";
 
 export default function RegistryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -141,12 +140,6 @@ export default function RegistryDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to={`/test?trademark=${ip.id}`}
-            className="px-4 py-2 text-sm font-semibold bg-stone-900 text-white rounded-xl hover:bg-stone-800 transition-all"
-          >
-            Test mockup
-          </Link>
           <button
             onClick={handleDelete}
             className="px-4 py-2 text-sm text-red-500 border border-red-100 rounded-xl hover:bg-red-50 transition-all"
@@ -337,18 +330,6 @@ export default function RegistryDetail() {
         </div>
       )}
 
-      {/* Rules section — only when there's something to attach rules to */}
-      {ip.centroid_dino && (
-        <div className="pt-6 border-t border-stone-100">
-          <RuleEditor
-            trademarkId={ip.id}
-            initialGuidelines={ip.guidelines}
-            initialBaselineConfig={ip.baseline_config}
-            onGuidelinesSaved={(g) => setIp({ ...ip, guidelines: g })}
-            onBaselineSaved={(cfg) => setIp({ ...ip, baseline_config: cfg })}
-          />
-        </div>
-      )}
     </div>
   );
 }

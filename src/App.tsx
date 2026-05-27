@@ -10,9 +10,6 @@ import RegistryWizard from "./pages/RegistryWizard";
 import Cases from "./pages/Cases";
 import CaseDetail from "./pages/CaseDetail";
 import Monitor from "./pages/Monitor";
-import Check from "./pages/Check";
-import TestSubmission from "./pages/TestSubmission";
-import ReviewQueue from "./pages/ReviewQueue";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
 import MonitoringReviewNew from "./pages/MonitoringReviewNew";
@@ -99,10 +96,6 @@ export default function App() {
         <Route path="/trademarks" element={<Navigate to="/registry" replace />} />
         <Route path="/trademarks/:id" element={<RedirectTrademark />} />
         <Route
-          path="/check"
-          element={<ProtectedRoute><Check /></ProtectedRoute>}
-        />
-        <Route
           path="/clearance"
           element={<ProtectedRoute><Clearance /></ProtectedRoute>}
         />
@@ -147,14 +140,6 @@ export default function App() {
         <Route
           path="/monitor"
           element={<ProtectedRoute><Monitor /></ProtectedRoute>}
-        />
-        <Route
-          path="/test"
-          element={<ProtectedRoute><TestSubmission /></ProtectedRoute>}
-        />
-        <Route
-          path="/reviews"
-          element={<ProtectedRoute><ReviewQueue /></ProtectedRoute>}
         />
         <Route
           path="/settings"
