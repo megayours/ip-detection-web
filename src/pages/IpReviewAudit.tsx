@@ -10,6 +10,17 @@ import {
 // reference line so it's obvious which candidates cleared it.
 const SIM_THRESHOLD = 0.72;
 
+// Friendly name for an anti-bot marker string (from _detect_captcha/_challenge).
+export function antibotLabel(marker: string): string {
+  const m = marker.toLowerCase();
+  if (m.includes("recaptcha") || m.includes("i'm not a robot")) return "reCAPTCHA";
+  if (m.includes("hcaptcha")) return "hCaptcha";
+  if (m.includes("captcha-delivery")) return "DataDome";
+  if (m.includes("nc_1_n1z") || m.includes("punish") || m.includes("x5secdata")) return "AliExpress NoCaptcha";
+  if (m.includes("cf-") || m.includes("challenge-platform") || m.includes("cloudflare")) return "Cloudflare";
+  return marker;
+}
+
 function dispositionStyle(d: string | null): string {
   switch (d) {
     case "verified":
@@ -185,7 +196,12 @@ function RunCard({ run }: { run: MonitorAuditRun }) {
                         {p.source_method ?? "?"}
                       </span>{" "}
                       HTTP {p.http_status ?? "—"}
-                      {p.blocked && <span className="text-red-600 font-semibold"> · blocked</span>}
+                      {p.blocked && (
+                        <span className="text-red-600 font-semibold">
+                          {" · blocked"}
+                          {p.disposition ? ` (${antibotLabel(p.disposition)})` : ""}
+                        </span>
+                      )}
                       <span> · {p.harvested_count ?? 0} found</span>
                     </div>
                     {p.url && (

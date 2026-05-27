@@ -1332,6 +1332,7 @@ export interface IpReviewFinding {
   infringement_reasoning: string | null;
   license_status: string | null;
   screenshot_url: string | null;
+  enrichment_error: string | null;
 }
 
 export interface IpReviewContext {
@@ -1430,6 +1431,7 @@ export interface MonitorAuditPage {
   http_status: number | null;
   blocked: boolean | null;
   harvested_count: number | null;
+  disposition: string | null;
   screenshot_url: string | null;
   created_at: string;
 }

@@ -1919,6 +1919,9 @@ function FindingComparison({
         : "text-stone-700";
   const [licensing, setLicensing] = useState(false);
   const canLicense = !!ipCatalogId && (!!f.seller_name || !!f.seller_url);
+  // Enrichment hit a reCAPTCHA / bot-wall — the screenshot is the challenge
+  // page, not the listing.
+  const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
 
   async function handleLicense() {
     if (!ipCatalogId || licensing) return;
@@ -1942,6 +1945,9 @@ function FindingComparison({
       <figure className="m-0">
         <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
           Found on {f.domain}
+          {isChallenge && (
+            <span className="ml-1.5 text-red-600 normal-case">⚠ bot-wall page (not the listing)</span>
+          )}
         </figcaption>
         {f.screenshot_url ? (
           // Real listing-page screenshot — the most useful view of the finding.
@@ -1988,6 +1994,14 @@ function FindingComparison({
           <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
             vlm: {f.vlm_verdict}
             {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
+          </span>
+        )}
+        {isChallenge && (
+          <span
+            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-red-100 text-red-700"
+            title="Listing-page enrichment was blocked by a bot-wall / reCAPTCHA — details deferred to a later run"
+          >
+            challenge
           </span>
         )}
         {isDismissed && (
