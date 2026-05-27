@@ -19,22 +19,39 @@ export function MonitoringBoard({
   runInProgress,
   onRefresh,
   onDismiss,
+  showIpColumn,
 }: {
   findings: IpReviewFinding[];
-  ipId: string;
+  /**
+   * Fallback IP for per-finding actions when a finding doesn't carry its own
+   * `ip_id` (the single-IP RegistryDetail usage). On the global board each
+   * finding ships `ip_id`, so this is optional there.
+   */
+  ipId?: string;
   /** A monitor run is currently pending/executing — tweaks the empty state. */
   runInProgress: boolean;
   /** Re-fetch findings (e.g. after a dismiss / license backfill). */
   onRefresh: () => void;
   /** Optional post-dismiss notification with the dismissed result_id. */
   onDismiss?: (resultId: string) => void;
+  /**
+   * Force the per-IP attribution UI (IP-name chips + IP filter). Auto-enabled
+   * whenever any finding carries an `ip_id`, so the global hub gets it for
+   * free; the single-IP RegistryDetail usage leaves it off and stays clean.
+   */
+  showIpColumn?: boolean;
 }) {
+  // Show IP attribution when explicitly asked, or whenever findings carry
+  // their own IP (i.e. the tenant-wide board).
+  const ipAware = showIpColumn ?? findings.some((f) => !!f.ip_id);
   const [showDismissed, setShowDismissed] = useState(false);
   // Enforcement-priority filter driven by the clickable banner cards.
   // "all" = no filter; clicking a band card toggles its filter on/off.
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   // Marketplace/domain tab filter ("all" = every site).
   const [domainFilter, setDomainFilter] = useState<string>("all");
+  // IP filter (global board only): "all" = every monitored IP.
+  const [ipFilter, setIpFilter] = useState<string>("all");
   // Optimistically-dismissed result_ids — the server reload eventually
   // replaces this once `dismissed_at` lands in the polled payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
@@ -46,12 +63,27 @@ export function MonitoringBoard({
       const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
       if (isDismissed && !showDismissed) return false;
       if (domainFilter !== "all" && f.domain !== domainFilter) return false;
+      if (ipFilter !== "all" && (f.ip_name ?? "") !== ipFilter) return false;
       if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
         return false;
       }
       return true;
     });
-  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter]);
+  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter, ipFilter]);
+
+  // Distinct IP names present across live findings — drives the IP filter
+  // dropdown, only shown on the multi-IP (global) board.
+  const ipOptions = useMemo(() => {
+    if (!ipAware) return [];
+    const m = new Map<string, number>();
+    for (const f of findings) {
+      if (f.dismissed_at || dismissing.has(f.result_id)) continue;
+      const name = f.ip_name ?? "";
+      if (!name) continue;
+      m.set(name, (m.get(name) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [findings, dismissing, ipAware]);
 
   // Marketplace tabs: live (non-dismissed) finding count per domain, busiest first.
   const domainTabs = useMemo(() => {
@@ -96,9 +128,14 @@ export function MonitoringBoard({
 
   async function handleDismiss(f: IpReviewFinding) {
     if (dismissing.has(f.result_id)) return;
+    const fipId = f.ip_id ?? ipId;
+    if (!fipId) {
+      alert("Cannot dismiss: finding has no associated IP.");
+      return;
+    }
     setDismissing((prev) => new Set(prev).add(f.result_id));
     try {
-      await dismissIpFinding(ipId, f.result_id);
+      await dismissIpFinding(fipId, f.result_id);
       onDismiss?.(f.result_id);
       onRefresh();
     } catch (e) {
@@ -127,6 +164,23 @@ export function MonitoringBoard({
             Findings ({visible.length})
           </h2>
           <div className="flex items-center gap-4">
+            {ipOptions.length > 1 && (
+              <label className="flex items-center gap-1.5 text-[11px] text-stone-500">
+                IP
+                <select
+                  value={ipFilter}
+                  onChange={(e) => setIpFilter(e.target.value)}
+                  className="px-2 py-1 rounded-md border border-stone-200 text-[11px] bg-white text-stone-700 max-w-[12rem]"
+                >
+                  <option value="all">All IPs ({ipOptions.reduce((s, [, n]) => s + n, 0)})</option>
+                  {ipOptions.map(([name, n]) => (
+                    <option key={name} value={name}>
+                      {name} ({n})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label
               className={`flex items-center gap-2 text-[11px] ${
                 dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
@@ -188,6 +242,7 @@ export function MonitoringBoard({
                   f={f}
                   selected={f.result_id === activeId}
                   isDismissed={!!f.dismissed_at || dismissing.has(f.result_id)}
+                  showIp={ipAware}
                   onSelect={() => setActiveId(f.result_id)}
                 />
               ))}
@@ -198,7 +253,8 @@ export function MonitoringBoard({
                 <FindingComparison
                   key={active.result_id}
                   f={active}
-                  ipId={ipId}
+                  ipId={active.ip_id ?? ipId}
+                  showIp={ipAware}
                   isDismissed={!!active.dismissed_at || dismissing.has(active.result_id)}
                   isDismissing={dismissing.has(active.result_id) && !active.dismissed_at}
                   onDismiss={() => handleDismiss(active)}
@@ -297,13 +353,14 @@ function PriorityBanner({
   );
 }
 
-function TakedownPacketButton({ ipId, resultId }: { ipId: string; resultId: string }) {
+function TakedownPacketButton({ ipId, resultId }: { ipId?: string; resultId: string }) {
   const [loading, setLoading] = useState(false);
   return (
     <button
       type="button"
-      disabled={loading}
+      disabled={loading || !ipId}
       onClick={async () => {
+        if (!ipId) return;
         setLoading(true);
         try {
           await openIpFindingTakedownPacket(ipId, resultId);
@@ -325,11 +382,14 @@ function FindingListItem({
   f,
   selected,
   isDismissed,
+  showIp,
   onSelect,
 }: {
   f: IpReviewFinding;
   selected: boolean;
   isDismissed: boolean;
+  /** Render the IP-name chip (multi-IP / global board). */
+  showIp?: boolean;
   onSelect: () => void;
 }) {
   const priorityCls =
@@ -352,6 +412,11 @@ function FindingListItem({
         <div className="w-12 h-12 rounded bg-stone-100 shrink-0" />
       )}
       <div className="flex-1 min-w-0">
+        {showIp && f.ip_name && (
+          <span className="inline-block max-w-full truncate px-1.5 py-0.5 mb-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide">
+            {f.ip_name}
+          </span>
+        )}
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-semibold text-stone-900 truncate">{f.domain}</span>
           {f.source_method && (
@@ -378,13 +443,17 @@ function FindingListItem({
 function FindingComparison({
   f,
   ipId,
+  showIp,
   isDismissed,
   isDismissing,
   onDismiss,
   onUpdated,
 }: {
   f: IpReviewFinding;
-  ipId: string;
+  /** Resolved IP id for this finding (`f.ip_id ?? boardIpId`). */
+  ipId?: string;
+  /** Render the IP-name chip on the comparison header. */
+  showIp?: boolean;
   isDismissed: boolean;
   isDismissing: boolean;
   onDismiss: () => void;
@@ -397,13 +466,13 @@ function FindingComparison({
         ? "text-amber-700"
         : "text-stone-700";
   const [licensing, setLicensing] = useState(false);
-  const canLicense = !!f.seller_name || !!f.seller_url;
+  const canLicense = !!ipId && (!!f.seller_name || !!f.seller_url);
   // Enrichment hit a reCAPTCHA / bot-wall — the screenshot is the challenge
   // page, not the listing.
   const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
 
   async function handleLicense() {
-    if (licensing) return;
+    if (licensing || !ipId) return;
     setLicensing(true);
     try {
       await addIpLicense(ipId, {
@@ -421,6 +490,14 @@ function FindingComparison({
 
   return (
     <div className="space-y-4">
+      {showIp && f.ip_name && (
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
+            {f.ip_name}
+          </span>
+          <span className="text-[10px] uppercase tracking-wider text-stone-400">monitored IP</span>
+        </div>
+      )}
       <figure className="m-0">
         <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
           Found on {f.domain}

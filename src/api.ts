@@ -1178,6 +1178,11 @@ export interface IpReviewFinding {
   license_status: string | null;
   screenshot_url: string | null;
   enrichment_error: string | null;
+  // Present on tenant-wide findings (GET /api/monitoring/findings) so a
+  // multi-IP board can key per-finding actions off the finding's own IP and
+  // render an IP chip. Absent on per-IP findings (the IP is implied).
+  ip_id?: string;
+  ip_name?: string | null;
 }
 
 export interface IpReviewContext {
@@ -1446,4 +1451,41 @@ export async function openIpFindingTakedownPacket(
   window.open(url, "_blank", "noopener,noreferrer");
   // Revoke after a beat — early revoke kills the open in some browsers.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// --- Tenant-wide monitoring hub (across ALL monitored IPs) ---
+
+/**
+ * Every monitoring finding across the tenant, decorated with `ip_id` /
+ * `ip_name` (and `screenshot_url`) so a global board can attribute and
+ * action each finding by its own IP. Powers the /monitoring "Findings" tab.
+ */
+export function listMonitoringFindingsGlobal(
+  opts: { include_dismissed?: boolean } = {},
+) {
+  const params = new URLSearchParams();
+  if (opts.include_dismissed) params.set("include_dismissed", "true");
+  params.set("limit", "1000");
+  const qs = params.toString();
+  return request<{ findings: IpReviewFinding[] }>(
+    `/api/monitoring/findings${qs ? `?${qs}` : ""}`,
+  );
+}
+
+/** One monitored IP plus the platforms wired to it. Powers the /monitoring
+ *  "Monitored IPs" tab. */
+export interface MonitoredIpSummary {
+  ip_id: string;
+  ip_name: string;
+  keywords: string[] | null;
+  platforms: {
+    id: string;
+    domain: string;
+    enabled: boolean;
+    last_run_at: string | null;
+  }[];
+}
+
+export function listMonitoredIps() {
+  return request<{ ips: MonitoredIpSummary[] }>("/api/monitoring/ips");
 }

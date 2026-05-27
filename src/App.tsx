@@ -13,6 +13,7 @@ import CaseDetail from "./pages/CaseDetail";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
 import IpReviewDetail from "./pages/IpReviewDetail";
+import Monitoring from "./pages/Monitoring";
 import BrandsCatalog from "./pages/BrandsCatalog";
 import DesignsCatalog from "./pages/DesignsCatalog";
 import PopCultureCatalog from "./pages/PopCultureCatalog";
@@ -100,6 +101,10 @@ export default function App() {
         <Route
           path="/clearance"
           element={<ProtectedRoute><Clearance /></ProtectedRoute>}
+        />
+        <Route
+          path="/monitoring"
+          element={<ProtectedRoute><Monitoring /></ProtectedRoute>}
         />
         <Route path="/ip-reviews" element={<Navigate to="/clearance" replace />} />
         <Route
