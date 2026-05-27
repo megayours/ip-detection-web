@@ -6,7 +6,6 @@ import {
   dismissIpReviewFinding,
   getIpReview,
   getMonitoringSettings,
-  getTrademark,
   openIpReviewFindingTakedownPacket,
   openIpReviewReport,
   listMonitoredDomains,
@@ -1446,17 +1445,16 @@ function MonitoringView({
   // Enforcement-priority filter driven by the clickable banner cards.
   // "all" = no filter; clicking a band card toggles its filter on/off.
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  // Marketplace/domain tab filter ("all" = every site).
+  const [domainFilter, setDomainFilter] = useState<string>("all");
   // Optimistically-dismissed result_ids — the server reload eventually
   // replaces this once `dismissed_at` lands in the polled payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   const [domains, setDomains] = useState<MonitoredDomain[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
-  // Clearance-style comparison: the active finding + the monitored IP's
-  // reference images to compare it against.
+  // Center-stage comparison: the active finding shown large.
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [refImages, setRefImages] = useState<string[]>([]);
-  const [activeRef, setActiveRef] = useState(0);
 
   // Pull all tenant domains once so we can label `monitored_platforms`
   // ids by hostname and show their last_run_at in the empty state.
@@ -1467,20 +1465,6 @@ function MonitoringView({
       .catch(() => { /* non-fatal — the empty-state still renders */ });
     return () => { alive = false; };
   }, []);
-
-  // Fetch the monitored IP's reference images so a finding can be compared
-  // against the protected work side-by-side.
-  useEffect(() => {
-    const ipId = review.monitored_ip_catalog_id;
-    if (!ipId) return;
-    let alive = true;
-    getTrademark(ipId)
-      .then(({ images }) =>
-        alive && setRefImages(images.map((i) => i.url).filter((u): u is string => !!u)),
-      )
-      .catch(() => { /* non-fatal — comparison just shows no reference */ });
-    return () => { alive = false; };
-  }, [review.monitored_ip_catalog_id]);
 
   const platformDomains = useMemo(() => {
     const byId = new Map(domains.map((d) => [d.id, d]));
@@ -1493,12 +1477,23 @@ function MonitoringView({
     return findings.filter((f) => {
       const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
       if (isDismissed && !showDismissed) return false;
+      if (domainFilter !== "all" && f.domain !== domainFilter) return false;
       if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
         return false;
       }
       return true;
     });
-  }, [findings, showDismissed, dismissing, priorityFilter]);
+  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter]);
+
+  // Marketplace tabs: live (non-dismissed) finding count per domain, busiest first.
+  const domainTabs = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of findings) {
+      if (f.dismissed_at || dismissing.has(f.result_id)) continue;
+      m.set(f.domain, (m.get(f.domain) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [findings, dismissing]);
 
   // Keep the selected finding valid as filters change; default to the top one.
   useEffect(() => {
@@ -1612,6 +1607,31 @@ function MonitoringView({
             </label>
           </div>
         </div>
+        {domainTabs.length > 1 && (
+          <div className="px-5 py-2 border-b border-stone-100 flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setDomainFilter("all")}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                domainFilter === "all" ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+              }`}
+            >
+              All
+            </button>
+            {domainTabs.map(([domain, n]) => (
+              <button
+                key={domain}
+                type="button"
+                onClick={() => setDomainFilter(domain)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                  domainFilter === domain ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                }`}
+              >
+                {domain} <span className="opacity-60">{n}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {visible.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
             {runActive
@@ -1645,9 +1665,6 @@ function MonitoringView({
                   f={active}
                   reviewId={review.id}
                   ipCatalogId={review.monitored_ip_catalog_id}
-                  refImages={refImages}
-                  activeRef={activeRef}
-                  onSelectRef={setActiveRef}
                   isDismissed={!!active.dismissed_at || dismissing.has(active.result_id)}
                   isDismissing={dismissing.has(active.result_id) && !active.dismissed_at}
                   onDismiss={() => handleDismiss(active)}
@@ -1920,9 +1937,6 @@ function FindingComparison({
   f,
   reviewId,
   ipCatalogId,
-  refImages,
-  activeRef,
-  onSelectRef,
   isDismissed,
   isDismissing,
   onDismiss,
@@ -1931,15 +1945,11 @@ function FindingComparison({
   f: IpReviewFinding;
   reviewId: string;
   ipCatalogId: string | null;
-  refImages: string[];
-  activeRef: number;
-  onSelectRef: (i: number) => void;
   isDismissed: boolean;
   isDismissing: boolean;
   onDismiss: () => void;
   onUpdated: () => void;
 }) {
-  const refUrl = refImages[activeRef] ?? refImages[0] ?? null;
   const priorityCls =
     f.enforcement_priority >= 0.75
       ? "text-red-700"
@@ -1968,52 +1978,20 @@ function FindingComparison({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <figure className="m-0">
-          <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center">
-            Protected IP
-          </figcaption>
-          <ImageFrame>
-            {refUrl ? (
-              <img src={refUrl} alt="reference" className="w-full h-full object-contain" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
-                No reference image
-              </div>
-            )}
-          </ImageFrame>
-          {refImages.length > 1 && (
-            <div className="flex gap-1.5 justify-center mt-2 flex-wrap">
-              {refImages.map((u, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => onSelectRef(i)}
-                  className={`w-9 h-9 rounded border overflow-hidden ${
-                    i === activeRef ? "border-stone-900 ring-1 ring-stone-900" : "border-stone-200"
-                  }`}
-                >
-                  <img src={u} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+      <figure className="m-0">
+        <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
+          Found on {f.domain}
+        </figcaption>
+        <ImageFrame>
+          {f.image_url ? (
+            <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
+              <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
+            </a>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
           )}
-        </figure>
-        <figure className="m-0">
-          <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
-            Found on {f.domain}
-          </figcaption>
-          <ImageFrame>
-            {f.image_url ? (
-              <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
-                <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
-              </a>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
-            )}
-          </ImageFrame>
-        </figure>
-      </div>
+        </ImageFrame>
+      </figure>
 
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
@@ -2040,10 +2018,34 @@ function FindingComparison({
         )}
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-500">
-        <span>similarity {Math.round((f.similarity_score ?? 0) * 100)}%</span>
-        {f.inliers != null && <span>· inliers {f.inliers}</span>}
-        <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
+      {/* Listing context (from VLM enrichment) — what's on sale, type, where */}
+      {f.listing_title && (
+        <h3 className="text-sm font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+        {f.price && (
+          <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-semibold">{f.price}</span>
+        )}
+        {f.infringement_type && (
+          <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 uppercase tracking-wide font-semibold">
+            {f.infringement_type.replace(/_/g, " ")}
+          </span>
+        )}
+        {f.location && <span className="text-stone-500">📍 {f.location}</span>}
+        {f.license_status && (
+          <span
+            className={`px-1.5 py-0.5 rounded font-semibold ${
+              f.license_status === "likely_licensed"
+                ? "bg-emerald-100 text-emerald-700"
+                : f.license_status === "likely_unlicensed"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-stone-100 text-stone-600"
+            }`}
+          >
+            {f.license_status.replace(/_/g, " ")}
+          </span>
+        )}
       </div>
 
       {(f.seller_name || f.seller_url) && (
@@ -2059,13 +2061,29 @@ function FindingComparison({
         </div>
       )}
 
-      <a href={f.page_url} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-700 hover:underline break-all">
-        {f.page_url} ↗
-      </a>
-
-      {f.vlm_reasoning && (
-        <p className="text-xs text-stone-600 leading-relaxed border-l-2 border-stone-200 pl-2">{f.vlm_reasoning}</p>
+      {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
+        <div className="text-xs text-stone-600 leading-relaxed border-l-2 border-amber-300 pl-2">
+          <span className="font-semibold text-stone-500">Why flagged: </span>
+          {f.match_explanation || f.infringement_reasoning || f.vlm_reasoning}
+        </div>
       )}
+
+      {f.description_summary && (
+        <p className="text-[11px] text-stone-500 leading-relaxed">{f.description_summary}</p>
+      )}
+
+      {!f.listing_title && !f.seller_name && !f.match_explanation && !f.description_summary && (
+        <p className="text-[11px] text-stone-400 italic">Listing details still being analysed…</p>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-400">
+        <span>sim {Math.round((f.similarity_score ?? 0) * 100)}%</span>
+        {f.inliers != null && <span>· inliers {f.inliers}</span>}
+        <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
+        <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline break-all">
+          · open listing ↗
+        </a>
+      </div>
 
       <div className="flex items-center gap-2 pt-1 flex-wrap">
         <TakedownPacketButton reviewId={reviewId} resultId={f.result_id} />

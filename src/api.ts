@@ -1323,6 +1323,14 @@ export interface IpReviewFinding {
   source_method: string | null;
   seller_name: string | null;
   seller_url: string | null;
+  listing_title: string | null;
+  price: string | null;
+  location: string | null;
+  description_summary: string | null;
+  match_explanation: string | null;
+  infringement_type: string | null;
+  infringement_reasoning: string | null;
+  license_status: string | null;
 }
 
 export interface IpReviewContext {
