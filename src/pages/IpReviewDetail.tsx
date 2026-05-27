@@ -5,6 +5,7 @@ import {
   dismissIpReviewFinding,
   getIpReview,
   getMonitoringSettings,
+  getTrademark,
   openIpReviewFindingTakedownPacket,
   openIpReviewReport,
   listMonitoredDomains,
@@ -145,7 +146,7 @@ export default function IpReviewDetail() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-6 py-8 space-y-6">
       <Header
         review={review}
         onDecide={(d) => setPendingDecision(d)}
@@ -1451,6 +1452,11 @@ function MonitoringView({
   const [domains, setDomains] = useState<MonitoredDomain[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
+  // Clearance-style comparison: the active finding + the monitored IP's
+  // reference images to compare it against.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [refImages, setRefImages] = useState<string[]>([]);
+  const [activeRef, setActiveRef] = useState(0);
 
   // Pull all tenant domains once so we can label `monitored_platforms`
   // ids by hostname and show their last_run_at in the empty state.
@@ -1461,6 +1467,20 @@ function MonitoringView({
       .catch(() => { /* non-fatal — the empty-state still renders */ });
     return () => { alive = false; };
   }, []);
+
+  // Fetch the monitored IP's reference images so a finding can be compared
+  // against the protected work side-by-side.
+  useEffect(() => {
+    const ipId = review.monitored_ip_catalog_id;
+    if (!ipId) return;
+    let alive = true;
+    getTrademark(ipId)
+      .then(({ images }) =>
+        alive && setRefImages(images.map((i) => i.url).filter((u): u is string => !!u)),
+      )
+      .catch(() => { /* non-fatal — comparison just shows no reference */ });
+    return () => { alive = false; };
+  }, [review.monitored_ip_catalog_id]);
 
   const platformDomains = useMemo(() => {
     const byId = new Map(domains.map((d) => [d.id, d]));
@@ -1480,6 +1500,19 @@ function MonitoringView({
       return true;
     });
   }, [findings, hideApproved, showDismissed, dismissing, priorityFilter]);
+
+  // Keep the selected finding valid as filters change; default to the top one.
+  useEffect(() => {
+    if (visible.length === 0) {
+      if (activeId !== null) setActiveId(null);
+      return;
+    }
+    if (!activeId || !visible.some((f) => f.result_id === activeId)) {
+      setActiveId(visible[0].result_id);
+    }
+  }, [visible, activeId]);
+
+  const active = visible.find((f) => f.result_id === activeId) ?? null;
 
   // Counts ignore dismissed findings — the priority banner reflects the
   // outstanding workload, not the historical total.
@@ -1600,17 +1633,37 @@ function MonitoringView({
               )}
           </div>
         ) : (
-          <div className="divide-y divide-stone-100">
-            {visible.map((f) => (
-              <FindingRow
-                key={f.result_id}
-                f={f}
-                reviewId={review.id}
-                isDismissed={!!f.dismissed_at || dismissing.has(f.result_id)}
-                isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
-                onDismiss={() => handleDismiss(f)}
-              />
-            ))}
+          <div className="flex flex-col lg:flex-row">
+            {/* Index: pick a finding to compare */}
+            <div className="lg:w-72 shrink-0 lg:border-r border-stone-100 divide-y divide-stone-100 lg:max-h-[80vh] lg:overflow-y-auto">
+              {visible.map((f) => (
+                <FindingListItem
+                  key={f.result_id}
+                  f={f}
+                  selected={f.result_id === activeId}
+                  isDismissed={!!f.dismissed_at || dismissing.has(f.result_id)}
+                  onSelect={() => setActiveId(f.result_id)}
+                />
+              ))}
+            </div>
+            {/* Center stage: side-by-side comparison of the active finding */}
+            <div className="flex-1 min-w-0 p-5">
+              {active ? (
+                <FindingComparison
+                  key={active.result_id}
+                  f={active}
+                  reviewId={review.id}
+                  refImages={refImages}
+                  activeRef={activeRef}
+                  onSelectRef={setActiveRef}
+                  isDismissed={!!active.dismissed_at || dismissing.has(active.result_id)}
+                  isDismissing={dismissing.has(active.result_id) && !active.dismissed_at}
+                  onDismiss={() => handleDismiss(active)}
+                />
+              ) : (
+                <div className="text-sm text-stone-400">Select a finding to compare.</div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1821,19 +1874,81 @@ function TakedownPacketButton({ reviewId, resultId }: { reviewId: string; result
   );
 }
 
-function FindingRow({
+// Compact, selectable index row. Clicking loads it into the comparison panel.
+function FindingListItem({
+  f,
+  selected,
+  isDismissed,
+  onSelect,
+}: {
+  f: IpReviewFinding;
+  selected: boolean;
+  isDismissed: boolean;
+  onSelect: () => void;
+}) {
+  const priorityCls =
+    f.enforcement_priority >= 0.75
+      ? "text-red-700"
+      : f.enforcement_priority >= 0.5
+        ? "text-amber-700"
+        : "text-stone-500";
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition-colors ${
+        selected ? "bg-stone-100" : "hover:bg-stone-50"
+      } ${isDismissed ? "opacity-50" : ""}`}
+    >
+      {f.image_url ? (
+        <img src={f.image_url} alt="" className="w-12 h-12 rounded object-cover border border-stone-200 shrink-0" />
+      ) : (
+        <div className="w-12 h-12 rounded bg-stone-100 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-stone-900 truncate">{f.domain}</span>
+          {f.source_method && (
+            <span className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${methodChip(f.source_method).cls}`}>
+              {methodChip(f.source_method).label}
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-stone-500 truncate">
+          sim {Math.round((f.similarity_score ?? 0) * 100)}%
+          {f.vlm_verdict ? ` · vlm ${f.vlm_verdict}` : ""}
+        </div>
+      </div>
+      <div className={`text-sm font-bold shrink-0 ${priorityCls}`}>
+        {f.enforcement_priority.toFixed(2)}
+      </div>
+    </button>
+  );
+}
+
+// Center-stage comparison: the protected IP reference next to the marketplace
+// listing image, large and object-contained so a reviewer can adjudicate
+// infringement at a glance — mirroring the clearance comparison UX.
+function FindingComparison({
   f,
   reviewId,
+  refImages,
+  activeRef,
+  onSelectRef,
   isDismissed,
   isDismissing,
   onDismiss,
 }: {
   f: IpReviewFinding;
   reviewId: string;
+  refImages: string[];
+  activeRef: number;
+  onSelectRef: (i: number) => void;
   isDismissed: boolean;
   isDismissing: boolean;
   onDismiss: () => void;
 }) {
+  const refUrl = refImages[activeRef] ?? refImages[0] ?? null;
   const priorityCls =
     f.enforcement_priority >= 0.75
       ? "text-red-700"
@@ -1841,96 +1956,104 @@ function FindingRow({
         ? "text-amber-700"
         : "text-stone-700";
   return (
-    <div className={`px-5 py-4 flex items-start gap-3 ${isDismissed ? "opacity-50" : ""}`}>
-      {f.image_url ? (
-        <img
-          src={f.image_url}
-          alt=""
-          className="w-20 h-20 rounded-lg object-cover border border-stone-200"
-        />
-      ) : (
-        <div className="w-20 h-20 rounded-lg bg-stone-100" />
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="font-semibold text-sm text-stone-900 truncate">
-            {f.domain}
-          </span>
-          {isDismissed && (
-            f.dismissal_reason?.startsWith("dead_link") ? (
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700"
-                title={`Listing gone (${f.availability ?? f.dismissal_reason})${
-                  f.last_checked_at
-                    ? ` · checked ${new Date(f.last_checked_at).toLocaleDateString()}`
-                    : ""
-                }`}
-              >
-                dead link
-              </span>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <figure className="m-0">
+          <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center">
+            Protected IP
+          </figcaption>
+          <ImageFrame>
+            {refUrl ? (
+              <img src={refUrl} alt="reference" className="w-full h-full object-contain" />
             ) : (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">
-                dismissed
-              </span>
-            )
+              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
+                No reference image
+              </div>
+            )}
+          </ImageFrame>
+          {refImages.length > 1 && (
+            <div className="flex gap-1.5 justify-center mt-2 flex-wrap">
+              {refImages.map((u, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onSelectRef(i)}
+                  className={`w-9 h-9 rounded border overflow-hidden ${
+                    i === activeRef ? "border-stone-900 ring-1 ring-stone-900" : "border-stone-200"
+                  }`}
+                >
+                  <img src={u} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
           )}
-          {f.source_method && (
-            <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`}
-              title={`Found via ${f.source_method}`}
-            >
-              {methodChip(f.source_method).label}
-            </span>
-          )}
-          {f.is_approved_licensee && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">
-              approved
-            </span>
-          )}
-          {f.vlm_verdict && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
-              vlm: {f.vlm_verdict}
-              {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
-            </span>
-          )}
-        </div>
-        <a
-          href={f.page_url}
-          target="_blank"
-          rel="noreferrer"
-          className="block text-[11px] text-blue-700 hover:underline truncate"
-        >
-          {f.page_url}
-        </a>
-        <div className="flex items-center gap-2 mt-2 flex-wrap text-[11px] text-stone-500">
-          <span>similarity {Math.round((f.similarity_score ?? 0) * 100)}%</span>
-          {f.inliers != null && <span>· inliers {f.inliers}</span>}
-          <span>· {new Date(f.found_at).toLocaleDateString()}</span>
-        </div>
-        {f.vlm_reasoning && (
-          <div className="text-[11px] text-stone-600 mt-1.5 leading-relaxed line-clamp-2">
-            {f.vlm_reasoning}
-          </div>
-        )}
-        <div className="flex items-center gap-2 mt-3">
-          <TakedownPacketButton reviewId={reviewId} resultId={f.result_id} />
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isDismissed || isDismissing}
-            className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
-          >
-            {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
-          </button>
-        </div>
+        </figure>
+        <figure className="m-0">
+          <figcaption className="text-[10px] font-semibold uppercase tracking-wide text-stone-400 mb-1 text-center truncate">
+            Found on {f.domain}
+          </figcaption>
+          <ImageFrame>
+            {f.image_url ? (
+              <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
+                <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
+              </a>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
+            )}
+          </ImageFrame>
+        </figure>
       </div>
-      <div className="text-right shrink-0">
-        <div className={`text-lg font-bold ${priorityCls}`}>
-          {f.enforcement_priority.toFixed(2)}
-        </div>
-        <div className="text-[10px] uppercase tracking-wider text-stone-400">
-          priority
-        </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
+        <span className="text-[10px] uppercase tracking-wider text-stone-400">priority</span>
+        {f.source_method && (
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
+            {methodChip(f.source_method).label}
+          </span>
+        )}
+        {f.vlm_verdict && (
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
+            vlm: {f.vlm_verdict}
+            {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
+          </span>
+        )}
+        {f.is_approved_licensee && (
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">approved</span>
+        )}
+        {isDismissed && (
+          f.dismissal_reason?.startsWith("dead_link") ? (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700">dead link</span>
+          ) : (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">dismissed</span>
+          )
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-500">
+        <span>similarity {Math.round((f.similarity_score ?? 0) * 100)}%</span>
+        {f.inliers != null && <span>· inliers {f.inliers}</span>}
+        <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
+      </div>
+
+      <a href={f.page_url} target="_blank" rel="noreferrer" className="block text-[11px] text-blue-700 hover:underline break-all">
+        {f.page_url} ↗
+      </a>
+
+      {f.vlm_reasoning && (
+        <p className="text-xs text-stone-600 leading-relaxed border-l-2 border-stone-200 pl-2">{f.vlm_reasoning}</p>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <TakedownPacketButton reviewId={reviewId} resultId={f.result_id} />
+        <button
+          type="button"
+          onClick={onDismiss}
+          disabled={isDismissed || isDismissing}
+          className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
+        >
+          {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
+        </button>
       </div>
     </div>
   );
