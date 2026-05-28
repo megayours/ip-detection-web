@@ -1199,6 +1199,9 @@ export interface IpReviewFinding {
   description_full: string | null;
   item_details: Record<string, unknown> | null;
   image_urls: string[] | null;
+  /** Per-image similarity (vs this finding's IP), sorted desc — lets the
+   *  carousel mark which listing photo actually matched. */
+  gallery_scores: Array<{ url: string; similarity: number }> | null;
   seller_sales: number | null;
   seller_years_active: number | null;
   seller_rating: number | null;

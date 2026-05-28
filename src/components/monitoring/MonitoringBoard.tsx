@@ -417,50 +417,115 @@ function methodChip(method: string): { label: string; cls: string } {
   }
 }
 
-function ImageFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="w-full max-w-[70vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden">
-      {children}
-    </div>
-  );
-}
+/** Hero-with-thumbstrip carousel for the listing's product photos. When
+ *  `gallery_scores` is present (worker scored each photo against the IP), the
+ *  best-matched image is the default hero, marked MATCHED, and each thumb
+ *  shows its similarity %. Falls back to discovery `image_url` only when the
+ *  gallery is empty. The page screenshot is rendered separately below. */
+function ListingCarousel({ f }: { f: IpReviewFinding }) {
+  const scored = f.gallery_scores ?? [];
+  const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
+  // Order: scored (best first), then any gallery image we couldn't score, then
+  // the discovery thumbnail if it isn't already in the gallery. Dedupe by URL.
+  const urls = useMemo(() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const add = (u: string | null | undefined) => {
+      if (u && !seen.has(u)) {
+        out.push(u);
+        seen.add(u);
+      }
+    };
+    for (const s of scored) add(s.url);
+    for (const u of f.image_urls ?? []) add(u);
+    add(f.image_url);
+    return out;
+  }, [scored, f.image_urls, f.image_url]);
 
-/** Compact thumbnail strip for `case_enrichment.image_urls`. Shows up to MAX
- *  thumbs; remainder collapses into a "+N" tile that expands the strip in place.
- *  Each thumb is a click-to-open-in-new-tab link to the full image. */
-function PhotoStrip({ urls }: { urls: string[] }) {
-  const MAX = 8;
-  const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? urls : urls.slice(0, MAX);
-  const hidden = Math.max(0, urls.length - MAX);
+  const [idx, setIdx] = useState(0);
+  // Reset selection when the underlying finding changes.
+  useEffect(() => {
+    setIdx(0);
+  }, [f.result_id]);
+
+  if (urls.length === 0) {
+    return (
+      <div className="w-full max-w-[60vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg flex items-center justify-center text-xs text-stone-400">
+        No image
+      </div>
+    );
+  }
+
+  const active = urls[Math.min(idx, urls.length - 1)];
+  const activeSim = scoredByUrl.get(active);
+  const bestUrl = scored[0]?.url;
+
   return (
-    <div className="space-y-1">
-      <div className="text-[10px] uppercase tracking-wider text-stone-400">
-        Other photos · {urls.length}
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {shown.map((u, i) => (
-          <a
-            key={`${u}-${i}`}
-            href={u}
-            target="_blank"
-            rel="noreferrer"
-            title="Open full size"
-            className="block w-12 h-12 rounded overflow-hidden border border-stone-200 bg-stone-50 hover:border-stone-400 transition-colors"
+    <div className="space-y-2">
+      {/* Hero */}
+      <a
+        href={active}
+        target="_blank"
+        rel="noreferrer"
+        title="Open full size"
+        className="block w-full max-w-[60vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
+      >
+        <img src={active} alt="" className="w-full h-full object-contain" />
+        {activeSim != null && (
+          <span
+            className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              active === bestUrl
+                ? "bg-emerald-600 text-white"
+                : "bg-stone-900/80 text-white"
+            }`}
+            title={`Similarity to the protected IP: ${Math.round(activeSim * 100)}%`}
           >
-            <img src={u} alt="" className="w-full h-full object-cover" loading="lazy" />
-          </a>
-        ))}
-        {!expanded && hidden > 0 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="w-12 h-12 rounded border border-stone-200 bg-stone-50 text-[11px] font-semibold text-stone-600 hover:bg-stone-100"
-          >
-            +{hidden}
-          </button>
+            {active === bestUrl ? "MATCHED · " : ""}
+            {Math.round(activeSim * 100)}%
+          </span>
         )}
-      </div>
+        {urls.length > 1 && (
+          <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-900/70 text-white">
+            {idx + 1} / {urls.length}
+          </span>
+        )}
+      </a>
+
+      {/* Thumb strip — horizontal scroll on overflow, matched thumb framed emerald. */}
+      {urls.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          {urls.map((u, i) => {
+            const sim = scoredByUrl.get(u);
+            const isActive = i === idx;
+            const isBest = u === bestUrl;
+            return (
+              <button
+                key={`${u}-${i}`}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIdx(i);
+                }}
+                className={`relative shrink-0 w-14 h-14 rounded overflow-hidden border-2 transition-colors ${
+                  isActive
+                    ? "border-stone-900"
+                    : isBest
+                      ? "border-emerald-500"
+                      : "border-stone-200 hover:border-stone-400"
+                }`}
+                title={sim != null ? `${Math.round(sim * 100)}% match` : undefined}
+              >
+                <img src={u} alt="" className="w-full h-full object-cover" loading="lazy" />
+                {sim != null && (
+                  <span className="absolute bottom-0 right-0 px-1 py-px bg-stone-900/80 text-white text-[9px] font-bold leading-tight">
+                    {Math.round(sim * 100)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -653,39 +718,33 @@ function FindingComparison({
           onUpdated={onUpdated}
         />
       </div>
-      <figure className="m-0">
-        {f.screenshot_url ? (
-          // Real listing-page screenshot — the most useful view of the finding.
-          <>
-            <a
-              href={f.page_url}
-              target="_blank"
-              rel="noreferrer"
-              title="Open listing"
-              className="flex justify-center bg-stone-50 border border-stone-200 rounded-lg overflow-hidden"
-            >
-              <img src={f.screenshot_url} alt="listing page" className="max-h-[72vh] w-auto object-contain" />
-            </a>
-            {f.image_url && (
-              <div className="flex items-center gap-2 justify-center mt-2 text-[10px] uppercase tracking-wide text-stone-400">
-                matched image
-                <img src={f.image_url} alt="matched" className="w-12 h-12 rounded object-cover border border-stone-200" />
-              </div>
-            )}
-          </>
-        ) : (
-          // No screenshot yet (enrichment pending / failed) — show the match image.
-          <ImageFrame>
-            {f.image_url ? (
-              <a href={f.page_url} target="_blank" rel="noreferrer" className="block w-full h-full" title="Open listing">
-                <img src={f.image_url} alt="finding" className="w-full h-full object-contain" />
-              </a>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image</div>
-            )}
-          </ImageFrame>
-        )}
-      </figure>
+      {/* Listing carousel — primary view. Hero = the best-matched product photo
+          (marked) plus a thumb strip; click any thumb to swap. */}
+      <ListingCarousel f={f} />
+
+      {/* Page screenshot — secondary, smaller. The actual page context lives
+          here. Only render when an enrichment screenshot was captured. */}
+      {f.screenshot_url && (
+        <details className="text-[11px] text-stone-500">
+          <summary className="cursor-pointer text-stone-400 hover:text-stone-600 select-none">
+            Page screenshot
+          </summary>
+          <a
+            href={f.page_url}
+            target="_blank"
+            rel="noreferrer"
+            title="Open listing"
+            className="mt-2 flex justify-center bg-stone-50 border border-stone-200 rounded-lg overflow-hidden"
+          >
+            <img
+              src={f.screenshot_url}
+              alt="listing page"
+              className="max-h-[48vh] w-auto object-contain"
+              loading="lazy"
+            />
+          </a>
+        </details>
+      )}
 
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
@@ -807,10 +866,6 @@ function FindingComparison({
             </div>
           )}
         </div>
-      )}
-
-      {f.image_urls && f.image_urls.length > 0 && (
-        <PhotoStrip urls={f.image_urls} />
       )}
 
       {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
