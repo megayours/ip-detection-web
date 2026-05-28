@@ -425,8 +425,9 @@ function methodChip(method: string): { label: string; cls: string } {
 function ListingCarousel({ f }: { f: IpReviewFinding }) {
   const scored = f.gallery_scores ?? [];
   const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
-  // Order: scored (best first), then any gallery image we couldn't score, then
-  // the discovery thumbnail if it isn't already in the gallery. Dedupe by URL.
+  // Order: page screenshot first (when captured — wide page context the lawyer
+  // anchors on), then scored gallery (best-matched first), then any unscored
+  // gallery URL, then the discovery thumbnail. Dedupe by URL.
   const urls = useMemo(() => {
     const out: string[] = [];
     const seen = new Set<string>();
@@ -436,11 +437,12 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         seen.add(u);
       }
     };
+    add(f.screenshot_url);
     for (const s of scored) add(s.url);
     for (const u of f.image_urls ?? []) add(u);
     add(f.image_url);
     return out;
-  }, [scored, f.image_urls, f.image_url]);
+  }, [f.screenshot_url, scored, f.image_urls, f.image_url]);
 
   const [idx, setIdx] = useState(0);
   // Reset selection when the underlying finding changes.
@@ -718,33 +720,9 @@ function FindingComparison({
           onUpdated={onUpdated}
         />
       </div>
-      {/* Listing carousel — primary view. Hero = the best-matched product photo
-          (marked) plus a thumb strip; click any thumb to swap. */}
+      {/* Single image carousel. Page screenshot is included as the first slide
+          when available; product photos follow (best-matched marked). */}
       <ListingCarousel f={f} />
-
-      {/* Page screenshot — secondary, smaller. The actual page context lives
-          here. Only render when an enrichment screenshot was captured. */}
-      {f.screenshot_url && (
-        <details className="text-[11px] text-stone-500">
-          <summary className="cursor-pointer text-stone-400 hover:text-stone-600 select-none">
-            Page screenshot
-          </summary>
-          <a
-            href={f.page_url}
-            target="_blank"
-            rel="noreferrer"
-            title="Open listing"
-            className="mt-2 flex justify-center bg-stone-50 border border-stone-200 rounded-lg overflow-hidden"
-          >
-            <img
-              src={f.screenshot_url}
-              alt="listing page"
-              className="max-h-[48vh] w-auto object-contain"
-              loading="lazy"
-            />
-          </a>
-        </details>
-      )}
 
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
