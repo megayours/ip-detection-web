@@ -6,9 +6,10 @@ export default function Login() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
 
-  // If we're already signed in (e.g. landed here directly), bounce to /registry.
+  // If we're already signed in (e.g. landed here directly), bounce to the
+  // dashboard.
   useEffect(() => {
-    if (user) navigate("/registry");
+    if (user) navigate("/");
   }, [user, navigate]);
 
   return (

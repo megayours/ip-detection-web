@@ -202,7 +202,7 @@ export default function Settings() {
 }
 
 // Tenant-global monitoring schedule. Per-IP platforms + findings live on the
-// IP detail page (/registry/:id); this just governs whether/when the
+// IP detail page (/ips/:id); this just governs whether/when the
 // scheduler fans out runs.
 function MonitoringSettingsSection() {
   const [settings, setSettings] = useState<MonitoringSettings | null>(null);
@@ -240,7 +240,7 @@ function MonitoringSettingsSection() {
         <h2 className="text-lg font-black text-stone-900 tracking-tight">Monitoring</h2>
         <p className="mt-1 text-sm text-stone-500">
           When enabled, the scheduler fans out runs for every IP's watched
-          platforms on this cadence. Add platforms per-IP from the registry.
+          platforms on this cadence. Add platforms per-IP from Monitoring.
         </p>
       </div>
 

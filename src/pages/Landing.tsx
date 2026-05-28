@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
+import Nav from "../components/Nav";
 
 const DEMO_MAILTO =
   "mailto:antonio.palma@megayours.com?subject=MegaYours%20Demo%20Request";
 
 export default function Landing() {
   return (
-    <div className="relative">
+    <div className="relative bg-cream text-stone-900 font-[Inter,system-ui,sans-serif]">
+      <Nav />
       {/* ================= Hero ================= */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" aria-hidden>

@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   addIpLicense,
+  confirmIpFinding,
   dismissIpFinding,
+  markIpFindingEnforced,
+  markIpFindingTakedownSent,
   openIpFindingTakedownPacket,
+  reopenIpFinding,
+  type CaseReviewStatus,
   type IpReviewFinding,
 } from "../../api";
 
@@ -25,6 +30,7 @@ export function MonitoringBoard({
   onRefresh,
   onDismiss,
   showIpColumn,
+  initialStatus,
 }: {
   findings: IpReviewFinding[];
   /**
@@ -45,6 +51,11 @@ export function MonitoringBoard({
    * free; the single-IP RegistryDetail usage leaves it off and stays clean.
    */
   showIpColumn?: boolean;
+  /**
+   * Initial enforcement-status filter — Findings.tsx forwards the `?status=`
+   * URL param so a dashboard KPI deep-link lands pre-filtered.
+   */
+  initialStatus?: string | null;
 }) {
   // Show IP attribution when explicitly asked, or whenever findings carry
   // their own IP (i.e. the tenant-wide board).
@@ -57,6 +68,12 @@ export function MonitoringBoard({
   const [domainFilter, setDomainFilter] = useState<string>("all");
   // IP filter (global board only): "all" = every monitored IP.
   const [ipFilter, setIpFilter] = useState<string>("all");
+  // Enforcement-status filter — null means "no filter" (all statuses).
+  // Pre-seeded from `initialStatus` for dashboard KPI deep links.
+  const [statusFilter, setStatusFilter] = useState<string | null>(() => {
+    const v = (initialStatus ?? "").trim();
+    return v && STATUS_FILTERS.some((s) => s.key === v) ? v : null;
+  });
   // Optimistically-dismissed result_ids — the server reload eventually
   // replaces this once `dismissed_at` lands in the polled payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
@@ -72,9 +89,24 @@ export function MonitoringBoard({
       if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
         return false;
       }
+      if (statusFilter && !statusMatches(f, statusFilter)) return false;
       return true;
     });
-  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter, ipFilter]);
+  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter, ipFilter, statusFilter]);
+
+  // Per-status counts ignore dismissed (the "dismissed" bucket is its own).
+  const statusCounts = useMemo(() => {
+    const m: Record<string, number> = { pending: 0, confirmed: 0, takedown_sent: 0, enforced: 0, dismissed: 0 };
+    for (const f of findings) {
+      if (f.dismissed_at || dismissing.has(f.result_id)) {
+        m.dismissed += 1;
+        continue;
+      }
+      const s = (f.review_status ?? "pending") as string;
+      if (s in m) m[s] += 1;
+    }
+    return m;
+  }, [findings, dismissing]);
 
   // Distinct IP names present across live findings — drives the IP filter
   // dropdown, only shown on the multi-IP (global) board.
@@ -155,8 +187,14 @@ export function MonitoringBoard({
 
   return (
     <>
+      <StatusFilterBar
+        counts={statusCounts}
+        active={statusFilter}
+        onSelect={setStatusFilter}
+      />
+
       {/* One clean filter bar: severity pills + IP + platform + dismissed. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3 mt-3">
         <PriorityBanner
           counts={counts}
           active={priorityFilter}
@@ -273,6 +311,78 @@ function priorityBand(p: number): "high" | "med" | "low" {
   return "low";
 }
 
+// Slim status pipeline pills. `null` is rendered as "pending".
+const STATUS_FILTERS: Array<{ key: string; label: string }> = [
+  { key: "pending", label: "To triage" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "takedown_sent", label: "Sent" },
+  { key: "enforced", label: "Enforced" },
+  { key: "dismissed", label: "Dismissed" },
+];
+
+function statusKey(f: IpReviewFinding): string {
+  if (f.dismissed_at) return "dismissed";
+  return (f.review_status ?? "pending") as string;
+}
+
+function statusMatches(f: IpReviewFinding, key: string): boolean {
+  return statusKey(f) === key;
+}
+
+function statusBadge(s: CaseReviewStatus | null | undefined) {
+  const status = (s ?? "pending") as CaseReviewStatus | "pending";
+  switch (status) {
+    case "confirmed":
+      return { label: "Confirmed", cls: "bg-blue-100 text-blue-700" };
+    case "takedown_sent":
+      return { label: "Takedown sent", cls: "bg-amber-100 text-amber-700" };
+    case "enforced":
+      return { label: "Enforced", cls: "bg-emerald-100 text-emerald-700" };
+    case "dismissed":
+      return { label: "Dismissed", cls: "bg-stone-200 text-stone-600" };
+    case "pending":
+    default:
+      return { label: "Pending", cls: "bg-stone-100 text-stone-700" };
+  }
+}
+
+function StatusFilterBar({
+  counts,
+  active,
+  onSelect,
+}: {
+  counts: Record<string, number>;
+  active: string | null;
+  onSelect: (s: string | null) => void;
+}) {
+  const total =
+    counts.pending + counts.confirmed + counts.takedown_sent + counts.enforced;
+  const pill = (key: string | null, label: string, n: number) => {
+    const isActive = active === key;
+    return (
+      <button
+        key={key ?? "all"}
+        type="button"
+        onClick={() => onSelect(isActive ? null : key)}
+        aria-pressed={isActive}
+        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+          isActive
+            ? "border-stone-900 bg-stone-900 text-white"
+            : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+        }`}
+      >
+        {label} <span className="font-bold tabular-nums">{n}</span>
+      </button>
+    );
+  };
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {pill(null, "All", total)}
+      {STATUS_FILTERS.map((s) => pill(s.key, s.label, counts[s.key] ?? 0))}
+    </div>
+  );
+}
+
 // Short, highlighted label for the scrape method that surfaced a finding.
 function methodChip(method: string): { label: string; cls: string } {
   switch (method) {
@@ -347,29 +457,6 @@ function PriorityBanner({
   );
 }
 
-function TakedownPacketButton({ ipId, resultId }: { ipId?: string; resultId: string }) {
-  const [loading, setLoading] = useState(false);
-  return (
-    <button
-      type="button"
-      disabled={loading || !ipId}
-      onClick={async () => {
-        if (!ipId) return;
-        setLoading(true);
-        try {
-          await openIpFindingTakedownPacket(ipId, resultId);
-        } catch (e) {
-          alert(e instanceof Error ? e.message : "Failed to open takedown packet");
-        } finally {
-          setLoading(false);
-        }
-      }}
-      className="px-2.5 py-1 rounded-md bg-stone-900 text-white text-[11px] font-semibold hover:bg-stone-800 disabled:opacity-50"
-    >
-      {loading ? "Preparing…" : "Takedown packet"}
-    </button>
-  );
-}
 
 // Compact, selectable index row. Clicking loads it into the comparison panel.
 function FindingListItem({
@@ -411,13 +498,21 @@ function FindingListItem({
             {f.ip_name}
           </span>
         )}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs font-semibold text-stone-900 truncate">{f.domain}</span>
           {f.source_method && (
             <span className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${methodChip(f.source_method).cls}`}>
               {methodChip(f.source_method).label}
             </span>
           )}
+          {(() => {
+            const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
+            return (
+              <span className={`px-1 py-0.5 rounded text-[9px] font-semibold uppercase shrink-0 ${sb.cls}`}>
+                {sb.label}
+              </span>
+            );
+          })()}
         </div>
         <div className="text-[11px] text-stone-500 truncate">
           sim {Math.round((f.similarity_score ?? 0) * 100)}%
@@ -459,40 +554,29 @@ function FindingComparison({
       : f.enforcement_priority >= 0.5
         ? "text-amber-700"
         : "text-stone-700";
-  const [licensing, setLicensing] = useState(false);
   const canLicense = !!ipId && (!!f.seller_name || !!f.seller_url);
   // Enrichment hit a reCAPTCHA / bot-wall — the screenshot is the challenge
   // page, not the listing.
   const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
 
-  async function handleLicense() {
-    if (licensing || !ipId) return;
-    setLicensing(true);
-    try {
-      await addIpLicense(ipId, {
-        domain: f.domain,
-        seller_name: f.seller_name,
-        seller_url: f.seller_url,
-      });
-      onUpdated(); // backfill dismisses this + any sibling finding from the seller
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to add license");
-    } finally {
-      setLicensing(false);
-    }
-  }
+  const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
 
   return (
     <div className="space-y-4">
-      {/* Header: IP + listing source on the left, the three actions pinned
-          top-right, kept compact. Context follows below the image. */}
+      {/* Header: IP + status + listing source on the left, the state-driven
+          action group pinned top-right. Context follows below the image. */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {showIp && f.ip_name && (
-            <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-              {f.ip_name}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {showIp && f.ip_name && (
+              <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
+                {f.ip_name}
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${sb.cls}`}>
+              {sb.label}
             </span>
-          )}
+          </div>
           <div className="text-[11px] text-stone-500 mt-1 truncate">
             <span className="uppercase tracking-wide text-stone-400">Found on </span>
             <span className="font-semibold text-stone-700">{f.domain}</span>
@@ -501,28 +585,15 @@ function FindingComparison({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <TakedownPacketButton ipId={ipId} resultId={f.result_id} />
-          {canLicense && !isDismissed && (
-            <button
-              type="button"
-              onClick={handleLicense}
-              disabled={licensing}
-              title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
-              className="px-2.5 py-1 rounded-md border border-emerald-300 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-50 disabled:opacity-50"
-            >
-              {licensing ? "Licensing…" : "License this seller"}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isDismissed || isDismissing}
-            className="px-2.5 py-1 rounded-md border border-stone-300 text-stone-700 text-[11px] font-semibold hover:bg-stone-50 disabled:opacity-50 disabled:cursor-default"
-          >
-            {isDismissing ? "Dismissing…" : isDismissed ? "Dismissed" : "Dismiss"}
-          </button>
-        </div>
+        <FindingActions
+          f={f}
+          ipId={ipId}
+          canLicense={canLicense}
+          isDismissed={isDismissed}
+          isDismissing={isDismissing}
+          onDismiss={onDismiss}
+          onUpdated={onUpdated}
+        />
       </div>
       <figure className="m-0">
         {f.screenshot_url ? (
@@ -696,4 +767,198 @@ function FindingComparison({
       </div>
     </div>
   );
+}
+
+// Status-driven action group for the comparison header. One primary + a few
+// secondaries per state; everything is optimistic ("Working…") and triggers
+// a board refresh on success.
+function FindingActions({
+  f,
+  ipId,
+  canLicense,
+  isDismissed,
+  isDismissing,
+  onDismiss,
+  onUpdated,
+}: {
+  f: IpReviewFinding;
+  ipId?: string;
+  canLicense: boolean;
+  isDismissed: boolean;
+  isDismissing: boolean;
+  onDismiss: () => void;
+  onUpdated: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [licensing, setLicensing] = useState(false);
+
+  async function run(label: string, fn: () => Promise<unknown>) {
+    if (busy) return;
+    setBusy(label);
+    try {
+      await fn();
+      onUpdated();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : `Failed: ${label}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleLicense() {
+    if (licensing || !ipId) return;
+    setLicensing(true);
+    try {
+      await addIpLicense(ipId, {
+        domain: f.domain,
+        seller_name: f.seller_name,
+        seller_url: f.seller_url,
+      });
+      onUpdated(); // backfill dismisses this + any sibling finding from the seller
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to add license");
+    } finally {
+      setLicensing(false);
+    }
+  }
+
+  // Effective status: explicit dismissal collapses to "dismissed".
+  const state: CaseReviewStatus = isDismissed
+    ? "dismissed"
+    : (f.review_status ?? "pending");
+
+  const primaryCls =
+    "px-2.5 py-1 rounded-md text-[11px] font-semibold disabled:opacity-50";
+  const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
+  const amber = `${primaryCls} bg-amber-500 text-white hover:bg-amber-400`;
+  const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
+  const dark = `${primaryCls} bg-stone-900 text-white hover:bg-stone-800`;
+  const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
+  const ghostEmerald = `${primaryCls} border border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white`;
+
+  const dismissBtn = (
+    <button
+      key="dismiss"
+      type="button"
+      onClick={onDismiss}
+      disabled={isDismissing}
+      className={ghostStone}
+    >
+      {isDismissing ? "Dismissing…" : "Dismiss"}
+    </button>
+  );
+
+  const licenseBtn = canLicense ? (
+    <button
+      key="license"
+      type="button"
+      onClick={handleLicense}
+      disabled={licensing}
+      title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
+      className={ghostEmerald}
+    >
+      {licensing ? "Licensing…" : "License this seller"}
+    </button>
+  ) : null;
+
+  function reopenBtn(label = "Reopen") {
+    return (
+      <button
+        key="reopen"
+        type="button"
+        disabled={!ipId || busy === "reopen"}
+        onClick={() =>
+          ipId &&
+          run("reopen", () => reopenIpFinding(ipId, f.result_id))
+        }
+        className={ghostStone}
+      >
+        {busy === "reopen" ? "Working…" : label}
+      </button>
+    );
+  }
+
+  let buttons: React.ReactNode = null;
+
+  if (state === "pending") {
+    buttons = (
+      <>
+        <button
+          type="button"
+          disabled={!ipId || busy === "confirm"}
+          onClick={() =>
+            ipId && run("confirm", () => confirmIpFinding(ipId, f.result_id))
+          }
+          className={blue}
+        >
+          {busy === "confirm" ? "Working…" : "Confirm"}
+        </button>
+        {licenseBtn}
+        {dismissBtn}
+      </>
+    );
+  } else if (state === "confirmed") {
+    buttons = (
+      <>
+        <button
+          type="button"
+          disabled={!ipId || busy === "packet"}
+          onClick={() =>
+            ipId &&
+            run("packet", () => openIpFindingTakedownPacket(ipId, f.result_id))
+          }
+          className={dark}
+        >
+          {busy === "packet" ? "Preparing…" : "Generate takedown"}
+        </button>
+        <button
+          type="button"
+          disabled={!ipId || busy === "sent"}
+          onClick={() =>
+            ipId &&
+            run("sent", () => markIpFindingTakedownSent(ipId, f.result_id))
+          }
+          className={amber}
+        >
+          {busy === "sent" ? "Working…" : "Mark sent"}
+        </button>
+        {dismissBtn}
+      </>
+    );
+  } else if (state === "takedown_sent") {
+    buttons = (
+      <>
+        <button
+          type="button"
+          disabled={!ipId || busy === "enforce"}
+          onClick={() =>
+            ipId &&
+            run("enforce", () => markIpFindingEnforced(ipId, f.result_id))
+          }
+          className={emerald}
+        >
+          {busy === "enforce" ? "Working…" : "Mark enforced"}
+        </button>
+        <button
+          type="button"
+          disabled={!ipId || busy === "packet"}
+          onClick={() =>
+            ipId &&
+            run("packet", () => openIpFindingTakedownPacket(ipId, f.result_id))
+          }
+          className={ghostStone}
+        >
+          {busy === "packet" ? "Preparing…" : "Re-open packet"}
+        </button>
+        {dismissBtn}
+      </>
+    );
+  } else if (state === "enforced") {
+    buttons = reopenBtn();
+  } else {
+    // dismissed
+    buttons = reopenBtn();
+  }
+
+  return <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">{buttons}</div>;
 }

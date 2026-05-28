@@ -261,7 +261,7 @@ export default function CaseDetail() {
           {data.trademark && (
             <div className="px-4 py-3 border-t border-stone-100">
               <Link
-                to={`/registry/${data.trademark.id}`}
+                to={`/ips/${data.trademark.id}`}
                 className="text-xs font-semibold text-red-700 hover:text-red-800"
               >
                 View IP →
@@ -494,12 +494,16 @@ function ScoreBadge({ score }: { score: number }) {
 function ReviewBadge({ status }: { status: CaseReviewStatus }) {
   const palette: Record<CaseReviewStatus, string> = {
     pending: "bg-red-50 text-red-700",
-    confirmed: "bg-red-50 text-red-700",
+    confirmed: "bg-blue-50 text-blue-700",
+    takedown_sent: "bg-amber-50 text-amber-700",
+    enforced: "bg-emerald-50 text-emerald-700",
     dismissed: "bg-stone-100 text-stone-500",
   };
   const label: Record<CaseReviewStatus, string> = {
     pending: "Pending review",
     confirmed: "Confirmed",
+    takedown_sent: "Takedown sent",
+    enforced: "Enforced",
     dismissed: "Dismissed",
   };
   return (

@@ -1,139 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  listMonitoringFindingsGlobal,
+  addIpMonitoringPlatform,
   listMonitoredIps,
   listTrademarks,
-  addIpMonitoringPlatform,
-  type IpReviewFinding,
   type MonitoredIpSummary,
   type Trademark,
 } from "../api";
-import { MonitoringBoard } from "../components/monitoring/MonitoringBoard";
 import { PlatformsPanel } from "../components/monitoring/PlatformsPanel";
 
-type Tab = "findings" | "ips";
-
 /**
- * Top-level Infringement Monitoring hub. Clients land here on a tenant-wide
- * findings list (across every monitored IP) without drilling into each IP,
- * and manage which IPs/platforms are watched from the second tab.
+ * Per-IP monitoring management page. Add new monitored IPs, see each IP's
+ * watched platforms, link to Audit log.
  */
-export default function Monitoring() {
-  const [tab, setTab] = useState<Tab>("findings");
-
-  return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-bold tracking-tight">Infringement Monitoring</h1>
-      </div>
-
-      <div className="flex items-center gap-6 border-b border-stone-200">
-        <TabButton active={tab === "findings"} onClick={() => setTab("findings")} label="Findings" />
-        <TabButton active={tab === "ips"} onClick={() => setTab("ips")} label="Monitored IPs" />
-      </div>
-
-      {tab === "findings" ? <FindingsTab /> : <MonitoredIpsTab />}
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`-mb-px py-2 border-b-2 text-sm font-medium transition-colors ${
-        active
-          ? "border-stone-900 text-stone-900"
-          : "border-transparent text-stone-500 hover:text-stone-800"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-// --- Findings tab: tenant-wide board, filterable by IP + platform ---
-
-function FindingsTab() {
-  const [findings, setFindings] = useState<IpReviewFinding[]>([]);
-  const [includeDismissed, setIncludeDismissed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [err, setErr] = useState("");
-
-  const load = useCallback(async () => {
-    try {
-      const { findings } = await listMonitoringFindingsGlobal({
-        include_dismissed: includeDismissed,
-      });
-      setFindings(findings);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoaded(true);
-    }
-  }, [includeDismissed]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const liveCount = useMemo(
-    () => findings.filter((f) => !f.dismissed_at).length,
-    [findings],
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-stone-500">
-          {liveCount} open finding{liveCount === 1 ? "" : "s"} across all monitored IPs
-        </p>
-        <label className="flex items-center gap-2 text-[11px] text-stone-500">
-          <input
-            type="checkbox"
-            checked={includeDismissed}
-            onChange={(e) => setIncludeDismissed(e.target.checked)}
-          />
-          Include dismissed
-        </label>
-      </div>
-
-      {err && <div className="text-sm text-red-600">{err}</div>}
-
-      {!loaded ? (
-        <div className="text-sm text-stone-400 py-8 text-center">Loading…</div>
-      ) : findings.length === 0 ? (
-        <div className="rounded-2xl border border-stone-200 bg-white px-5 py-12 text-center">
-          <p className="text-sm text-stone-600">No findings yet</p>
-          <p className="text-xs text-stone-400 mt-1">
-            Add platforms under <span className="font-semibold">Monitored IPs</span>.
-          </p>
-        </div>
-      ) : (
-        <MonitoringBoard
-          findings={findings}
-          runInProgress={false}
-          onRefresh={load}
-          showIpColumn
-        />
-      )}
-    </div>
-  );
-}
-
-// --- Monitored IPs tab: per-IP platforms panels + add-a-new-IP picker ---
-
-function MonitoredIpsTab() {
+export default function Monitors() {
   const [ips, setIps] = useState<MonitoredIpSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState("");
@@ -154,7 +34,14 @@ function MonitoredIpsTab() {
   }, [load]);
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+      <div>
+        <h1 className="text-2xl font-black text-stone-900 tracking-tight">Monitoring</h1>
+        <p className="mt-1 text-sm text-stone-500">
+          Which intellectual properties are being watched, and on which platforms.
+        </p>
+      </div>
+
       <AddMonitoredIp monitoredIds={ips.map((i) => i.ip_id)} onAdded={load} />
 
       {err && <div className="text-sm text-red-600">{err}</div>}
@@ -192,7 +79,7 @@ function MonitoredIpCard({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <Link
-            to={`/registry/${ip.ip_id}`}
+            to={`/ips/${ip.ip_id}`}
             className="text-base font-bold text-stone-900 hover:underline"
           >
             {ip.ip_name}
@@ -210,7 +97,7 @@ function MonitoredIpCard({
             ) : (
               <span className="text-[11px] text-amber-700">
                 No keywords —{" "}
-                <Link to={`/registry/${ip.ip_id}`} className="underline">
+                <Link to={`/ips/${ip.ip_id}`} className="underline">
                   set them on the IP page
                 </Link>{" "}
                 so the scrape has search terms.
@@ -219,7 +106,7 @@ function MonitoredIpCard({
           </div>
         </div>
         <Link
-          to={`/registry/${ip.ip_id}/audit`}
+          to={`/ips/${ip.ip_id}/audit`}
           className="text-xs text-blue-700 hover:underline shrink-0"
         >
           Audit log →
@@ -320,7 +207,7 @@ function AddMonitoredIp({
       ) : available.length === 0 ? (
         <div className="text-xs text-stone-400 italic">
           All your IPs are already monitored.{" "}
-          <Link to="/registry" className="text-blue-700 hover:underline">
+          <Link to="/ips" className="text-blue-700 hover:underline">
             Register a new IP →
           </Link>
         </div>

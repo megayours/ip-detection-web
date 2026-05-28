@@ -11,7 +11,7 @@ const PAGE_SIZE = 50;
  *   - Search is debounced (300ms) and re-runs from offset 0.
  *   - "Load more" appends pages onto the existing list.
  *
- * Per-tenant trademarks (the user's own registry) live on /registry —
+ * Per-tenant trademarks (the user's own IPs) live on /ips —
  * we link there from the header instead of merging the two views.
  */
 export default function BrandsCatalog() {
@@ -82,8 +82,8 @@ export default function BrandsCatalog() {
           <h1 className="text-xl font-bold tracking-tight">Indexed Trademarks</h1>
           <p className="text-xs text-stone-400 mt-0.5">
             Browse the EUIPO catalog used for brand clearance. Per-tenant marks live on{" "}
-            <Link to="/registry" className="font-medium text-stone-700 hover:text-stone-900 underline">
-              your registry
+            <Link to="/ips" className="font-medium text-stone-700 hover:text-stone-900 underline">
+              your IPs
             </Link>
             .
           </p>

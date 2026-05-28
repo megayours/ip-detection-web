@@ -76,7 +76,7 @@ export default function IpReviewDetail() {
     navigate("/clearance");
   }
 
-  // Clearance-only page. Monitoring now lives IP-scoped under /registry/:id.
+  // Clearance-only page. Monitoring now lives IP-scoped under /ips/:id.
   // The asset column reads activeMatchId from ClearanceContext, so the
   // provider must wrap both columns. We render the provider even when
   // there's no result yet — the sticky asset still shows the input.

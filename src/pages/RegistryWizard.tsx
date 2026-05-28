@@ -14,12 +14,12 @@ import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
 
 /**
- * Four-step IP-creation wizard at /registry/new.
+ * Four-step IP-creation wizard at /ips/new.
  *
  * Step 1: Name → creates the IP, returns id.
  * Step 2: Upload assets → kicks an index job, waits for "indexed".
  * Step 3: Description (optional) + manual monitoring keywords → "Finish" saves
- *         and navigates to /registry/:id.
+ *         and navigates to /ips/:id.
  *
  * Each card unlocks when the previous step is satisfied. Cancel deletes the
  * in-progress IP so we don't leave half-built rows in the registry.
@@ -132,7 +132,7 @@ export default function RegistryWizard() {
         description: description.trim(),
         keywords,
       });
-      navigate(`/registry/${trademark.id}`);
+      navigate(`/ips/${trademark.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setFinishing(false);
@@ -141,7 +141,7 @@ export default function RegistryWizard() {
 
   async function handleCancel() {
     if (!trademark) {
-      navigate("/registry");
+      navigate("/ips");
       return;
     }
     if (!confirm("Cancel and delete the in-progress IP?")) return;
@@ -150,7 +150,7 @@ export default function RegistryWizard() {
     } catch {
       // ignore — user may have deleted manually
     }
-    navigate("/registry");
+    navigate("/ips");
   }
 
   const indexedCount = images.filter((i) => i.status === "indexed").length;
@@ -163,8 +163,8 @@ export default function RegistryWizard() {
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link to="/registry" className="text-xs text-stone-400 hover:text-stone-600">
-            ← Registry
+          <Link to="/ips" className="text-xs text-stone-400 hover:text-stone-600">
+            ← Intellectual Properties
           </Link>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight mt-1">
             New IP

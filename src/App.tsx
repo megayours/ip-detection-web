@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { stashReturnTo } from "./context/AuthContext";
-import Nav from "./components/Nav";
+import AppShell from "./components/AppShell";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Registry from "./pages/Registry";
@@ -13,7 +13,9 @@ import CaseDetail from "./pages/CaseDetail";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
 import IpReviewDetail from "./pages/IpReviewDetail";
-import Monitoring from "./pages/Monitoring";
+import Findings from "./pages/Findings";
+import Monitors from "./pages/Monitors";
+import Dashboard from "./pages/Dashboard";
 import BrandsCatalog from "./pages/BrandsCatalog";
 import DesignsCatalog from "./pages/DesignsCatalog";
 import PopCultureCatalog from "./pages/PopCultureCatalog";
@@ -21,9 +23,19 @@ import Admin from "./pages/Admin";
 import AdminIpDetail from "./pages/AdminIpDetail";
 import Settings from "./pages/Settings";
 
-function RedirectTrademark() {
+function TrademarkRedirect() {
   const { id } = useParams();
-  return <Navigate to={`/registry/${id}`} replace />;
+  return <Navigate to={`/ips/${id}`} replace />;
+}
+
+function RegistryRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/ips/${id}`} replace />;
+}
+
+function RegistryAuditRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/ips/${id}/audit`} replace />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -73,82 +85,72 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * `/` is special: signed-in users see the Dashboard (inside the app shell);
+ * everyone else sees the marketing Landing page. We split it as two route
+ * branches keyed on auth — the protected branch keeps the same AppShell as
+ * every other authed route, no extra redirect hop.
+ */
+function HomeSwitch() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (user) {
+    // Defer to the authed AppShell — the layout route handles rendering.
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Landing />;
+}
+
 export default function App() {
   return (
-    <div className="min-h-screen bg-cream text-stone-900 font-[Inter,system-ui,sans-serif]">
-      <Nav />
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/registry"
-          element={<ProtectedRoute><Registry /></ProtectedRoute>}
-        />
-        <Route
-          path="/registry/new"
-          element={<ProtectedRoute><RegistryWizard /></ProtectedRoute>}
-        />
-        <Route
-          path="/registry/:id"
-          element={<ProtectedRoute><RegistryDetail /></ProtectedRoute>}
-        />
-        <Route
-          path="/registry/:id/audit"
-          element={<ProtectedRoute><RegistryAudit /></ProtectedRoute>}
-        />
-        <Route path="/trademarks" element={<Navigate to="/registry" replace />} />
-        <Route path="/trademarks/:id" element={<RedirectTrademark />} />
-        <Route
-          path="/clearance"
-          element={<ProtectedRoute><Clearance /></ProtectedRoute>}
-        />
-        <Route
-          path="/monitoring"
-          element={<ProtectedRoute><Monitoring /></ProtectedRoute>}
-        />
-        <Route path="/ip-reviews" element={<Navigate to="/clearance" replace />} />
-        <Route
-          path="/ip-reviews/new"
-          element={<ProtectedRoute><ClearanceReviewNew /></ProtectedRoute>}
-        />
-        <Route
-          path="/ip-reviews/:id"
-          element={<ProtectedRoute><IpReviewDetail /></ProtectedRoute>}
-        />
-        <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
-        <Route
-          path="/clearance/brands/catalog"
-          element={<ProtectedRoute><BrandsCatalog /></ProtectedRoute>}
-        />
-        <Route
-          path="/clearance/designs/catalog"
-          element={<ProtectedRoute><DesignsCatalog /></ProtectedRoute>}
-        />
-        <Route
-          path="/clearance/pop/catalog"
-          element={<ProtectedRoute><PopCultureCatalog /></ProtectedRoute>}
-        />
-        <Route
-          path="/cases"
-          element={<ProtectedRoute><Cases /></ProtectedRoute>}
-        />
-        <Route
-          path="/cases/:id"
-          element={<ProtectedRoute><CaseDetail /></ProtectedRoute>}
-        />
-        <Route
-          path="/settings"
-          element={<ProtectedRoute><Settings /></ProtectedRoute>}
-        />
-        <Route
-          path="/admin"
-          element={<AdminRoute><Admin /></AdminRoute>}
-        />
-        <Route
-          path="/admin/ips/:id"
-          element={<AdminRoute><AdminIpDetail /></AdminRoute>}
-        />
-      </Routes>
-    </div>
+    <Routes>
+      {/* Signed-in routes (AppShell layout) */}
+      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/ips" element={<Registry />} />
+        <Route path="/ips/new" element={<RegistryWizard />} />
+        <Route path="/ips/:id" element={<RegistryDetail />} />
+        <Route path="/ips/:id/audit" element={<RegistryAudit />} />
+        <Route path="/findings" element={<Findings />} />
+        <Route path="/monitors" element={<Monitors />} />
+        <Route path="/clearance" element={<Clearance />} />
+        <Route path="/ip-reviews/new" element={<ClearanceReviewNew />} />
+        <Route path="/ip-reviews/:id" element={<IpReviewDetail />} />
+        <Route path="/clearance/brands/catalog" element={<BrandsCatalog />} />
+        <Route path="/clearance/designs/catalog" element={<DesignsCatalog />} />
+        <Route path="/clearance/pop/catalog" element={<PopCultureCatalog />} />
+        <Route path="/cases" element={<Cases />} />
+        <Route path="/cases/:id" element={<CaseDetail />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+
+      {/* Admin (separate gate, same shell) */}
+      <Route element={<AdminRoute><AppShell /></AdminRoute>}>
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/ips/:id" element={<AdminIpDetail />} />
+      </Route>
+
+      {/* Public: landing OR auth-aware dashboard switch */}
+      <Route path="/" element={<HomeSwitch />} />
+      <Route path="/login" element={<Login />} />
+
+      {/* Redirects — preserve old URLs */}
+      <Route path="/registry" element={<Navigate to="/ips" replace />} />
+      <Route path="/registry/new" element={<Navigate to="/ips/new" replace />} />
+      <Route path="/registry/:id" element={<RegistryRedirect />} />
+      <Route path="/registry/:id/audit" element={<RegistryAuditRedirect />} />
+      <Route path="/monitoring" element={<Navigate to="/findings" replace />} />
+      <Route path="/monitoring/*" element={<Navigate to="/findings" replace />} />
+      <Route path="/trademarks" element={<Navigate to="/ips" replace />} />
+      <Route path="/trademarks/:id" element={<TrademarkRedirect />} />
+      <Route path="/ip-reviews" element={<Navigate to="/clearance" replace />} />
+      <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
+    </Routes>
   );
 }

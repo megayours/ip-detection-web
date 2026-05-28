@@ -16,7 +16,7 @@ import {
  * search for, so we surface a hint.
  *
  * Extracted from RegistryDetail's MonitoringSection so the per-IP page and
- * the tenant-wide /monitoring hub render the exact same UI (DRY). Optional
+ * the tenant-wide /monitors hub render the exact same UI (DRY). Optional
  * callbacks let the host re-fetch its findings after a run / change.
  */
 export function PlatformsPanel({
@@ -118,7 +118,7 @@ export function PlatformsPanel({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            to={`/registry/${ipId}/audit`}
+            to={`/ips/${ipId}/audit`}
             className="text-xs text-blue-700 hover:underline"
           >
             Audit log →

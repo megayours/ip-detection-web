@@ -9,7 +9,7 @@ import ClearanceVisual from "./ClearanceVisual";
  *
  * Routing notes:
  *   - Quick-action buttons launch the clearance wizard (`/ip-reviews/new`)
- *     and the registry (monitoring is now IP-scoped under `/registry/:id`);
+ *     and the Monitoring hub (per-IP platforms live under `/ips/:id`);
  *     each row deep-links to `/ip-reviews/:id`.
  *   - Legacy fast-check tools (Brands / Visual Match) are hidden from the
  *     nav but still reachable via `/clearance?mode=brands|visual` so
@@ -89,7 +89,7 @@ function Inbox() {
             + Clearance
           </Link>
           <Link
-            to="/registry"
+            to="/monitors"
             className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
           >
             Monitoring

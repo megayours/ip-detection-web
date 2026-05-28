@@ -23,7 +23,7 @@ export default function Registry() {
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-10">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-black text-stone-900 tracking-tight">IP Registry</h1>
+        <h1 className="text-2xl font-black text-stone-900 tracking-tight">Intellectual Properties</h1>
         <p className="mt-1 text-sm text-stone-500">
           Manage your intellectual property and the sources we monitor for infringements.
         </p>
@@ -42,7 +42,7 @@ export default function Registry() {
             </p>
           </div>
           <Link
-            to="/registry/new"
+            to="/ips/new"
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-stone-900 text-white hover:bg-stone-800"
           >
             New IP
@@ -66,7 +66,7 @@ export default function Registry() {
             {ips.map((ip) => (
               <Link
                 key={ip.id}
-                to={`/registry/${ip.id}`}
+                to={`/ips/${ip.id}`}
                 className="group bg-white rounded-2xl border border-stone-200 p-5 hover:border-stone-300 hover:shadow-lg hover:shadow-stone-100 transition-all block"
               >
                 <div className="flex items-center justify-between">

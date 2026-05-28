@@ -275,7 +275,7 @@ export default function RegistryAudit() {
             didn’t become a match.
           </p>
         </div>
-        <Link to={`/registry/${id}`} className="text-sm text-blue-700 hover:underline">
+        <Link to={`/ips/${id}`} className="text-sm text-blue-700 hover:underline">
           ← Back to IP
         </Link>
       </div>

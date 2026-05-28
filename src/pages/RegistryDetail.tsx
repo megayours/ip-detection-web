@@ -110,7 +110,7 @@ export default function RegistryDetail() {
   async function handleDelete() {
     if (!id || !confirm("Delete this IP and all its images?")) return;
     await deleteTrademark(id);
-    navigate("/registry");
+    navigate("/ips");
   }
 
   if (loading) {
