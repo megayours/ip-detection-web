@@ -144,11 +144,11 @@ function KpiRow({ kpis }: { kpis: DashboardSummary["kpis"] }) {
     to: string | null;
     accent?: string;
   }> = [
-    { label: "To triage", value: kpis.to_triage, to: "/findings?status=pending", accent: "text-stone-900" },
-    { label: "Confirmed", value: kpis.confirmed, to: "/findings?status=confirmed", accent: "text-blue-700" },
-    { label: "In progress", value: kpis.in_progress, to: "/findings?status=takedown_sent", accent: "text-amber-700" },
-    { label: "Enforced (30d)", value: kpis.enforced_30d, to: "/findings?status=enforced", accent: "text-emerald-700" },
-    { label: "High risk", value: kpis.high_risk, to: "/findings", accent: "text-red-700" },
+    { label: "To triage", value: kpis.to_triage, to: "/inbox?tab=monitoring&status=pending", accent: "text-stone-900" },
+    { label: "Confirmed", value: kpis.confirmed, to: "/inbox?tab=monitoring&status=confirmed", accent: "text-blue-700" },
+    { label: "In progress", value: kpis.in_progress, to: "/inbox?tab=monitoring&status=takedown_sent", accent: "text-amber-700" },
+    { label: "Enforced (30d)", value: kpis.enforced_30d, to: "/inbox?tab=monitoring&status=enforced", accent: "text-emerald-700" },
+    { label: "High risk", value: kpis.high_risk, to: "/inbox?tab=monitoring", accent: "text-red-700" },
     { label: "IPs monitored", value: kpis.ips_monitored, to: "/monitors" },
     { label: "Platforms monitored", value: kpis.platforms_monitored, to: "/monitors" },
   ];

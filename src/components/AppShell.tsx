@@ -27,6 +27,18 @@ const BP_OPEN_KEY = "appshell.bp.open";
  * Application shell — left sidebar (lg+) / off-canvas drawer (below lg) +
  * `<Outlet/>` main pane. Every signed-in route renders inside this so the
  * navigation, user menu, and notification badges are owned in one place.
+ *
+ * Sidebar layout (top → bottom):
+ *   Dashboard
+ *   Inbox            (badge = open clearance + open monitoring)
+ *   ── separator ──
+ *   Brand Protection
+ *     ↳ Monitoring   (manage which URLs to crawl per IP)
+ *     ↳ Clearance    (launch the wizard — IP cleared before launch)
+ *
+ * IPs lives on the desktop topbar, not the sidebar — managing the IP
+ * registry is an occasional task, not day-to-day triage, so it shouldn't
+ * compete for sidebar real estate.
  */
 export default function AppShell() {
   const { user, logout } = useAuth();
@@ -39,12 +51,11 @@ export default function AppShell() {
   // Brand Protection group expanded/collapsed state. Persist, but auto-expand
   // whenever the active path belongs to a BP child route.
   const bpPathActive =
-    pathname === "/findings" ||
-    pathname.startsWith("/findings/") ||
-    pathname === "/ips" ||
-    pathname.startsWith("/ips/") ||
     pathname === "/monitors" ||
-    pathname.startsWith("/monitors/");
+    pathname.startsWith("/monitors/") ||
+    pathname === "/clearance" ||
+    pathname.startsWith("/clearance/") ||
+    pathname.startsWith("/ip-reviews/new");
   const [bpOpen, setBpOpen] = useState<boolean>(() => {
     try {
       const v = localStorage.getItem(BP_OPEN_KEY);
@@ -128,7 +139,27 @@ export default function AppShell() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 overflow-y-auto">
-        <NavItem to="/" icon={<Home size={18} />} label="Dashboard" active={pathname === "/"} />
+        <NavItem
+          to="/dashboard"
+          icon={<Home size={18} />}
+          label="Dashboard"
+          active={pathname === "/" || pathname === "/dashboard"}
+        />
+        <NavItem
+          to="/inbox"
+          icon={<Inbox size={18} />}
+          label="Inbox"
+          active={
+            isActive("/inbox") ||
+            // Treat legacy routes as Inbox-active while their redirects fire.
+            pathname === "/findings" ||
+            pathname.startsWith("/findings/") ||
+            (pathname === "/clearance" && !window.location.search.includes("mode="))
+          }
+          badge={inboxCount + monitoringCount}
+        />
+
+        <div className="my-3 border-t border-stone-200/60" />
 
         <NavGroup
           label="Brand Protection"
@@ -136,33 +167,18 @@ export default function AppShell() {
           onToggle={() => setBpOpen((v) => !v)}
         >
           <NavItem
-            to="/findings"
-            icon={<Inbox size={18} />}
-            label="Findings"
-            active={isActive("/findings")}
-            badge={monitoringCount}
-          />
-          <NavItem
-            to="/ips"
-            icon={<Library size={18} />}
-            label="Intellectual Properties"
-            active={isActive("/ips")}
-          />
-          <NavItem
             to="/monitors"
             icon={<Radar size={18} />}
             label="Monitoring"
             active={isActive("/monitors")}
           />
+          <NavItem
+            to="/ip-reviews/new"
+            icon={<ShieldCheck size={18} />}
+            label="Clearance"
+            active={pathname.startsWith("/ip-reviews/new")}
+          />
         </NavGroup>
-
-        <NavItem
-          to="/clearance"
-          icon={<ShieldCheck size={18} />}
-          label="Clearance"
-          active={isActive("/clearance")}
-          badge={inboxCount}
-        />
       </nav>
 
       {/* Footer: settings + admin + user menu */}
@@ -202,11 +218,13 @@ export default function AppShell() {
           <svg width="22" height="14" viewBox="0 0 56 36">
             <rect x="8" y="8" width="8" height="20" rx="2" fill="currentColor" />
             <rect x="19" y="8" width="8" height="20" rx="2" fill="currentColor" />
-            <rect x="30" y="8" width="8" height="20" rx="2" fill="currentColor" />
-            <rect x="41" y="8" width="8" height="20" rx="2" fill="#b91c1c" />
+            <rect x="30" y="8" width="8" height="20" rx="2" fill="#b91c1c" />
           </svg>
           <span className="text-sm font-bold tracking-tight">MegaYours</span>
         </Link>
+        <div className="ml-auto">
+          <TopbarIpsLink active={isActive("/ips")} />
+        </div>
       </div>
 
       <div className="flex">
@@ -239,10 +257,27 @@ export default function AppShell() {
 
         {/* Main */}
         <main className="flex-1 min-w-0 lg:h-screen lg:overflow-y-auto">
+          {/* Desktop topbar — only IPs lives here; it's an infrequent
+              admin-y action, kept out of the day-to-day sidebar. */}
+          <div className="hidden lg:flex sticky top-0 z-20 bg-cream/90 backdrop-blur-md border-b border-stone-200/60 h-12 items-center justify-end px-6">
+            <TopbarIpsLink active={isActive("/ips")} />
+          </div>
           <Outlet />
         </main>
       </div>
     </div>
+  );
+}
+
+function TopbarIpsLink({ active }: { active: boolean }) {
+  const cls = active
+    ? "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-stone-900 text-white"
+    : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-stone-700 hover:bg-stone-100";
+  return (
+    <Link to="/ips" className={cls}>
+      <Library size={16} />
+      <span>IPs</span>
+    </Link>
   );
 }
 

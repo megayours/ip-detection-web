@@ -14,6 +14,7 @@ import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
 import IpReviewDetail from "./pages/IpReviewDetail";
 import Findings from "./pages/Findings";
+import Inbox from "./pages/Inbox";
 import Monitors from "./pages/Monitors";
 import Dashboard from "./pages/Dashboard";
 import BrandsCatalog from "./pages/BrandsCatalog";
@@ -113,10 +114,13 @@ export default function App() {
       {/* Signed-in routes (AppShell layout) */}
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/inbox" element={<Inbox />} />
         <Route path="/ips" element={<Registry />} />
         <Route path="/ips/new" element={<RegistryWizard />} />
         <Route path="/ips/:id" element={<RegistryDetail />} />
         <Route path="/ips/:id/audit" element={<RegistryAudit />} />
+        {/* Findings + Clearance (no mode) both redirect to /inbox. Routes kept
+            so deep links (dashboard KPIs, old bookmarks) keep landing somewhere. */}
         <Route path="/findings" element={<Findings />} />
         <Route path="/monitors" element={<Monitors />} />
         <Route path="/clearance" element={<Clearance />} />
@@ -145,11 +149,11 @@ export default function App() {
       <Route path="/registry/new" element={<Navigate to="/ips/new" replace />} />
       <Route path="/registry/:id" element={<RegistryRedirect />} />
       <Route path="/registry/:id/audit" element={<RegistryAuditRedirect />} />
-      <Route path="/monitoring" element={<Navigate to="/findings" replace />} />
-      <Route path="/monitoring/*" element={<Navigate to="/findings" replace />} />
+      <Route path="/monitoring" element={<Navigate to="/inbox?tab=monitoring" replace />} />
+      <Route path="/monitoring/*" element={<Navigate to="/inbox?tab=monitoring" replace />} />
       <Route path="/trademarks" element={<Navigate to="/ips" replace />} />
       <Route path="/trademarks/:id" element={<TrademarkRedirect />} />
-      <Route path="/ip-reviews" element={<Navigate to="/clearance" replace />} />
+      <Route path="/ip-reviews" element={<Navigate to="/inbox?tab=clearance" replace />} />
       <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
     </Routes>
   );

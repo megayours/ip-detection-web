@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import {
   listMonitoringFindingsGlobal,
   type IpReviewFinding,
 } from "../api";
 import { MonitoringBoard } from "../components/monitoring/MonitoringBoard";
 
-/**
- * Tenant-wide infringement findings board. Status filter pre-applied from the
- * `?status=` URL param (e.g. dashboard KPI deep links).
- */
+/** Legacy route — redirects to the unified Inbox under the Monitoring tab. */
 export default function Findings() {
+  return <Navigate to="/inbox?tab=monitoring" replace />;
+}
+
+/**
+ * Tenant-wide infringement findings board, embeddable inside the unified
+ * Inbox tabs. Status filter pre-applied from the `?status=` URL param
+ * (e.g. dashboard KPI deep links).
+ */
+export function MonitoringInboxView() {
   const [params] = useSearchParams();
   const initialStatus = params.get("status");
   const [findings, setFindings] = useState<IpReviewFinding[]>([]);
@@ -41,14 +47,11 @@ export default function Findings() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-black text-stone-900 tracking-tight">Findings</h1>
-          <p className="mt-1 text-sm text-stone-500">
-            {liveCount} open finding{liveCount === 1 ? "" : "s"} across all monitored IPs.
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-xs text-stone-500">
+          {liveCount} open finding{liveCount === 1 ? "" : "s"} across all monitored IPs.
+        </p>
         <label className="flex items-center gap-2 text-[11px] text-stone-500">
           <input
             type="checkbox"

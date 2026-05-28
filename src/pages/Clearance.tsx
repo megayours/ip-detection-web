@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { listIpReviews, needsAttention, type IpReview } from "../api";
 import ClearanceBrands from "./ClearanceBrands";
 import ClearanceVisual from "./ClearanceVisual";
 
 /**
- * IP review hub. Linear-style inbox of clearance + monitoring tasks.
- *
- * Routing notes:
- *   - Quick-action buttons launch the clearance wizard (`/ip-reviews/new`)
- *     and the Monitoring hub (per-IP platforms live under `/ips/:id`);
- *     each row deep-links to `/ip-reviews/:id`.
- *   - Legacy fast-check tools (Brands / Visual Match) are hidden from the
- *     nav but still reachable via `/clearance?mode=brands|visual` so
- *     power users can keep their bookmarks alive.
+ * `/clearance` is now a thin route that only handles the legacy fast-check
+ * tools via `?mode=brands|visual`. Without a mode it redirects to the
+ * unified Inbox — the sidebar's "Clearance" entry points at the wizard
+ * (`/ip-reviews/new`), not here.
  */
 type LegacyMode = "brands" | "visual";
 
@@ -45,12 +40,16 @@ export default function Clearance() {
     }} />;
   }
 
-  return <Inbox />;
+  return <Navigate to="/inbox?tab=clearance" replace />;
 }
 
 type InboxTab = "needs" | "done";
 
-function Inbox() {
+/**
+ * Reusable clearance-inbox body — header/h1 omitted because the parent
+ * (`/inbox`) owns the page title and tab strip.
+ */
+export function ClearanceInboxView() {
   const [reviews, setReviews] = useState<IpReview[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<InboxTab>("needs");
@@ -78,26 +77,7 @@ function Inbox() {
   const rows = tab === "needs" ? needs : done;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6">
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <h1 className="text-xl font-bold tracking-tight">Inbox</h1>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            to="/ip-reviews/new"
-            className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-800 text-xs font-semibold hover:bg-stone-50"
-          >
-            + Clearance
-          </Link>
-          <Link
-            to="/monitors"
-            className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800"
-          >
-            Monitoring
-          </Link>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center gap-6 border-b border-stone-200 px-4">
           <TabButton
             active={tab === "needs"}
@@ -140,7 +120,6 @@ function Inbox() {
             )}
           </div>
         )}
-      </div>
     </div>
   );
 }
