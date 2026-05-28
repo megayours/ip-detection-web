@@ -35,20 +35,14 @@ export default function Nav() {
               Open app
             </Link>
           ) : (
-            <>
-              <Link
-                to="/login"
-                className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors"
-              >
-                Sign in
-              </Link>
-              <a
-                href={DEMO_MAILTO}
-                className="px-4 py-1.5 bg-stone-900 text-white text-sm font-semibold rounded-full hover:bg-stone-800 transition-colors"
-              >
-                Request a demo
-              </a>
-            </>
+            // Sign in intentionally not surfaced — the portal is invite-only for
+            // the current demo phase. /login still works as a direct URL.
+            <a
+              href={DEMO_MAILTO}
+              className="px-4 py-1.5 bg-stone-900 text-white text-sm font-semibold rounded-full hover:bg-stone-800 transition-colors"
+            >
+              Request a demo
+            </a>
           )}
         </div>
       </div>
