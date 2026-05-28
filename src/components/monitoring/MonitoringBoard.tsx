@@ -417,6 +417,40 @@ function methodChip(method: string): { label: string; cls: string } {
   }
 }
 
+// Why this finding fired: visual similarity, IP-name mention in the
+// listing title, or both. Different dimension from `methodChip` (which
+// scrape strategy surfaced the page).
+function matchMethodChip(
+  method: string,
+): { label: string; cls: string; title: string } {
+  switch (method) {
+    case "visual":
+      return {
+        label: "visual",
+        cls: "bg-sky-100 text-sky-700",
+        title: "Image embedding matched a protected IP",
+      };
+    case "name":
+      return {
+        label: "name",
+        cls: "bg-amber-100 text-amber-800",
+        title: "IP name found in the listing title",
+      };
+    case "both":
+      return {
+        label: "name + visual",
+        cls: "bg-emerald-100 text-emerald-700",
+        title: "IP name in the title AND image visually similar",
+      };
+    default:
+      return {
+        label: method,
+        cls: "bg-stone-100 text-stone-600",
+        title: method,
+      };
+  }
+}
+
 /** Hero-with-thumbstrip carousel for the listing's product photos. When
  *  `gallery_scores` is present (worker scored each photo against the IP), the
  *  best-matched image is the default hero, marked MATCHED, and each thumb
@@ -630,6 +664,14 @@ function FindingListItem({
               {methodChip(f.source_method).label}
             </span>
           )}
+          {f.match_method && (
+            <span
+              className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${matchMethodChip(f.match_method).cls}`}
+              title={matchMethodChip(f.match_method).title}
+            >
+              {matchMethodChip(f.match_method).label}
+            </span>
+          )}
           {(() => {
             const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
             return (
@@ -730,6 +772,14 @@ function FindingComparison({
         {f.source_method && (
           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
             {methodChip(f.source_method).label}
+          </span>
+        )}
+        {f.match_method && (
+          <span
+            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${matchMethodChip(f.match_method).cls}`}
+            title={matchMethodChip(f.match_method).title}
+          >
+            {matchMethodChip(f.match_method).label}
           </span>
         )}
         {f.vlm_verdict && (

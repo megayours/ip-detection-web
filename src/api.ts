@@ -351,6 +351,10 @@ export interface MonitorEvidence {
   vlm_confidence: number | null;
   vlm_reasoning: string | null;
   match_bucket: string;
+  /** How the match fired: 'visual' (embedding-based), 'name' (IP name in
+   * the listing card title), or 'both'. Null on rows written before the
+   * column was added. */
+  match_method: string | null;
   matched_ref_storage_path: string | null;
   matched_ref_image_url: string | null;
   run_created_at: string;
@@ -1174,6 +1178,8 @@ export interface IpReviewFinding {
   dismissal_reason: string | null;
   last_checked_at: string | null;
   source_method: string | null;
+  /** How the match fired: 'visual', 'name', or 'both'. Null on legacy rows. */
+  match_method: string | null;
   seller_name: string | null;
   seller_url: string | null;
   listing_title: string | null;
