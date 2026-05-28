@@ -271,8 +271,8 @@ export default function AppShell() {
 
 function TopbarIpsLink({ active }: { active: boolean }) {
   const cls = active
-    ? "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-stone-900 text-white"
-    : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-stone-700 hover:bg-stone-100";
+    ? "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-stone-900 text-white shadow-sm"
+    : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border border-stone-300 bg-white text-stone-900 shadow-sm hover:bg-stone-50 hover:border-stone-400";
   return (
     <Link to="/ips" className={cls}>
       <Library size={16} />

@@ -6,18 +6,18 @@ type InboxTab = "clearance" | "monitoring";
 
 /**
  * Unified Inbox — JIRA-style board mixing the two item types.
- *   - "Clearance" tab: pre-launch reviews (the old /clearance Linear list)
  *   - "Monitoring" tab: live infringement findings Kanban (the old /findings)
+ *   - "Clearance" tab: pre-launch reviews (the old /clearance Linear list)
  *
  * Tab state lives in `?tab=` so dashboard deep links + sidebar badges can
- * point straight at the right section. Default tab is Clearance because
- * those items always need a human decision; monitoring findings are
- * triage-only.
+ * point straight at the right section. Monitoring is the default — it's
+ * the higher-volume, time-sensitive queue, so it's the right thing to land
+ * on when a user clicks "Inbox" with no explicit intent.
  */
 export default function Inbox() {
   const [params, setParams] = useSearchParams();
   const raw = params.get("tab");
-  const tab: InboxTab = raw === "monitoring" ? "monitoring" : "clearance";
+  const tab: InboxTab = raw === "clearance" ? "clearance" : "monitoring";
 
   function setTab(next: InboxTab) {
     const p = new URLSearchParams(params);
@@ -44,18 +44,18 @@ export default function Inbox() {
 
       <div className="flex items-center gap-6 border-b border-stone-200">
         <TabButton
-          active={tab === "clearance"}
-          onClick={() => setTab("clearance")}
-          label="Clearance"
-        />
-        <TabButton
           active={tab === "monitoring"}
           onClick={() => setTab("monitoring")}
           label="Monitoring"
         />
+        <TabButton
+          active={tab === "clearance"}
+          onClick={() => setTab("clearance")}
+          label="Clearance"
+        />
       </div>
 
-      {tab === "clearance" ? <ClearanceInboxView /> : <MonitoringInboxView />}
+      {tab === "monitoring" ? <MonitoringInboxView /> : <ClearanceInboxView />}
     </div>
   );
 }
