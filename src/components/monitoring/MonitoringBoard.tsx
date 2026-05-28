@@ -16,6 +16,24 @@ const FILTER_SELECT =
   "px-2.5 py-1.5 rounded-lg border border-stone-200 text-[11px] bg-white text-stone-700 " +
   "max-w-[14rem] focus:outline-none focus:ring-1 focus:ring-stone-300";
 
+/** Compact relative-time formatter for "last checked"/"found" meta lines.
+ *  Falls back to null when the input is missing/invalid. */
+function formatAgo(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const secs = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.round(days / 30);
+  return months < 12 ? `${months}mo ago` : `${Math.round(months / 12)}y ago`;
+}
+
 /**
  * IP-centric monitoring findings board. Lifted verbatim (visually) from the
  * former monitoring branch of IpReviewDetail — the priority banner, the
@@ -407,6 +425,46 @@ function ImageFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Compact thumbnail strip for `case_enrichment.image_urls`. Shows up to MAX
+ *  thumbs; remainder collapses into a "+N" tile that expands the strip in place.
+ *  Each thumb is a click-to-open-in-new-tab link to the full image. */
+function PhotoStrip({ urls }: { urls: string[] }) {
+  const MAX = 8;
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? urls : urls.slice(0, MAX);
+  const hidden = Math.max(0, urls.length - MAX);
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wider text-stone-400">
+        Other photos · {urls.length}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {shown.map((u, i) => (
+          <a
+            key={`${u}-${i}`}
+            href={u}
+            target="_blank"
+            rel="noreferrer"
+            title="Open full size"
+            className="block w-12 h-12 rounded overflow-hidden border border-stone-200 bg-stone-50 hover:border-stone-400 transition-colors"
+          >
+            <img src={u} alt="" className="w-full h-full object-cover" loading="lazy" />
+          </a>
+        ))}
+        {!expanded && hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="w-12 h-12 rounded border border-stone-200 bg-stone-50 text-[11px] font-semibold text-stone-600 hover:bg-stone-100"
+          >
+            +{hidden}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PriorityBanner({
   counts,
   active,
@@ -679,7 +737,14 @@ function FindingComparison({
             {f.infringement_type.replace(/_/g, " ")}
           </span>
         )}
-        {f.location && <span className="text-stone-500">📍 {f.location}</span>}
+        {(f.country || f.location) && (
+          <span
+            className="text-stone-500"
+            title={f.location && f.country && f.location !== f.country ? f.location : undefined}
+          >
+            📍 {f.country || f.location}
+          </span>
+        )}
         {f.license_status && (
           <span
             className={`px-1.5 py-0.5 rounded font-semibold ${
@@ -693,10 +758,16 @@ function FindingComparison({
             {f.license_status.replace(/_/g, " ")}
           </span>
         )}
-        {f.quantity_available != null && f.quantity_available > 0 && f.quantity_available <= 5 && (
-          <span className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold" title="Stock left">
-            Only {f.quantity_available} left
-          </span>
+        {f.quantity_available != null && f.quantity_available > 0 && (
+          f.quantity_available <= 5 ? (
+            <span className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold" title="Stock left">
+              Only {f.quantity_available} left
+            </span>
+          ) : (
+            <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600" title="Stock available">
+              {f.quantity_available.toLocaleString()} in stock
+            </span>
+          )
         )}
         {f.quantity_in_carts != null && f.quantity_in_carts > 0 && (
           <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Active demand">
@@ -738,6 +809,10 @@ function FindingComparison({
         </div>
       )}
 
+      {f.image_urls && f.image_urls.length > 0 && (
+        <PhotoStrip urls={f.image_urls} />
+      )}
+
       {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
         <div className="text-xs text-stone-600 leading-relaxed border-l-2 border-amber-300 pl-2">
           <span className="font-semibold text-stone-500">Why flagged: </span>
@@ -749,6 +824,31 @@ function FindingComparison({
         <p className="text-[11px] text-stone-500 leading-relaxed">{f.description_summary}</p>
       )}
 
+      {f.description_full && f.description_full !== f.description_summary && (
+        <details className="text-[11px] text-stone-500">
+          <summary className="cursor-pointer text-stone-400 hover:text-stone-600 select-none">
+            Full description
+          </summary>
+          <p className="mt-1.5 leading-relaxed whitespace-pre-wrap">{f.description_full}</p>
+        </details>
+      )}
+
+      {f.item_details && Object.keys(f.item_details).length > 0 && (
+        <details className="text-[11px] text-stone-500">
+          <summary className="cursor-pointer text-stone-400 hover:text-stone-600 select-none">
+            Item details ({Object.keys(f.item_details).length})
+          </summary>
+          <dl className="mt-1.5 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
+            {Object.entries(f.item_details).map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-stone-400 truncate max-w-[10rem]">{k}</dt>
+                <dd className="text-stone-600 break-words">{String(v)}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
+
       {!f.listing_title && !f.seller_name && !f.match_explanation && !f.description_summary && (
         <p className="text-[11px] text-stone-400 italic">Listing details still being analysed…</p>
       )}
@@ -758,8 +858,10 @@ function FindingComparison({
         {f.inliers != null && <span>· inliers {f.inliers}</span>}
         {f.published_at && <span>· {f.published_at}</span>}
         <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
-        {f.image_urls && f.image_urls.length > 1 && (
-          <span title="Product gallery photos captured">· {f.image_urls.length} photos</span>
+        {f.last_checked_at && (
+          <span title={new Date(f.last_checked_at).toLocaleString()}>
+            · last visit {formatAgo(f.last_checked_at)}
+          </span>
         )}
         <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline break-all">
           · open listing ↗
