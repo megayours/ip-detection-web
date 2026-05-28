@@ -412,9 +412,9 @@ function CountriesCard({
           {rows.map((c, i) => {
             const pct = max ? Math.round((c.findings / max) * 100) : 0;
             return (
-              <li key={`${c.location}-${i}`} className="flex items-center gap-3">
+              <li key={`${c.country}-${i}`} className="flex items-center gap-3">
                 <span className="text-sm text-stone-700 w-28 truncate">
-                  {c.location || <span className="text-stone-400">unknown</span>}
+                  {c.country || <span className="text-stone-400">unknown</span>}
                 </span>
                 <div className="flex-1 h-2 rounded-full bg-stone-100 overflow-hidden">
                   <div

@@ -1205,6 +1205,10 @@ export interface IpReviewFinding {
   seller_rating_count: number | null;
   quantity_available: number | null;
   quantity_in_carts: number | null;
+  /** Canonical English country derived server-side from `location` (e.g.
+   *  "Sold from Sweden" → "Sweden"). Null when location is empty or doesn't
+   *  match any known country. */
+  country: string | null;
   // Present on tenant-wide findings (GET /api/monitoring/findings) so a
   // multi-IP board can key per-finding actions off the finding's own IP and
   // render an IP chip. Absent on per-IP findings (the IP is implied).
@@ -1572,7 +1576,7 @@ export interface DashboardSummary {
   platforms: Array<{ domain: string; findings: number; enforced: number }>;
   ips: Array<{ ip_id: string; ip_name: string; findings: number; enforced: number }>;
   timeseries: Array<{ day: string; findings: number }>;
-  countries: Array<{ location: string; findings: number }>;
+  countries: Array<{ country: string; findings: number }>;
   days: number;
 }
 

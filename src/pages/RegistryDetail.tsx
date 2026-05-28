@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getTrademark,
@@ -9,15 +9,12 @@ import {
   listIpLicenses,
   addIpLicense,
   deleteIpLicense,
-  listIpMonitoringFindings,
   type Trademark,
   type TrademarkImage,
   type IpLicense,
-  type IpReviewFinding,
 } from "../api";
 import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
-import { MonitoringBoard } from "../components/monitoring/MonitoringBoard";
 import { PlatformsPanel } from "../components/monitoring/PlatformsPanel";
 
 export default function RegistryDetail() {
@@ -459,61 +456,10 @@ function LicensesSection({ ipId }: { ipId: string }) {
   );
 }
 
-// IP-centric monitoring: the platforms (watched domains) wired to this IP and
-// the findings those scrapes turned up. The platforms UI is the shared
-// PlatformsPanel; this section owns the findings board + run polling.
+// IP-centric monitoring: which platforms are wired to this IP. Findings live
+// exclusively on the global /findings board (no duplication).
 function MonitoringSection({ ip }: { ip: Trademark }) {
-  const ipId = ip.id;
-
-  const [findings, setFindings] = useState<IpReviewFinding[]>([]);
-  const [runInProgress, setRunInProgress] = useState(false);
-  const [err, setErr] = useState("");
-
-  const loadFindings = useCallback(async () => {
-    try {
-      const r = await listIpMonitoringFindings(ipId);
-      setFindings(r.findings);
-      setRunInProgress(r.monitoring_run_in_progress);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    }
-  }, [ipId]);
-
-  useEffect(() => {
-    void loadFindings();
-  }, [loadFindings]);
-
-  // Keep findings fresh while a run is executing.
-  useEffect(() => {
-    if (!runInProgress) return;
-    const t = setInterval(() => {
-      void loadFindings();
-    }, 10_000);
-    return () => clearInterval(t);
-  }, [runInProgress, loadFindings]);
-
   return (
-    <div className="space-y-4">
-      {err && <div className="text-xs text-red-600">{err}</div>}
-
-      {/* Platforms panel (shared) */}
-      <PlatformsPanel
-        ipId={ipId}
-        keywords={ip.keywords}
-        onRunTriggered={() => {
-          setRunInProgress(true);
-          void loadFindings();
-        }}
-        onPlatformsChanged={loadFindings}
-      />
-
-      {/* Findings board (single IP → no IP chip/filter) */}
-      <MonitoringBoard
-        findings={findings}
-        ipId={ipId}
-        runInProgress={runInProgress}
-        onRefresh={loadFindings}
-      />
-    </div>
+    <PlatformsPanel ipId={ip.id} keywords={ip.keywords} />
   );
 }
