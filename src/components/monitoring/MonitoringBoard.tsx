@@ -600,6 +600,9 @@ function FindingComparison({
         {f.price && (
           <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-semibold">{f.price}</span>
         )}
+        {f.shipping_price && (
+          <span className="text-stone-500" title="Shipping">+ {f.shipping_price}</span>
+        )}
         {f.infringement_type && (
           <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 uppercase tracking-wide font-semibold">
             {f.infringement_type.replace(/_/g, " ")}
@@ -619,17 +622,47 @@ function FindingComparison({
             {f.license_status.replace(/_/g, " ")}
           </span>
         )}
+        {f.quantity_available != null && f.quantity_available > 0 && f.quantity_available <= 5 && (
+          <span className="px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold" title="Stock left">
+            Only {f.quantity_available} left
+          </span>
+        )}
+        {f.quantity_in_carts != null && f.quantity_in_carts > 0 && (
+          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title="Active demand">
+            {f.quantity_in_carts} in carts
+          </span>
+        )}
       </div>
 
       {(f.seller_name || f.seller_url) && (
-        <div className="text-[11px] text-stone-600">
-          <span className="text-stone-400">Seller: </span>
-          {f.seller_url ? (
-            <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
-              {f.seller_name || f.seller_url}
-            </a>
-          ) : (
-            <span className="font-medium">{f.seller_name}</span>
+        <div className="text-[11px] text-stone-600 space-y-0.5">
+          <div>
+            <span className="text-stone-400">Seller: </span>
+            {f.seller_url ? (
+              <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+                {f.seller_name || f.seller_url}
+              </a>
+            ) : (
+              <span className="font-medium">{f.seller_name}</span>
+            )}
+          </div>
+          {(f.seller_rating != null || f.seller_sales != null || f.seller_years_active != null) && (
+            <div className="text-stone-400 flex items-center gap-2 flex-wrap">
+              {f.seller_rating != null && (
+                <span>
+                  ★ <span className="font-semibold text-stone-600">{f.seller_rating.toFixed(1)}</span>
+                  {f.seller_rating_count != null && f.seller_rating_count > 0 && (
+                    <span className="text-stone-400"> ({f.seller_rating_count.toLocaleString()})</span>
+                  )}
+                </span>
+              )}
+              {f.seller_sales != null && f.seller_sales > 0 && (
+                <span>· {f.seller_sales.toLocaleString()} sales</span>
+              )}
+              {f.seller_years_active != null && f.seller_years_active > 0 && (
+                <span>· {f.seller_years_active}y on platform</span>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -652,7 +685,11 @@ function FindingComparison({
       <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-400">
         <span>sim {Math.round((f.similarity_score ?? 0) * 100)}%</span>
         {f.inliers != null && <span>· inliers {f.inliers}</span>}
+        {f.published_at && <span>· {f.published_at}</span>}
         <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
+        {f.image_urls && f.image_urls.length > 1 && (
+          <span title="Product gallery photos captured">· {f.image_urls.length} photos</span>
+        )}
         <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline break-all">
           · open listing ↗
         </a>

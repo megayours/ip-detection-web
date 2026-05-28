@@ -1178,6 +1178,19 @@ export interface IpReviewFinding {
   license_status: string | null;
   screenshot_url: string | null;
   enrichment_error: string | null;
+  // Round-3 dashboard metadata — all nullable (only populated when visible on
+  // the listing page during enrichment). Typed for filter/sort/aggregation.
+  published_at: string | null;
+  shipping_price: string | null;
+  description_full: string | null;
+  item_details: Record<string, unknown> | null;
+  image_urls: string[] | null;
+  seller_sales: number | null;
+  seller_years_active: number | null;
+  seller_rating: number | null;
+  seller_rating_count: number | null;
+  quantity_available: number | null;
+  quantity_in_carts: number | null;
   // Present on tenant-wide findings (GET /api/monitoring/findings) so a
   // multi-IP board can key per-finding actions off the finding's own IP and
   // render an IP chip. Absent on per-IP findings (the IP is implied).
