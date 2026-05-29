@@ -690,9 +690,11 @@ function topImageUrl(f: IpReviewFinding): string | null {
 function estimatedMarket(
   f: IpReviewFinding,
 ): { value: number; currency: string } | null {
-  if (f.price_value == null || f.price_value <= 0) return null;
+  // Coerce: Postgres NUMERIC arrives as a string when not cast to float8.
+  const price = f.price_value == null ? null : Number(f.price_value);
+  if (price == null || !Number.isFinite(price) || price <= 0) return null;
   const qty = Math.max(1, f.quantity_available ?? 1);
-  return { value: f.price_value * qty, currency: f.price_currency ?? "USD" };
+  return { value: price * qty, currency: f.price_currency ?? "USD" };
 }
 
 function formatMoney(amount: number, currency: string): string {
@@ -808,7 +810,7 @@ function FindingRow({
         className="shrink-0 hidden md:inline-block w-24 text-right text-[12px] font-semibold tabular-nums text-stone-800"
         title={
           market
-            ? `${f.price ?? formatMoney(f.price_value!, market.currency)} × qty ${Math.max(1, f.quantity_available ?? 1)}`
+            ? `${f.price ?? formatMoney(Number(f.price_value), market.currency)} × qty ${Math.max(1, f.quantity_available ?? 1)}`
             : "No structured price yet"
         }
       >
@@ -1009,9 +1011,9 @@ function FindingComparison({
             <div className="text-stone-400 flex items-center gap-2 flex-wrap">
               {f.seller_rating != null && (
                 <span>
-                  ★ <span className="font-semibold text-stone-600">{f.seller_rating.toFixed(1)}</span>
+                  ★ <span className="font-semibold text-stone-600">{Number(f.seller_rating).toFixed(1)}</span>
                   {f.seller_rating_count != null && f.seller_rating_count > 0 && (
-                    <span className="text-stone-400"> ({f.seller_rating_count.toLocaleString()})</span>
+                    <span className="text-stone-400"> ({Number(f.seller_rating_count).toLocaleString()})</span>
                   )}
                 </span>
               )}
