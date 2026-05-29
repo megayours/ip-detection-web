@@ -1526,19 +1526,63 @@ export async function openIpFindingTakedownPacket(
 
 // --- Tenant-wide monitoring hub (across ALL monitored IPs) ---
 
+/** Sort modes (must match api/src/db.ts MonitoringSortMode). */
+export type MonitoringSortMode =
+  | "score_desc" | "score_asc"
+  | "found_desc" | "found_asc"
+  | "updated_desc" | "updated_asc";
+
+export type MonitoringPriorityBand = "high" | "med" | "low";
+export type MonitoringStatusFilter =
+  | "pending" | "confirmed" | "takedown_sent" | "enforced" | "dismissed";
+
+/** Full-tenant facet counts returned alongside every findings page. */
+export interface MonitoringFacets {
+  statuses: Record<string, number>;
+  priorities: { high: number; med: number; low: number };
+  platforms: Array<{ domain: string; n: number }>;
+  ips: Array<{ ip_id: string; name: string | null; n: number }>;
+  total: number;
+}
+
+export interface MonitoringFindingsPage {
+  findings: IpReviewFinding[];
+  /** Pass back as `cursor` to fetch the next page; null = no more rows. */
+  next_cursor: string | null;
+  facets: MonitoringFacets;
+}
+
+export interface MonitoringFindingsQuery {
+  priority?: MonitoringPriorityBand | null;
+  status?: MonitoringStatusFilter | null;
+  ip_id?: string | null;
+  platform?: string | null;
+  show_dismissed?: boolean;
+  sort?: MonitoringSortMode;
+  cursor?: string | null;
+  limit?: number;
+}
+
 /**
- * Every monitoring finding across the tenant, decorated with `ip_id` /
- * `ip_name` (and `screenshot_url`) so a global board can attribute and
- * action each finding by its own IP. Powers the /monitoring "Findings" tab.
+ * One page of the tenant-wide monitoring findings feed. All filtering,
+ * sorting, and keyset pagination happens server-side; the response also
+ * carries the full-tenant facet counts so dropdowns stay accurate without
+ * the client needing the whole result set.
  */
 export function listMonitoringFindingsGlobal(
-  opts: { include_dismissed?: boolean } = {},
+  opts: MonitoringFindingsQuery = {},
 ) {
   const params = new URLSearchParams();
-  if (opts.include_dismissed) params.set("include_dismissed", "true");
-  params.set("limit", "1000");
+  if (opts.priority)     params.set("priority", opts.priority);
+  if (opts.status)       params.set("status", opts.status);
+  if (opts.ip_id)        params.set("ip_id", opts.ip_id);
+  if (opts.platform)     params.set("platform", opts.platform);
+  if (opts.show_dismissed) params.set("show_dismissed", "true");
+  if (opts.sort)         params.set("sort", opts.sort);
+  if (opts.cursor)       params.set("cursor", opts.cursor);
+  params.set("limit", String(opts.limit ?? 50));
   const qs = params.toString();
-  return request<{ findings: IpReviewFinding[] }>(
+  return request<MonitoringFindingsPage>(
     `/api/monitoring/findings${qs ? `?${qs}` : ""}`,
   );
 }

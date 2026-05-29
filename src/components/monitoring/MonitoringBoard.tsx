@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addIpLicense,
   confirmIpFinding,
@@ -9,7 +9,21 @@ import {
   reopenIpFinding,
   type CaseReviewStatus,
   type IpReviewFinding,
+  type MonitoringFacets,
+  type MonitoringPriorityBand,
+  type MonitoringSortMode,
+  type MonitoringStatusFilter,
 } from "../../api";
+
+/** Shape pushed up to the parent — must match Findings.tsx::InboxFilters. */
+export interface BoardFilters {
+  status: MonitoringStatusFilter | null;
+  priority: MonitoringPriorityBand | null;
+  ip_id: string | null;
+  platform: string | null;
+  show_dismissed: boolean;
+  sort: MonitoringSortMode;
+}
 
 // Shared clean style for the filter-bar dropdowns (IP / platform).
 const FILTER_SELECT =
@@ -35,148 +49,67 @@ function formatAgo(iso: string | null): string | null {
 }
 
 /**
- * IP-centric monitoring findings board. Lifted verbatim (visually) from the
- * former monitoring branch of IpReviewDetail — the priority banner, the
- * marketplace/domain tabs, the index list, and the center-stage comparison
- * all behave exactly as before. The only re-parameterisation is that
- * takedown + dismiss now hit the IP-scoped API (`ipId`) instead of a review.
+ * Tenant-wide findings board. Filter state lives in the URL (managed by
+ * Findings.tsx); the board is a "dumb" renderer that consumes the page of
+ * findings + facet counts and emits filter changes back up. Server handles
+ * filtering + sorting + keyset pagination — the "Load more" footer appends
+ * the next page in place.
  */
 export function MonitoringBoard({
   findings,
+  facets,
+  filters,
+  onFiltersChange,
+  nextCursor,
+  loadingMore,
+  onLoadMore,
   ipId,
   runInProgress,
   onRefresh,
   onDismiss,
   showIpColumn,
-  initialStatus,
 }: {
   findings: IpReviewFinding[];
+  facets: MonitoringFacets;
+  filters: BoardFilters;
+  onFiltersChange: (next: Partial<BoardFilters>) => void;
+  nextCursor: string | null;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   /**
    * Fallback IP for per-finding actions when a finding doesn't carry its own
-   * `ip_id` (the single-IP RegistryDetail usage). On the global board each
-   * finding ships `ip_id`, so this is optional there.
+   * `ip_id` (single-IP usage). On the global board each finding ships `ip_id`.
    */
   ipId?: string;
   /** A monitor run is currently pending/executing — tweaks the empty state. */
   runInProgress: boolean;
-  /** Re-fetch findings (e.g. after a dismiss / license backfill). */
+  /** Re-fetch the first page (e.g. after a dismiss / license backfill). */
   onRefresh: () => void;
   /** Optional post-dismiss notification with the dismissed result_id. */
   onDismiss?: (resultId: string) => void;
-  /**
-   * Force the per-IP attribution UI (IP-name chips + IP filter). Auto-enabled
-   * whenever any finding carries an `ip_id`, so the global hub gets it for
-   * free; the single-IP RegistryDetail usage leaves it off and stays clean.
-   */
+  /** Render the IP-name chip + IP filter dropdown. */
   showIpColumn?: boolean;
-  /**
-   * Initial enforcement-status filter — Findings.tsx forwards the `?status=`
-   * URL param so a dashboard KPI deep-link lands pre-filtered.
-   */
-  initialStatus?: string | null;
 }) {
-  // Show IP attribution when explicitly asked, or whenever findings carry
-  // their own IP (i.e. the tenant-wide board).
   const ipAware = showIpColumn ?? findings.some((f) => !!f.ip_id);
-  const [showDismissed, setShowDismissed] = useState(false);
-  // Enforcement-priority filter driven by the clickable banner cards.
-  // "all" = no filter; clicking a band card toggles its filter on/off.
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
-  // Marketplace/domain tab filter ("all" = every site).
-  const [domainFilter, setDomainFilter] = useState<string>("all");
-  // IP filter (global board only): "all" = every monitored IP.
-  const [ipFilter, setIpFilter] = useState<string>("all");
-  // Enforcement-status filter — null means "no filter" (all statuses).
-  // Pre-seeded from `initialStatus` for dashboard KPI deep links.
-  const [statusFilter, setStatusFilter] = useState<string | null>(() => {
-    const v = (initialStatus ?? "").trim();
-    return v && STATUS_FILTERS.some((s) => s.key === v) ? v : null;
-  });
-  // Optimistically-dismissed result_ids — the server reload eventually
-  // replaces this once `dismissed_at` lands in the polled payload.
+  // Optimistically-dismissed result_ids — the next refetch replaces these
+  // once `dismissed_at` lands in the payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   // Inline-expanded finding (Gmail-row accordion). null = all collapsed.
   const [activeId, setActiveId] = useState<string | null>(null);
-  // Sort order applied after filtering. Default mirrors the backend ORDER BY
-  // (priority desc, found_at desc) so the initial paint is unchanged.
-  const [sortMode, setSortMode] = useState<SortMode>("score_desc");
-
-  const visible = useMemo(() => {
-    const filtered = findings.filter((f) => {
-      const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
-      if (isDismissed && !showDismissed) return false;
-      if (domainFilter !== "all" && f.domain !== domainFilter) return false;
-      if (ipFilter !== "all" && (f.ip_name ?? "") !== ipFilter) return false;
-      if (priorityFilter !== "all" && priorityBand(f.enforcement_priority) !== priorityFilter) {
-        return false;
-      }
-      if (statusFilter && !statusMatches(f, statusFilter)) return false;
-      return true;
-    });
-    return sortFindings(filtered, sortMode);
-  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter, ipFilter, statusFilter, sortMode]);
-
-  // Per-status counts ignore dismissed (the "dismissed" bucket is its own).
-  const statusCounts = useMemo(() => {
-    const m: Record<string, number> = { pending: 0, confirmed: 0, takedown_sent: 0, enforced: 0, dismissed: 0 };
-    for (const f of findings) {
-      if (f.dismissed_at || dismissing.has(f.result_id)) {
-        m.dismissed += 1;
-        continue;
-      }
-      const s = (f.review_status ?? "pending") as string;
-      if (s in m) m[s] += 1;
-    }
-    return m;
-  }, [findings, dismissing]);
-
-  // Distinct IP names present across live findings — drives the IP filter
-  // dropdown, only shown on the multi-IP (global) board.
-  const ipOptions = useMemo(() => {
-    if (!ipAware) return [];
-    const m = new Map<string, number>();
-    for (const f of findings) {
-      if (f.dismissed_at || dismissing.has(f.result_id)) continue;
-      const name = f.ip_name ?? "";
-      if (!name) continue;
-      m.set(name, (m.get(name) ?? 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [findings, dismissing, ipAware]);
-
-  // Marketplace tabs: live (non-dismissed) finding count per domain, busiest first.
-  const domainTabs = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const f of findings) {
-      if (f.dismissed_at || dismissing.has(f.result_id)) continue;
-      m.set(f.domain, (m.get(f.domain) ?? 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [findings, dismissing]);
 
   // Collapse the expanded row when filters drop it from the visible set —
   // derived during render rather than synced via effect so we don't trigger
-  // a cascading re-render. `setActiveId` is still wired up via row clicks.
+  // a cascading re-render.
   const effectiveActiveId =
-    activeId && visible.some((f) => f.result_id === activeId) ? activeId : null;
+    activeId && findings.some((f) => f.result_id === activeId) ? activeId : null;
 
-  // Counts ignore dismissed findings — the priority banner reflects the
-  // outstanding workload, not the historical total.
-  const counts = useMemo(() => {
-    const live = findings.filter(
-      (f) => !f.dismissed_at && !dismissing.has(f.result_id),
-    );
-    const high = live.filter((f) => f.enforcement_priority >= 0.75).length;
-    const med = live.filter(
-      (f) => f.enforcement_priority >= 0.5 && f.enforcement_priority < 0.75
-    ).length;
-    const low = live.filter((f) => f.enforcement_priority < 0.5).length;
-    return { high, med, low, total: live.length };
-  }, [findings, dismissing]);
+  // Stale entries in `dismissing` for findings that have since been removed
+  // from the page are harmless — they're never queried after the row goes
+  // away — so we don't bother clearing them on each refetch.
 
-  const dismissedCount = findings.filter(
-    (f) => !!f.dismissed_at || dismissing.has(f.result_id),
-  ).length;
+  const counts = facets.priorities;
+  const total = facets.total;
+  const dismissedCount = facets.statuses.dismissed ?? 0;
 
   async function handleDismiss(f: IpReviewFinding) {
     if (dismissing.has(f.result_id)) return;
@@ -203,52 +136,68 @@ export function MonitoringBoard({
   return (
     <>
       <StatusFilterBar
-        counts={statusCounts}
-        active={statusFilter}
-        onSelect={setStatusFilter}
+        counts={facets.statuses}
+        active={filters.status}
+        onSelect={(s) =>
+          onFiltersChange({ status: s as MonitoringStatusFilter | null })
+        }
       />
 
       {/* One clean filter bar: severity pills + IP + platform + dismissed. */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3 mt-3">
         <PriorityBanner
-          counts={counts}
-          active={priorityFilter}
-          onSelect={setPriorityFilter}
+          counts={{ ...counts, total }}
+          active={filters.priority ?? "all"}
+          onSelect={(p) =>
+            onFiltersChange({
+              priority: p === "all" ? null : (p as MonitoringPriorityBand),
+            })
+          }
         />
         <div className="flex items-center gap-2 flex-wrap">
-          {ipOptions.length > 1 && (
+          {ipAware && facets.ips.length > 1 && (
             <select
-              value={ipFilter}
-              onChange={(e) => setIpFilter(e.target.value)}
+              value={filters.ip_id ?? "all"}
+              onChange={(e) =>
+                onFiltersChange({
+                  ip_id: e.target.value === "all" ? null : e.target.value,
+                })
+              }
               title="Filter by IP"
               className={FILTER_SELECT}
             >
-              <option value="all">All IPs ({ipOptions.reduce((s, [, n]) => s + n, 0)})</option>
-              {ipOptions.map(([name, n]) => (
-                <option key={name} value={name}>
-                  {name} ({n})
+              <option value="all">All IPs ({facets.ips.reduce((s, ip) => s + ip.n, 0)})</option>
+              {facets.ips.map((ip) => (
+                <option key={ip.ip_id} value={ip.ip_id}>
+                  {ip.name ?? "—"} ({ip.n})
                 </option>
               ))}
             </select>
           )}
-          {domainTabs.length > 1 && (
+          {facets.platforms.length > 1 && (
             <select
-              value={domainFilter}
-              onChange={(e) => setDomainFilter(e.target.value)}
+              value={filters.platform ?? "all"}
+              onChange={(e) =>
+                onFiltersChange({
+                  platform: e.target.value === "all" ? null : e.target.value,
+                })
+              }
               title="Filter by platform"
               className={FILTER_SELECT}
             >
-              <option value="all">All platforms ({domainTabs.reduce((s, [, n]) => s + n, 0)})</option>
-              {domainTabs.map(([domain, n]) => (
-                <option key={domain} value={domain}>
-                  {domain} ({n})
+              <option value="all">All platforms ({facets.platforms.reduce((s, p) => s + p.n, 0)})</option>
+              {facets.platforms.map((p) => (
+                <option key={p.domain} value={p.domain}>
+                  {p.domain} ({p.n})
                 </option>
               ))}
             </select>
           )}
           <select
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            value={filters.sort}
+            onChange={(e) =>
+              onFiltersChange({ sort: e.target.value as MonitoringSortMode })
+            }
             title="Sort findings"
             className={FILTER_SELECT}
           >
@@ -265,8 +214,8 @@ export function MonitoringBoard({
           >
             <input
               type="checkbox"
-              checked={showDismissed}
-              onChange={(e) => setShowDismissed(e.target.checked)}
+              checked={filters.show_dismissed}
+              onChange={(e) => onFiltersChange({ show_dismissed: e.target.checked })}
               disabled={dismissedCount === 0}
             />
             Show dismissed ({dismissedCount})
@@ -275,19 +224,18 @@ export function MonitoringBoard({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white">
-        <div className="px-5 py-3 border-b border-stone-200">
+        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between">
           <h2 className="text-sm font-bold text-stone-900">
-            Findings ({visible.length})
+            Findings <span className="text-stone-400 font-normal">({findings.length}{nextCursor ? "+" : ""})</span>
           </h2>
         </div>
-        {visible.length === 0 ? (
+        {findings.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
             {runInProgress
               ? "Waiting for the first findings to arrive…"
               : (
                 <>
-                  No findings yet. Click <span className="font-semibold">Refresh now</span>
-                  {" "}above, or wait for the next scheduled run.
+                  No findings match the current filters.
                 </>
               )}
           </div>
@@ -295,7 +243,7 @@ export function MonitoringBoard({
           /* Gmail-style compact row list. Each row toggles an inline detail
              panel; only one row is open at a time. */
           <div className="divide-y divide-stone-100">
-            {visible.map((f) => {
+            {findings.map((f) => {
               const expanded = f.result_id === effectiveActiveId;
               const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
               return (
@@ -328,6 +276,24 @@ export function MonitoringBoard({
             })}
           </div>
         )}
+        {/* Pagination footer: Load more when the server says there's another
+            page, end-of-list marker otherwise. Hidden when there are no rows. */}
+        {findings.length > 0 && (
+          <div className="border-t border-stone-100 px-5 py-3 text-center">
+            {nextCursor ? (
+              <button
+                type="button"
+                disabled={loadingMore}
+                onClick={onLoadMore}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            ) : (
+              <span className="text-[11px] text-stone-400">End of list.</span>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
@@ -335,22 +301,9 @@ export function MonitoringBoard({
 
 type PriorityFilter = "all" | "high" | "med" | "low";
 
-function priorityBand(p: number): "high" | "med" | "low" {
-  if (p >= 0.75) return "high";
-  if (p >= 0.5) return "med";
-  return "low";
-}
-
 // Sort options surfaced in the filter bar. Default `score_desc` mirrors the
-// backend ORDER BY (priority desc, found_at desc) so the initial paint is
-// unchanged. `updated_*` reads `last_checked_at` (the recheck/enrichment
-// timestamp — closest thing to "updated at" on the finding).
-type SortMode =
-  | "score_desc" | "score_asc"
-  | "found_desc" | "found_asc"
-  | "updated_desc" | "updated_asc";
-
-const SORT_OPTIONS: Array<{ key: SortMode; label: string }> = [
+// backend ORDER BY (priority desc, found_at desc).
+const SORT_OPTIONS: Array<{ key: MonitoringSortMode; label: string }> = [
   { key: "score_desc",   label: "Score · highest first" },
   { key: "score_asc",    label: "Score · lowest first" },
   { key: "found_desc",   label: "Found · newest first" },
@@ -358,37 +311,6 @@ const SORT_OPTIONS: Array<{ key: SortMode; label: string }> = [
   { key: "updated_desc", label: "Updated · most recent" },
   { key: "updated_asc",  label: "Updated · least recent" },
 ];
-
-function _ms(iso: string | null): number {
-  if (!iso) return 0;
-  const t = new Date(iso).getTime();
-  return Number.isFinite(t) ? t : 0;
-}
-
-function sortFindings(rows: IpReviewFinding[], mode: SortMode): IpReviewFinding[] {
-  const arr = rows.slice();
-  switch (mode) {
-    case "score_desc":
-      arr.sort((a, b) => b.enforcement_priority - a.enforcement_priority || _ms(b.found_at) - _ms(a.found_at));
-      break;
-    case "score_asc":
-      arr.sort((a, b) => a.enforcement_priority - b.enforcement_priority || _ms(a.found_at) - _ms(b.found_at));
-      break;
-    case "found_desc":
-      arr.sort((a, b) => _ms(b.found_at) - _ms(a.found_at));
-      break;
-    case "found_asc":
-      arr.sort((a, b) => _ms(a.found_at) - _ms(b.found_at));
-      break;
-    case "updated_desc":
-      arr.sort((a, b) => _ms(b.last_checked_at) - _ms(a.last_checked_at));
-      break;
-    case "updated_asc":
-      arr.sort((a, b) => _ms(a.last_checked_at) - _ms(b.last_checked_at));
-      break;
-  }
-  return arr;
-}
 
 // Slim status pipeline pills. `null` is rendered as "pending".
 const STATUS_FILTERS: Array<{ key: string; label: string }> = [
@@ -398,15 +320,6 @@ const STATUS_FILTERS: Array<{ key: string; label: string }> = [
   { key: "enforced", label: "Enforced" },
   { key: "dismissed", label: "Dismissed" },
 ];
-
-function statusKey(f: IpReviewFinding): string {
-  if (f.dismissed_at) return "dismissed";
-  return (f.review_status ?? "pending") as string;
-}
-
-function statusMatches(f: IpReviewFinding, key: string): boolean {
-  return statusKey(f) === key;
-}
 
 function statusBadge(s: CaseReviewStatus | null | undefined) {
   const status = (s ?? "pending") as CaseReviewStatus | "pending";

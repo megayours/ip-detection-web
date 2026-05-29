@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import {
   listMonitoringFindingsGlobal,
   type IpReviewFinding,
+  type MonitoringFacets,
+  type MonitoringFindingsQuery,
+  type MonitoringPriorityBand,
+  type MonitoringSortMode,
+  type MonitoringStatusFilter,
 } from "../api";
 import { MonitoringBoard } from "../components/monitoring/MonitoringBoard";
 
@@ -11,62 +16,158 @@ export default function Findings() {
   return <Navigate to="/inbox?tab=monitoring" replace />;
 }
 
+/** Single source of truth for the inbox filter set, read from / written to
+ *  the URL so refresh + share + KPI deep-links survive. */
+interface InboxFilters {
+  status: MonitoringStatusFilter | null;
+  priority: MonitoringPriorityBand | null;
+  ip_id: string | null;
+  platform: string | null;
+  show_dismissed: boolean;
+  sort: MonitoringSortMode;
+}
+
+const DEFAULT_SORT: MonitoringSortMode = "score_desc";
+
+function parseFilters(params: URLSearchParams): InboxFilters {
+  const status = params.get("status");
+  const priority = params.get("priority");
+  const sort = params.get("sort");
+  return {
+    status:
+      status === "pending" || status === "confirmed" || status === "takedown_sent" ||
+      status === "enforced" || status === "dismissed"
+        ? status
+        : null,
+    priority: priority === "high" || priority === "med" || priority === "low" ? priority : null,
+    ip_id: params.get("ip_id"),
+    platform: params.get("platform"),
+    show_dismissed: params.get("show_dismissed") === "true",
+    sort:
+      sort === "score_desc" || sort === "score_asc" ||
+      sort === "found_desc" || sort === "found_asc" ||
+      sort === "updated_desc" || sort === "updated_asc"
+        ? sort
+        : DEFAULT_SORT,
+  };
+}
+
+/** Mutates a URLSearchParams clone with the new filter set, dropping keys
+ *  that are at the default so the URL stays tidy. */
+function writeFilters(base: URLSearchParams, f: InboxFilters): URLSearchParams {
+  const next = new URLSearchParams(base);
+  const setOrDel = (k: string, v: string | null) => {
+    if (v) next.set(k, v);
+    else next.delete(k);
+  };
+  setOrDel("status", f.status);
+  setOrDel("priority", f.priority);
+  setOrDel("ip_id", f.ip_id);
+  setOrDel("platform", f.platform);
+  setOrDel("show_dismissed", f.show_dismissed ? "true" : null);
+  setOrDel("sort", f.sort === DEFAULT_SORT ? null : f.sort);
+  return next;
+}
+
 /**
- * Tenant-wide infringement findings board, embeddable inside the unified
- * Inbox tabs. Status filter pre-applied from the `?status=` URL param
- * (e.g. dashboard KPI deep links).
+ * Tenant-wide infringement findings board. Filters/sort live in the URL;
+ * the server returns a single page + full-tenant facets and the user
+ * "Load more"s their way through the rest via keyset cursor.
  */
 export function MonitoringInboxView() {
-  const [params] = useSearchParams();
-  const initialStatus = params.get("status");
+  const [params, setParams] = useSearchParams();
+  const filters = parseFilters(params);
+
   const [findings, setFindings] = useState<IpReviewFinding[]>([]);
-  const [includeDismissed, setIncludeDismissed] = useState(false);
+  const [facets, setFacets] = useState<MonitoringFacets | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [err, setErr] = useState("");
 
-  const load = useCallback(async () => {
+  // The request currently in flight for the first page (filter changes); we
+  // ignore stale responses so a quick filter toggle can't flicker an older
+  // payload back on screen.
+  const reqSeq = useRef(0);
+
+  // Filter-aware first-page fetch. Triggered on any filter/sort change.
+  const loadFirstPage = useCallback(
+    async (q: MonitoringFindingsQuery) => {
+      const seq = ++reqSeq.current;
+      setErr("");
+      try {
+        const page = await listMonitoringFindingsGlobal({ ...q, cursor: null });
+        if (reqSeq.current !== seq) return;
+        setFindings(page.findings);
+        setFacets(page.facets);
+        setNextCursor(page.next_cursor);
+      } catch (e) {
+        if (reqSeq.current !== seq) return;
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (reqSeq.current === seq) setLoaded(true);
+      }
+    },
+    [],
+  );
+
+  // Refetch on any filter/sort change. URL params are the dependency — they
+  // change synchronously via setParams, so this fires exactly when needed.
+  // Stringify the filters as the dep to avoid re-running on object identity.
+  const filterKey = JSON.stringify(filters);
+  useEffect(() => {
+    void loadFirstPage(filters);
+    // filterKey is enough; parseFilters is pure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey, loadFirstPage]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
     try {
-      const { findings } = await listMonitoringFindingsGlobal({
-        include_dismissed: includeDismissed,
+      const page = await listMonitoringFindingsGlobal({
+        ...filters,
+        cursor: nextCursor,
       });
-      setFindings(findings);
+      setFindings((prev) => [...prev, ...page.findings]);
+      setNextCursor(page.next_cursor);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoaded(true);
+      setLoadingMore(false);
     }
-  }, [includeDismissed]);
+  }, [nextCursor, loadingMore, filters]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Refresh in place after an action (dismiss, confirm, …) without losing
+  // the current scroll position: re-fetch the first page only.
+  const refresh = useCallback(() => {
+    void loadFirstPage(filters);
+  }, [loadFirstPage, filters]);
 
-  const liveCount = useMemo(
-    () => findings.filter((f) => !f.dismissed_at).length,
-    [findings],
+  const onFiltersChange = useCallback(
+    (next: Partial<InboxFilters>) => {
+      setParams((prev) => writeFilters(prev, { ...filters, ...next }), {
+        replace: true,
+      });
+    },
+    [filters, setParams],
   );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-stone-500">
-          {liveCount} open finding{liveCount === 1 ? "" : "s"} across all monitored IPs.
+          {facets
+            ? `${facets.total} open finding${facets.total === 1 ? "" : "s"} across all monitored IPs.`
+            : "Loading…"}
         </p>
-        <label className="flex items-center gap-2 text-[11px] text-stone-500">
-          <input
-            type="checkbox"
-            checked={includeDismissed}
-            onChange={(e) => setIncludeDismissed(e.target.checked)}
-          />
-          Include dismissed
-        </label>
       </div>
 
       {err && <div className="text-sm text-red-600">{err}</div>}
 
       {!loaded ? (
         <div className="text-sm text-stone-400 py-8 text-center">Loading…</div>
-      ) : findings.length === 0 ? (
+      ) : !facets || (facets.total === 0 && findings.length === 0) ? (
         <div className="rounded-2xl border border-stone-200 bg-white px-5 py-12 text-center">
           <p className="text-sm text-stone-600">No findings yet</p>
           <p className="text-xs text-stone-400 mt-1">
@@ -76,12 +177,19 @@ export function MonitoringInboxView() {
       ) : (
         <MonitoringBoard
           findings={findings}
+          facets={facets}
+          filters={filters}
+          onFiltersChange={onFiltersChange}
+          nextCursor={nextCursor}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
           runInProgress={false}
-          onRefresh={load}
+          onRefresh={refresh}
           showIpColumn
-          initialStatus={initialStatus}
         />
       )}
     </div>
   );
 }
+
+export type { InboxFilters };
