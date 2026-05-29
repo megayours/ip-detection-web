@@ -1574,6 +1574,8 @@ export interface DashboardSummary {
     high_risk: number;
     ips_monitored: number;
     platforms_monitored: number;
+    /** SUM over open findings of (qty × price_usd). Pitch headline. */
+    total_unlicensed_market_usd?: number;
   };
   sellers: Array<{
     seller_name: string;
@@ -1583,7 +1585,13 @@ export interface DashboardSummary {
     sales: number | null;
   }>;
   platforms: Array<{ domain: string; findings: number; enforced: number }>;
-  ips: Array<{ ip_id: string; ip_name: string; findings: number; enforced: number }>;
+  ips: Array<{
+    ip_id: string;
+    ip_name: string;
+    findings: number;
+    enforced: number;
+    unlicensed_market_usd?: number;
+  }>;
   timeseries: Array<{ day: string; findings: number }>;
   countries: Array<{ country: string; findings: number }>;
   days: number;

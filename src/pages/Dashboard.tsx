@@ -99,6 +99,9 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
+          <UnlicensedMarketHero
+            totalUsd={data.kpis.total_unlicensed_market_usd ?? 0}
+          />
           <KpiRow kpis={data.kpis} />
           <TimeSeriesCard timeseries={data.timeseries} />
           <div className="grid lg:grid-cols-2 gap-4">
@@ -133,6 +136,33 @@ function RangeToggle({ days, onChange }: { days: Days; onChange: (d: Days) => vo
           {d}d
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Compact USD formatter for the hero + per-IP figures. "1234567" → "$1.2M". */
+const fmtUsdCompact = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function UnlicensedMarketHero({ totalUsd }: { totalUsd: number }) {
+  return (
+    <div className="rounded-2xl bg-stone-900 text-white px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.14em] font-semibold text-stone-300">
+          Estimated unlicensed market
+        </div>
+        <p className="text-xs text-stone-400 mt-0.5 max-w-md">
+          Sum of price × quantity across open infringement findings.
+          Excludes dismissed and already-enforced cases.
+        </p>
+      </div>
+      <div className="text-4xl sm:text-5xl font-black tabular-nums leading-none">
+        {fmtUsdCompact.format(totalUsd || 0)}
+      </div>
     </div>
   );
 }
@@ -359,38 +389,47 @@ function SellersCard({
 }
 
 function IpsCard({ ips }: { ips: DashboardSummary["ips"] }) {
-  const data = useMemo(
-    () => ips.slice(0, 8).map((i) => ({ name: i.ip_name, findings: i.findings, enforced: i.enforced })),
-    [ips],
-  );
+  const rows = ips.slice(0, 8);
+  const maxFindings = rows.reduce((m, r) => Math.max(m, r.findings), 0);
   return (
-    <CardShell title="Top IPs" subtitle="Most findings per protected IP.">
-      {data.length === 0 ? (
+    <CardShell
+      title="Top IPs"
+      subtitle="Estimated unlicensed market and finding count per IP."
+    >
+      {rows.length === 0 ? (
         <p className="text-xs text-stone-400 py-8 text-center">No IP data yet.</p>
       ) : (
-        <div style={{ width: "100%", height: 280 }}>
-          <ResponsiveContainer>
-            <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 10 }}>
-              <CartesianGrid stroke="#f4f4f4" />
-              <XAxis type="number" stroke="#a8a29e" tick={{ fontSize: 11 }} allowDecimals={false} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                stroke="#a8a29e"
-                tick={{ fontSize: 11 }}
-                width={120}
-              />
-              <Tooltip
-                contentStyle={{
-                  fontSize: 12,
-                  border: "1px solid #e7e5e4",
-                  borderRadius: 8,
-                }}
-              />
-              <Bar dataKey="findings" name="Findings" fill="#78716c" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ul className="space-y-2">
+          {rows.map((ip) => {
+            const pct = maxFindings ? Math.round((ip.findings / maxFindings) * 100) : 0;
+            const usd = ip.unlicensed_market_usd ?? 0;
+            return (
+              <li key={ip.ip_id} className="flex items-center gap-3">
+                <span className="text-sm text-stone-700 w-32 truncate" title={ip.ip_name}>
+                  {ip.ip_name}
+                </span>
+                <div className="flex-1 h-2 rounded-full bg-stone-100 overflow-hidden">
+                  <div
+                    className="h-full bg-stone-400"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span
+                  className="text-xs tabular-nums font-semibold text-stone-900 w-16 text-right"
+                  title={`Estimated unlicensed market: $${usd.toLocaleString()}`}
+                >
+                  {usd > 0 ? fmtUsdCompact.format(usd) : <span className="text-stone-300">—</span>}
+                </span>
+                <span
+                  className="text-xs tabular-nums text-stone-500 w-10 text-right"
+                  title={`${ip.findings} finding${ip.findings === 1 ? "" : "s"}`}
+                >
+                  {ip.findings}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </CardShell>
   );

@@ -276,7 +276,7 @@ function TopbarIpsLink({ active }: { active: boolean }) {
   return (
     <Link to="/ips" className={cls}>
       <Library size={16} />
-      <span>IPs</span>
+      <span>My IPs</span>
     </Link>
   );
 }
