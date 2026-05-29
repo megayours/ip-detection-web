@@ -1218,6 +1218,9 @@ export interface IpReviewFinding {
    *  "Sold from Sweden" → "Sweden"). Null when location is empty or doesn't
    *  match any known country. */
   country: string | null;
+  /** Structured price for per-item market math (price_value × quantity). */
+  price_value: number | null;
+  price_currency: string | null;
   // Present on tenant-wide findings (GET /api/monitoring/findings) so a
   // multi-IP board can key per-finding actions off the finding's own IP and
   // render an IP chip. Absent on per-IP findings (the IP is implied).

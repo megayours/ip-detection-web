@@ -95,11 +95,14 @@ export function MonitoringBoard({
   // Optimistically-dismissed result_ids — the server reload eventually
   // replaces this once `dismissed_at` lands in the polled payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
-  // Center-stage comparison: the active finding shown large.
+  // Inline-expanded finding (Gmail-row accordion). null = all collapsed.
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Sort order applied after filtering. Default mirrors the backend ORDER BY
+  // (priority desc, found_at desc) so the initial paint is unchanged.
+  const [sortMode, setSortMode] = useState<SortMode>("score_desc");
 
   const visible = useMemo(() => {
-    return findings.filter((f) => {
+    const filtered = findings.filter((f) => {
       const isDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
       if (isDismissed && !showDismissed) return false;
       if (domainFilter !== "all" && f.domain !== domainFilter) return false;
@@ -110,7 +113,8 @@ export function MonitoringBoard({
       if (statusFilter && !statusMatches(f, statusFilter)) return false;
       return true;
     });
-  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter, ipFilter, statusFilter]);
+    return sortFindings(filtered, sortMode);
+  }, [findings, showDismissed, dismissing, priorityFilter, domainFilter, ipFilter, statusFilter, sortMode]);
 
   // Per-status counts ignore dismissed (the "dismissed" bucket is its own).
   const statusCounts = useMemo(() => {
@@ -150,18 +154,11 @@ export function MonitoringBoard({
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [findings, dismissing]);
 
-  // Keep the selected finding valid as filters change; default to the top one.
-  useEffect(() => {
-    if (visible.length === 0) {
-      if (activeId !== null) setActiveId(null);
-      return;
-    }
-    if (!activeId || !visible.some((f) => f.result_id === activeId)) {
-      setActiveId(visible[0].result_id);
-    }
-  }, [visible, activeId]);
-
-  const active = visible.find((f) => f.result_id === activeId) ?? null;
+  // Collapse the expanded row when filters drop it from the visible set —
+  // derived during render rather than synced via effect so we don't trigger
+  // a cascading re-render. `setActiveId` is still wired up via row clicks.
+  const effectiveActiveId =
+    activeId && visible.some((f) => f.result_id === activeId) ? activeId : null;
 
   // Counts ignore dismissed findings — the priority banner reflects the
   // outstanding workload, not the historical total.
@@ -249,6 +246,18 @@ export function MonitoringBoard({
               ))}
             </select>
           )}
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            title="Sort findings"
+            className={FILTER_SELECT}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
           <label
             className={`flex items-center gap-1.5 text-[11px] ${
               dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
@@ -283,37 +292,40 @@ export function MonitoringBoard({
               )}
           </div>
         ) : (
-          <div className="flex flex-col lg:flex-row">
-            {/* Index: pick a finding to compare */}
-            <div className="lg:w-72 shrink-0 lg:border-r border-stone-100 divide-y divide-stone-100 lg:max-h-[80vh] lg:overflow-y-auto">
-              {visible.map((f) => (
-                <FindingListItem
-                  key={f.result_id}
-                  f={f}
-                  selected={f.result_id === activeId}
-                  isDismissed={!!f.dismissed_at || dismissing.has(f.result_id)}
-                  showIp={ipAware}
-                  onSelect={() => setActiveId(f.result_id)}
-                />
-              ))}
-            </div>
-            {/* Center stage: side-by-side comparison of the active finding */}
-            <div className="flex-1 min-w-0 p-5">
-              {active ? (
-                <FindingComparison
-                  key={active.result_id}
-                  f={active}
-                  ipId={active.ip_id ?? ipId}
-                  showIp={ipAware}
-                  isDismissed={!!active.dismissed_at || dismissing.has(active.result_id)}
-                  isDismissing={dismissing.has(active.result_id) && !active.dismissed_at}
-                  onDismiss={() => handleDismiss(active)}
-                  onUpdated={onRefresh}
-                />
-              ) : (
-                <div className="text-sm text-stone-400">Select a finding to compare.</div>
-              )}
-            </div>
+          /* Gmail-style compact row list. Each row toggles an inline detail
+             panel; only one row is open at a time. */
+          <div className="divide-y divide-stone-100">
+            {visible.map((f) => {
+              const expanded = f.result_id === effectiveActiveId;
+              const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
+              return (
+                <div key={f.result_id}>
+                  <FindingRow
+                    f={f}
+                    expanded={expanded}
+                    isDismissed={rowDismissed}
+                    showIp={ipAware}
+                    onToggle={() =>
+                      setActiveId((prev) => (prev === f.result_id ? null : f.result_id))
+                    }
+                  />
+                  {expanded && (
+                    <div className="bg-stone-50 border-t border-stone-100 px-5 py-5">
+                      <FindingComparison
+                        key={f.result_id}
+                        f={f}
+                        ipId={f.ip_id ?? ipId}
+                        showIp={ipAware}
+                        isDismissed={rowDismissed}
+                        isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
+                        onDismiss={() => handleDismiss(f)}
+                        onUpdated={onRefresh}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -327,6 +339,55 @@ function priorityBand(p: number): "high" | "med" | "low" {
   if (p >= 0.75) return "high";
   if (p >= 0.5) return "med";
   return "low";
+}
+
+// Sort options surfaced in the filter bar. Default `score_desc` mirrors the
+// backend ORDER BY (priority desc, found_at desc) so the initial paint is
+// unchanged. `updated_*` reads `last_checked_at` (the recheck/enrichment
+// timestamp — closest thing to "updated at" on the finding).
+type SortMode =
+  | "score_desc" | "score_asc"
+  | "found_desc" | "found_asc"
+  | "updated_desc" | "updated_asc";
+
+const SORT_OPTIONS: Array<{ key: SortMode; label: string }> = [
+  { key: "score_desc",   label: "Score · highest first" },
+  { key: "score_asc",    label: "Score · lowest first" },
+  { key: "found_desc",   label: "Found · newest first" },
+  { key: "found_asc",    label: "Found · oldest first" },
+  { key: "updated_desc", label: "Updated · most recent" },
+  { key: "updated_asc",  label: "Updated · least recent" },
+];
+
+function _ms(iso: string | null): number {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function sortFindings(rows: IpReviewFinding[], mode: SortMode): IpReviewFinding[] {
+  const arr = rows.slice();
+  switch (mode) {
+    case "score_desc":
+      arr.sort((a, b) => b.enforcement_priority - a.enforcement_priority || _ms(b.found_at) - _ms(a.found_at));
+      break;
+    case "score_asc":
+      arr.sort((a, b) => a.enforcement_priority - b.enforcement_priority || _ms(a.found_at) - _ms(b.found_at));
+      break;
+    case "found_desc":
+      arr.sort((a, b) => _ms(b.found_at) - _ms(a.found_at));
+      break;
+    case "found_asc":
+      arr.sort((a, b) => _ms(a.found_at) - _ms(b.found_at));
+      break;
+    case "updated_desc":
+      arr.sort((a, b) => _ms(b.last_checked_at) - _ms(a.last_checked_at));
+      break;
+    case "updated_asc":
+      arr.sort((a, b) => _ms(a.last_checked_at) - _ms(b.last_checked_at));
+      break;
+  }
+  return arr;
 }
 
 // Slim status pipeline pills. `null` is rendered as "pending".
@@ -617,78 +678,147 @@ function PriorityBanner({
 }
 
 
-// Compact, selectable index row. Clicking loads it into the comparison panel.
-function FindingListItem({
+// Top matched gallery image (highest similarity). Falls back to the
+// discovery image when the gallery wasn't enriched.
+function topImageUrl(f: IpReviewFinding): string | null {
+  const top = f.gallery_scores?.[0]?.url;
+  return top ?? f.image_url ?? null;
+}
+
+// Per-row "Estimated unlicensed market" = price_value × max(quantity, 1).
+// Returns null when we can't compute (no structured price).
+function estimatedMarket(
+  f: IpReviewFinding,
+): { value: number; currency: string } | null {
+  if (f.price_value == null || f.price_value <= 0) return null;
+  const qty = Math.max(1, f.quantity_available ?? 1);
+  return { value: f.price_value * qty, currency: f.price_currency ?? "USD" };
+}
+
+function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: amount >= 100 ? 0 : 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(0)}`;
+  }
+}
+
+/** Gmail-style single-line row. Click anywhere to toggle the inline detail
+ *  panel. Crucial fields per the inbox spec:
+ *  score · top image · seller · found (tooltip: updated) · state · est. market · platform. */
+function FindingRow({
   f,
-  selected,
+  expanded,
   isDismissed,
   showIp,
-  onSelect,
+  onToggle,
 }: {
   f: IpReviewFinding;
-  selected: boolean;
+  expanded: boolean;
   isDismissed: boolean;
-  /** Render the IP-name chip (multi-IP / global board). */
   showIp?: boolean;
-  onSelect: () => void;
+  onToggle: () => void;
 }) {
-  const priorityCls =
+  const priorityBg =
     f.enforcement_priority >= 0.75
-      ? "text-red-700"
+      ? "bg-red-100 text-red-700"
       : f.enforcement_priority >= 0.5
-        ? "text-amber-700"
-        : "text-stone-500";
+        ? "bg-amber-100 text-amber-700"
+        : "bg-stone-100 text-stone-600";
+  const thumb = topImageUrl(f);
+  const market = estimatedMarket(f);
+  const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
+  const foundAgo = formatAgo(f.found_at) ?? "—";
+  const updatedAgo = formatAgo(f.last_checked_at);
+  const title = f.listing_title ?? f.page_url;
+  const sellerLine = f.seller_name || "—";
+
   return (
     <button
       type="button"
-      onClick={onSelect}
-      className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition-colors ${
-        selected ? "bg-stone-100" : "hover:bg-stone-50"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      title={updatedAgo ? `Updated ${updatedAgo}` : undefined}
+      className={`w-full text-left flex items-center gap-3 px-3 py-2 transition-colors ${
+        expanded ? "bg-stone-50" : "hover:bg-stone-50"
       } ${isDismissed ? "opacity-50" : ""}`}
     >
-      {f.image_url ? (
-        <img src={f.image_url} alt="" className="w-12 h-12 rounded object-cover border border-stone-200 shrink-0" />
-      ) : (
-        <div className="w-12 h-12 rounded bg-stone-100 shrink-0" />
-      )}
-      <div className="flex-1 min-w-0">
-        {showIp && f.ip_name && (
-          <span className="inline-block max-w-full truncate px-1.5 py-0.5 mb-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide">
-            {f.ip_name}
-          </span>
-        )}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-semibold text-stone-900 truncate">{f.domain}</span>
-          {f.source_method && (
-            <span className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${methodChip(f.source_method).cls}`}>
-              {methodChip(f.source_method).label}
-            </span>
-          )}
-          {f.match_method && (
-            <span
-              className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${matchMethodChip(f.match_method).cls}`}
-              title={matchMethodChip(f.match_method).title}
-            >
-              {matchMethodChip(f.match_method).label}
-            </span>
-          )}
-          {(() => {
-            const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
-            return (
-              <span className={`px-1 py-0.5 rounded text-[9px] font-semibold uppercase shrink-0 ${sb.cls}`}>
-                {sb.label}
-              </span>
-            );
-          })()}
-        </div>
-        <div className="text-[11px] text-stone-500 truncate">
-          sim {Math.round((f.similarity_score ?? 0) * 100)}%
-          {f.vlm_verdict ? ` · vlm ${f.vlm_verdict}` : ""}
-        </div>
-      </div>
-      <div className={`text-sm font-bold shrink-0 ${priorityCls}`}>
+      {/* Expand caret — single column so the row alignment doesn't jump. */}
+      <span
+        className={`shrink-0 text-stone-400 text-xs w-3 transition-transform ${
+          expanded ? "rotate-90" : ""
+        }`}
+        aria-hidden
+      >
+        ▸
+      </span>
+
+      {/* (1) Score — colored pill, monospace numerics for column alignment. */}
+      <span
+        className={`shrink-0 text-[11px] font-bold tabular-nums rounded px-1.5 py-0.5 w-10 text-center ${priorityBg}`}
+        title="Enforcement priority"
+      >
         {f.enforcement_priority.toFixed(2)}
+      </span>
+
+      {/* (2) Top matched image. */}
+      {thumb ? (
+        <img
+          src={thumb}
+          alt=""
+          className="shrink-0 w-9 h-9 rounded object-cover border border-stone-200"
+        />
+      ) : (
+        <div className="shrink-0 w-9 h-9 rounded bg-stone-100" />
+      )}
+
+      {/* Title + seller stacked, flex-grow so it eats the leftover space. */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {showIp && f.ip_name && (
+            <span className="shrink-0 inline-block px-1 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide">
+              {f.ip_name}
+            </span>
+          )}
+          <span className="text-[13px] font-semibold text-stone-900 truncate">
+            {title}
+          </span>
+        </div>
+        {/* (3) Seller + (7) Platform on the same secondary line. */}
+        <div className="text-[11px] text-stone-500 truncate">
+          <span className="font-medium">{sellerLine}</span>
+          <span className="mx-1.5 text-stone-300">·</span>
+          <span>{f.domain}</span>
+        </div>
       </div>
+
+      {/* (5) State badge. */}
+      <span
+        className={`shrink-0 hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${sb.cls}`}
+      >
+        {sb.label}
+      </span>
+
+      {/* (6) Estimated unlicensed market for this item. */}
+      <span
+        className="shrink-0 hidden md:inline-block w-24 text-right text-[12px] font-semibold tabular-nums text-stone-800"
+        title={
+          market
+            ? `${f.price ?? formatMoney(f.price_value!, market.currency)} × qty ${Math.max(1, f.quantity_available ?? 1)}`
+            : "No structured price yet"
+        }
+      >
+        {market ? formatMoney(market.value, market.currency) : <span className="text-stone-300">—</span>}
+      </span>
+
+      {/* (4) Date — found relative; tooltip on row carries updated. */}
+      <span className="shrink-0 w-14 text-right text-[11px] text-stone-500 tabular-nums">
+        {foundAgo}
+      </span>
     </button>
   );
 }
