@@ -598,7 +598,12 @@ function topImageUrl(f: IpReviewFinding): string | null {
   return top ?? f.image_url ?? null;
 }
 
-// Per-row "Estimated unlicensed market" = price_value × max(quantity, 1).
+// Fallback quantity when the listing didn't expose stock — most marketplaces
+// hide it, so a flat 10 keeps the KPI honest as a rough upper bound rather
+// than the per-listing `1` that systematically under-counts.
+const QTY_FALLBACK = 10;
+
+// Per-row "Estimated unlicensed market" = price_value × quantity.
 // Returns null when we can't compute (no structured price).
 function estimatedMarket(
   f: IpReviewFinding,
@@ -606,7 +611,9 @@ function estimatedMarket(
   // Coerce: Postgres NUMERIC arrives as a string when not cast to float8.
   const price = f.price_value == null ? null : Number(f.price_value);
   if (price == null || !Number.isFinite(price) || price <= 0) return null;
-  const qty = Math.max(1, f.quantity_available ?? 1);
+  const qty = f.quantity_available && f.quantity_available > 0
+    ? f.quantity_available
+    : QTY_FALLBACK;
   return { value: price * qty, currency: f.price_currency ?? "USD" };
 }
 
@@ -723,7 +730,7 @@ function FindingRow({
         className="shrink-0 hidden md:inline-block w-24 text-right text-[12px] font-semibold tabular-nums text-stone-800"
         title={
           market
-            ? `${f.price ?? formatMoney(Number(f.price_value), market.currency)} × qty ${Math.max(1, f.quantity_available ?? 1)}`
+            ? `${f.price ?? formatMoney(Number(f.price_value), market.currency)} × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK}`
             : "No structured price yet"
         }
       >
