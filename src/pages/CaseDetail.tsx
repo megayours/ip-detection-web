@@ -85,13 +85,14 @@ export default function CaseDetail() {
 
   useEffect(() => {
     load();
-    // Poll while pipeline still running so the stepper updates live.
+    // Poll until the enrichment row lands — that's the worker's "ready"
+    // signal (seller / price / listing_title extracted from the listing page).
     pollRef.current = setInterval(async () => {
       if (!id) return;
       try {
         const resp = await getCase(id);
         setData(resp);
-        if (resp.case.pipeline_stage === "complete" && pollRef.current) {
+        if (resp.enrichment && pollRef.current) {
           clearInterval(pollRef.current);
           pollRef.current = null;
         }
@@ -166,7 +167,7 @@ export default function CaseDetail() {
 
   const c = data.case;
   const scorePct = Math.round(c.score * 100);
-  const isComplete = c.pipeline_stage === "complete";
+  const isEnriched = data.enrichment != null;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 space-y-8">
@@ -182,10 +183,10 @@ export default function CaseDetail() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <ScoreBadge score={scorePct} />
             <ReviewBadge status={c.review_status} />
-            {!isComplete && (
+            {!isEnriched && (
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                Pipeline · {c.pipeline_stage}
+                Enriching…
               </span>
             )}
           </div>
@@ -556,14 +557,12 @@ function CommentRow({
 }
 
 /**
- * True for cases produced by the brand-monitoring worker (vs. scan or
- * submission). Heuristic: monitor cases never write rule_results, so the
- * absence of any rule results combined with pipeline_stage=='complete' is a
- * strong signal. Works whether or not the linked reverse_search_results row
- * is present.
+ * True for cases produced by the brand-monitoring worker. With scan +
+ * submission removed (2026-05-27) every surviving case is a monitor case,
+ * so this is effectively always true — kept as a hook in case a non-monitor
+ * source ever returns.
  */
 function isMonitorCase(c: Case): boolean {
-  if (c.pipeline_stage !== "complete") return false;
   const rr = c.primitive_results?.rule_results ?? [];
   return rr.length === 0;
 }

@@ -10,7 +10,6 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }>
 export default function CaseCard({ c }: { c: Case }) {
   const badge = STATUS_BADGE[c.review_status] ?? STATUS_BADGE.pending;
   const scorePct = Math.round(c.score * 100);
-  const isComplete = c.pipeline_stage === "complete";
 
   let host: string | null = null;
   if (c.source_url) {
@@ -57,12 +56,6 @@ export default function CaseCard({ c }: { c: Case }) {
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.bg} ${badge.color}`}>
               {badge.label}
             </span>
-            {!isComplete && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                Pipeline · {c.pipeline_stage}
-              </span>
-            )}
             {host && (
               <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full truncate max-w-[180px]">
                 {host}

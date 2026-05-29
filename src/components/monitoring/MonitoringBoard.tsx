@@ -433,6 +433,12 @@ function matchMethodChip(
 function ListingCarousel({ f }: { f: IpReviewFinding }) {
   const scored = f.gallery_scores ?? [];
   const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
+  // Per-URL bbox in gallery-image pixel coords from the worker's keypoint
+  // localizer. Drawn as an SVG overlay on the hero so the reviewer can see
+  // where on the photo the IP (logo/label) was found.
+  const bboxByUrl = new Map(
+    scored.filter((s) => s.bbox).map((s) => [s.url, s.bbox!]),
+  );
   // Order: page screenshot first (when captured — wide page context the lawyer
   // anchors on), then scored gallery (best-matched first), then any unscored
   // gallery URL, then the discovery thumbnail. Dedupe by URL.
@@ -468,7 +474,16 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
 
   const active = urls[Math.min(idx, urls.length - 1)];
   const activeSim = scoredByUrl.get(active);
+  const activeBbox = bboxByUrl.get(active);
   const bestUrl = scored[0]?.url;
+
+  // Natural dimensions of the active hero image — needed so the SVG bbox
+  // overlay (in pixel coords) lines up under the same `object-contain`
+  // letterboxing as the <img>. Reset when the active URL changes.
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    setNatural(null);
+  }, [active]);
 
   return (
     <div className="space-y-2">
@@ -480,7 +495,35 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         title="Open full size"
         className="block w-full max-w-[60vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
       >
-        <img src={active} alt="" className="w-full h-full object-contain" />
+        <img
+          src={active}
+          alt=""
+          className="w-full h-full object-contain"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+          }}
+        />
+        {activeBbox && natural && (
+          // SVG laid over the container with its viewBox = the image's natural
+          // pixel space. Default preserveAspectRatio ("xMidYMid meet") matches
+          // <img>'s `object-contain` letterboxing, so the rect lands on the
+          // same pixels regardless of the container's aspect ratio.
+          <svg
+            viewBox={`0 0 ${natural.w} ${natural.h}`}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+          >
+            <rect
+              x={activeBbox[0]}
+              y={activeBbox[1]}
+              width={activeBbox[2]}
+              height={activeBbox[3]}
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={Math.max(3, Math.max(natural.w, natural.h) / 200)}
+            />
+          </svg>
+        )}
         {activeSim != null && (
           <span
             className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold ${

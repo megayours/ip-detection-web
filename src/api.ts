@@ -296,13 +296,6 @@ export type CaseReviewStatus =
   | "takedown_sent"
   | "enforced"
   | "dismissed";
-export type CasePipelineStage =
-  | "detect"
-  | "identity"
-  | "style"
-  | "canonical"
-  | "vlm"
-  | "complete";
 
 export interface Case {
   id: string;
@@ -313,7 +306,6 @@ export interface Case {
   storage_path: string;
   source_url: string | null;
   score: number;
-  pipeline_stage: CasePipelineStage;
   primitive_results: PrimitiveResultsBlob | null;
   review_status: CaseReviewStatus;
   confirmed_at: string | null;
@@ -1206,8 +1198,18 @@ export interface IpReviewFinding {
   item_details: Record<string, unknown> | null;
   image_urls: string[] | null;
   /** Per-image similarity (vs this finding's IP), sorted desc — lets the
-   *  carousel mark which listing photo actually matched. */
-  gallery_scores: Array<{ url: string; similarity: number }> | null;
+   *  carousel mark which listing photo actually matched. Entries with a
+   *  strong enough match also carry `bbox` (in gallery-image pixel coords)
+   *  from ORB / neural keypoint localization so the carousel can overlay
+   *  the located logo / label region. */
+  gallery_scores: Array<{
+    url: string;
+    similarity: number;
+    bbox?: [number, number, number, number];
+    bbox_source?: "orb" | "neural";
+    inliers?: number;
+    matched_ref_image_id?: string | null;
+  }> | null;
   seller_sales: number | null;
   seller_years_active: number | null;
   seller_rating: number | null;
