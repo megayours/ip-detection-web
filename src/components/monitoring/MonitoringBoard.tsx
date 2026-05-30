@@ -6,6 +6,7 @@ import {
   markIpFindingEnforced,
   markIpFindingTakedownSent,
   openIpFindingTakedownPacket,
+  reenrichIpFinding,
   reopenIpFinding,
   type CaseReviewStatus,
   type IpReviewFinding,
@@ -1128,6 +1129,23 @@ function FindingActions({
     </button>
   );
 
+  // Always-available — re-scrapes the listing + re-extracts + re-scores
+  // gallery photos (incl. bbox localization). Independent of review state.
+  const refreshBtn = ipId ? (
+    <button
+      key="refresh"
+      type="button"
+      disabled={busy === "refresh"}
+      title="Re-scrape the listing and re-run enrichment + bbox localization"
+      onClick={() =>
+        run("refresh", () => reenrichIpFinding(ipId, f.result_id))
+      }
+      className={ghostStone}
+    >
+      {busy === "refresh" ? "Refreshing…" : "Refresh"}
+    </button>
+  ) : null;
+
   const licenseBtn = canLicense ? (
     <button
       key="license"
@@ -1240,5 +1258,10 @@ function FindingActions({
     buttons = reopenBtn();
   }
 
-  return <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">{buttons}</div>;
+  return (
+    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+      {buttons}
+      {refreshBtn}
+    </div>
+  );
 }

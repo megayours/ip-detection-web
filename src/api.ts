@@ -1499,6 +1499,17 @@ export function reopenIpFinding(ipId: string, resultId: string) {
   );
 }
 
+/** Re-enqueue the enrichment job for a finding — re-scrapes the listing,
+ *  re-runs the VLM extract, and re-scores + re-localizes the gallery photos.
+ *  Useful when the original enrichment ran before a worker fix landed, or
+ *  the listing page changed (more photos, edited title, etc.). */
+export function reenrichIpFinding(ipId: string, resultId: string) {
+  return request<{ ok: boolean }>(
+    `/api/ip/${ipId}/monitoring/findings/${resultId}/reenrich`,
+    { method: "POST" },
+  );
+}
+
 /**
  * Fetch a per-finding takedown packet with the bearer token attached and
  * open it in a new tab. Anchor `href` navigation doesn't carry the
