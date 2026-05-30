@@ -426,6 +426,92 @@ function matchMethodChip(
   }
 }
 
+/** Modern "detected region" overlay: four rounded corner brackets in an
+ *  indigo→fuchsia gradient with a soft glow, plus a near-invisible fill tint
+ *  inside the box. The brackets stay short relative to the bbox so they
+ *  read as focal markers (not a frame), and the gradient + glow lift the
+ *  feel from a "red rectangle" alarm to a quiet annotation. */
+function BboxOverlay({
+  naturalW,
+  naturalH,
+  bbox,
+}: {
+  naturalW: number;
+  naturalH: number;
+  bbox: [number, number, number, number];
+}) {
+  const [x, y, w, h] = bbox;
+  const longSide = Math.max(naturalW, naturalH);
+  // Scale visuals to the image's pixel space so they read the same regardless
+  // of how the SVG is letterboxed by the surrounding container.
+  const sw = Math.max(3, longSide / 220);
+  const radius = Math.max(6, longSide / 120);
+  const armLen = Math.max(Math.min(w, h) * 0.22, longSide / 35);
+  const arm = Math.min(armLen, Math.min(w, h) / 2.2);
+  const x2 = x + w;
+  const y2 = y + h;
+  // Path per corner: arm in along the long edge → quarter-arc → arm in along
+  // the short edge. Stroke-linecap=round softens the cut ends.
+  const corners = [
+    // top-left
+    `M ${x} ${y + arm} L ${x} ${y + radius} Q ${x} ${y} ${x + radius} ${y} L ${x + arm} ${y}`,
+    // top-right
+    `M ${x2 - arm} ${y} L ${x2 - radius} ${y} Q ${x2} ${y} ${x2} ${y + radius} L ${x2} ${y + arm}`,
+    // bottom-right
+    `M ${x2} ${y2 - arm} L ${x2} ${y2 - radius} Q ${x2} ${y2} ${x2 - radius} ${y2} L ${x2 - arm} ${y2}`,
+    // bottom-left
+    `M ${x + arm} ${y2} L ${x + radius} ${y2} Q ${x} ${y2} ${x} ${y2 - radius} L ${x} ${y2 - arm}`,
+  ];
+  return (
+    <svg
+      viewBox={`0 0 ${naturalW} ${naturalH}`}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+    >
+      <defs>
+        <linearGradient id="bbox-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="60%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#ec4899" />
+        </linearGradient>
+        <filter
+          id="bbox-glow"
+          x="-20%"
+          y="-20%"
+          width="140%"
+          height="140%"
+        >
+          <feGaussianBlur stdDeviation={sw * 1.2} result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+      {/* Quiet area tint — same gradient, near-invisible. Rounded so the
+          fill never escapes the corner brackets. */}
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={radius}
+        ry={radius}
+        fill="url(#bbox-grad)"
+        fillOpacity={0.06}
+      />
+      <g
+        stroke="url(#bbox-grad)"
+        strokeWidth={sw}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter="url(#bbox-glow)"
+      >
+        {corners.map((d, i) => (
+          <path key={i} d={d} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 /** Hero-with-thumbstrip carousel for the listing's product photos. When
  *  `gallery_scores` is present (worker scored each photo against the IP), the
  *  best-matched image is the default hero, marked MATCHED, and each thumb
@@ -508,22 +594,13 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         {activeBbox && natural && (
           // SVG laid over the container with its viewBox = the image's natural
           // pixel space. Default preserveAspectRatio ("xMidYMid meet") matches
-          // <img>'s `object-contain` letterboxing, so the rect lands on the
+          // <img>'s `object-contain` letterboxing, so the overlay lands on the
           // same pixels regardless of the container's aspect ratio.
-          <svg
-            viewBox={`0 0 ${natural.w} ${natural.h}`}
-            className="absolute inset-0 w-full h-full pointer-events-none"
-          >
-            <rect
-              x={activeBbox[0]}
-              y={activeBbox[1]}
-              width={activeBbox[2]}
-              height={activeBbox[3]}
-              fill="none"
-              stroke="#ef4444"
-              strokeWidth={Math.max(3, Math.max(natural.w, natural.h) / 200)}
-            />
-          </svg>
+          <BboxOverlay
+            naturalW={natural.w}
+            naturalH={natural.h}
+            bbox={activeBbox}
+          />
         )}
         {activeSim != null && (
           <span
