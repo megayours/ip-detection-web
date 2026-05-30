@@ -401,8 +401,49 @@ function UserMenu({
           >
             Sign out
           </button>
+          <BuildBadge />
         </div>
       )}
+    </div>
+  );
+}
+
+// Injected by the GH Actions deploy workflow (VITE_BUILD_SHA / VITE_BUILD_TIME).
+// Locally these are undefined → renders as "dev". Shown inside the user-menu
+// popover so a stale-cache vs latest-deploy mismatch is one click to spot.
+const BUILD_SHA = (import.meta.env.VITE_BUILD_SHA as string | undefined) || "";
+const BUILD_TIME = (import.meta.env.VITE_BUILD_TIME as string | undefined) || "";
+
+function buildAgo(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const secs = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+function BuildBadge() {
+  if (!BUILD_SHA) {
+    return (
+      <div className="px-3 py-1.5 text-[10px] text-stone-400 border-t border-stone-100">
+        Build: dev
+      </div>
+    );
+  }
+  const short = BUILD_SHA.slice(0, 7);
+  const rel = BUILD_TIME ? buildAgo(BUILD_TIME) : "";
+  const full = BUILD_TIME ? `${BUILD_SHA} · built ${BUILD_TIME}` : BUILD_SHA;
+  return (
+    <div
+      className="px-3 py-1.5 text-[10px] text-stone-400 border-t border-stone-100 font-mono"
+      title={full}
+    >
+      Build {short}{rel && ` · ${rel}`}
     </div>
   );
 }
