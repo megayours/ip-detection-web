@@ -1661,7 +1661,12 @@ export interface DashboardSummary {
   days: number;
 }
 
-export function getDashboardSummary(days?: number) {
-  const qs = days ? `?days=${days}` : "";
-  return request<DashboardSummary>(`/api/monitoring/dashboard/summary${qs}`);
+export function getDashboardSummary(days?: number, ipId?: string | null) {
+  const params = new URLSearchParams();
+  if (days) params.set("days", String(days));
+  if (ipId) params.set("ip_id", ipId);
+  const qs = params.toString();
+  return request<DashboardSummary>(
+    `/api/monitoring/dashboard/summary${qs ? `?${qs}` : ""}`,
+  );
 }

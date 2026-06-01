@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -12,25 +12,46 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getDashboardSummary, type DashboardSummary } from "../api";
+import {
+  getDashboardSummary,
+  listMonitoredIps,
+  type DashboardSummary,
+  type MonitoredIpSummary,
+} from "../api";
 
 type Days = 7 | 30 | 90;
 
 /**
  * Tenant dashboard. One round-trip to /api/monitoring/dashboard/summary; KPI
- * tiles deep-link into the filtered Findings board.
+ * tiles deep-link into the filtered Findings board. An optional IP filter
+ * (`?ip=`) narrows every aggregate to a single monitored IP and threads
+ * through into the deep-links.
  */
 export default function Dashboard() {
   const [days, setDays] = useState<Days>(30);
+  const [params, setParams] = useSearchParams();
+  const ipId = params.get("ip");
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [ips, setIps] = useState<MonitoredIpSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
+  // The IP picker is populated from the full monitored-IP list (stable —
+  // independent of the active filter, so selecting an IP doesn't shrink the
+  // options). Fetched once.
+  useEffect(() => {
+    let alive = true;
+    listMonitoredIps()
+      .then(({ ips }) => alive && setIps(ips))
+      .catch(() => {/* non-fatal — picker just stays empty */});
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     let alive = true;
     // Kick the fetch; don't reset state synchronously here — the next
     // resolved value replaces it. (Avoids cascading renders.)
-    getDashboardSummary(days)
+    getDashboardSummary(days, ipId)
       .then((d) => {
         if (!alive) return;
         setData(d);
@@ -46,7 +67,14 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
-  }, [days]);
+  }, [days, ipId]);
+
+  function setIpFilter(next: string | null) {
+    const p = new URLSearchParams(params);
+    if (next) p.set("ip", next);
+    else p.delete("ip");
+    setParams(p, { replace: true });
+  }
 
   if (loading && !data) {
     return (
@@ -76,10 +104,14 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-stone-500">
-            Last {data.days} day{data.days === 1 ? "" : "s"} of monitoring activity.
+            Last {data.days} day{data.days === 1 ? "" : "s"} of monitoring activity
+            {ipId ? " · filtered to one IP" : ""}.
           </p>
         </div>
-        <RangeToggle days={days} onChange={setDays} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <IpFilter ips={ips} value={ipId} onChange={setIpFilter} />
+          <RangeToggle days={days} onChange={setDays} />
+        </div>
       </div>
 
       {empty ? (
@@ -102,20 +134,60 @@ export default function Dashboard() {
           <UnlicensedMarketHero
             totalUsd={data.kpis.total_unlicensed_market_usd ?? 0}
           />
-          <KpiRow kpis={data.kpis} />
+          <KpiRow kpis={data.kpis} ipId={ipId} />
           <TimeSeriesCard timeseries={data.timeseries} />
           <div className="grid lg:grid-cols-2 gap-4">
             <PlatformsCard platforms={data.platforms} />
-            <SellersCard sellers={data.sellers} />
+            <SellersCard sellers={data.sellers} ipId={ipId} />
           </div>
           <div className="grid lg:grid-cols-2 gap-4">
-            <IpsCard ips={data.ips} />
+            <IpsCard ips={data.ips} activeIpId={ipId} onSelectIp={setIpFilter} />
             <CountriesCard countries={data.countries} />
           </div>
         </>
       )}
     </div>
   );
+}
+
+function IpFilter({
+  ips,
+  value,
+  onChange,
+}: {
+  ips: MonitoredIpSummary[];
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  // Keep the active IP selectable even if it's not in the list (e.g. it has
+  // no monitored domains anymore) so the user can always clear the filter.
+  const hasActive = !value || ips.some((ip) => ip.ip_id === value);
+  return (
+    <select
+      value={value ?? "all"}
+      onChange={(e) => onChange(e.target.value === "all" ? null : e.target.value)}
+      title="Filter by IP"
+      className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs bg-white text-stone-700 max-w-[16rem] focus:outline-none focus:ring-1 focus:ring-stone-300"
+    >
+      <option value="all">All IPs</option>
+      {!hasActive && value && <option value={value}>Selected IP</option>}
+      {ips.map((ip) => (
+        <option key={ip.ip_id} value={ip.ip_id}>
+          {ip.ip_name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** Append the active dashboard IP filter to a Tasks deep-link as `ip_id`
+ *  (the param the board reads), preserving any existing query string. */
+function withIp(path: string, ipId: string | null): string {
+  if (!ipId) return path;
+  const [base, qs] = path.split("?");
+  const p = new URLSearchParams(qs);
+  p.set("ip_id", ipId);
+  return `${base}?${p.toString()}`;
 }
 
 function RangeToggle({ days, onChange }: { days: Days; onChange: (d: Days) => void }) {
@@ -167,18 +239,18 @@ function UnlicensedMarketHero({ totalUsd }: { totalUsd: number }) {
   );
 }
 
-function KpiRow({ kpis }: { kpis: DashboardSummary["kpis"] }) {
+function KpiRow({ kpis, ipId }: { kpis: DashboardSummary["kpis"]; ipId: string | null }) {
   const tiles: Array<{
     label: string;
     value: number;
     to: string | null;
     accent?: string;
   }> = [
-    { label: "To triage", value: kpis.to_triage, to: "/monitoring/tasks?status=pending", accent: "text-stone-900" },
-    { label: "Confirmed", value: kpis.confirmed, to: "/monitoring/tasks?status=confirmed", accent: "text-blue-700" },
-    { label: "In progress", value: kpis.in_progress, to: "/monitoring/tasks?status=takedown_sent", accent: "text-amber-700" },
-    { label: "Enforced (30d)", value: kpis.enforced_30d, to: "/monitoring/tasks?status=enforced", accent: "text-emerald-700" },
-    { label: "High risk", value: kpis.high_risk, to: "/monitoring/tasks", accent: "text-red-700" },
+    { label: "To triage", value: kpis.to_triage, to: withIp("/monitoring/tasks?status=pending", ipId), accent: "text-stone-900" },
+    { label: "Confirmed", value: kpis.confirmed, to: withIp("/monitoring/tasks?status=confirmed", ipId), accent: "text-blue-700" },
+    { label: "In progress", value: kpis.in_progress, to: withIp("/monitoring/tasks?status=takedown_sent", ipId), accent: "text-amber-700" },
+    { label: "Enforced (30d)", value: kpis.enforced_30d, to: withIp("/monitoring/tasks?status=enforced", ipId), accent: "text-emerald-700" },
+    { label: "High risk", value: kpis.high_risk, to: withIp("/monitoring/tasks", ipId), accent: "text-red-700" },
     { label: "IPs monitored", value: kpis.ips_monitored, to: "/monitoring/settings" },
     { label: "Platforms monitored", value: kpis.platforms_monitored, to: "/monitoring/settings" },
   ];
@@ -342,8 +414,10 @@ function PlatformsCard({
 
 function SellersCard({
   sellers,
+  ipId,
 }: {
   sellers: DashboardSummary["sellers"];
+  ipId: string | null;
 }) {
   const rows = sellers.slice(0, 10);
   return (
@@ -364,7 +438,7 @@ function SellersCard({
             </thead>
             <tbody>
               {rows.map((s, i) => {
-                const target = sellerLink(s.seller_name, s.domain);
+                const target = sellerLink(s.seller_name, s.domain, ipId);
                 return (
                   <tr key={`${s.seller_name}-${s.domain}-${i}`} className="border-b border-stone-50 last:border-0 hover:bg-stone-50 transition-colors">
                     <td className="py-2 pr-3 font-medium text-stone-800 truncate max-w-[14rem]">
@@ -397,13 +471,21 @@ function SellersCard({
   );
 }
 
-function IpsCard({ ips }: { ips: DashboardSummary["ips"] }) {
+function IpsCard({
+  ips,
+  activeIpId,
+  onSelectIp,
+}: {
+  ips: DashboardSummary["ips"];
+  activeIpId: string | null;
+  onSelectIp: (next: string | null) => void;
+}) {
   const rows = ips.slice(0, 8);
   const maxFindings = rows.reduce((m, r) => Math.max(m, r.findings), 0);
   return (
     <CardShell
       title="Top IPs"
-      subtitle="Estimated unlicensed market and finding count per IP."
+      subtitle="Estimated unlicensed market and finding count per IP. Click to filter."
     >
       {rows.length === 0 ? (
         <p className="text-xs text-stone-400 py-8 text-center">No IP data yet.</p>
@@ -412,29 +494,42 @@ function IpsCard({ ips }: { ips: DashboardSummary["ips"] }) {
           {rows.map((ip) => {
             const pct = maxFindings ? Math.round((ip.findings / maxFindings) * 100) : 0;
             const usd = ip.unlicensed_market_usd ?? 0;
+            const active = ip.ip_id === activeIpId;
             return (
-              <li key={ip.ip_id} className="flex items-center gap-3">
-                <span className="text-sm text-stone-700 w-32 truncate" title={ip.ip_name}>
-                  {ip.ip_name}
-                </span>
-                <div className="flex-1 h-2 rounded-full bg-stone-100 overflow-hidden">
-                  <div
-                    className="h-full bg-stone-400"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span
-                  className="text-xs tabular-nums font-semibold text-stone-900 w-16 text-right"
-                  title={`Estimated unlicensed market: $${usd.toLocaleString()}`}
+              <li key={ip.ip_id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectIp(active ? null : ip.ip_id)}
+                  title={active ? "Clear IP filter" : `Filter dashboard to ${ip.ip_name}`}
+                  className={`w-full flex items-center gap-3 text-left rounded-lg px-2 -mx-2 py-1 transition-colors ${
+                    active ? "bg-stone-100" : "hover:bg-stone-50"
+                  }`}
                 >
-                  {usd > 0 ? fmtUsdCompact.format(usd) : <span className="text-stone-300">—</span>}
-                </span>
-                <span
-                  className="text-xs tabular-nums text-stone-500 w-10 text-right"
-                  title={`${ip.findings} finding${ip.findings === 1 ? "" : "s"}`}
-                >
-                  {ip.findings}
-                </span>
+                  <span
+                    className={`text-sm w-32 truncate ${active ? "font-semibold text-stone-900" : "text-stone-700"}`}
+                    title={ip.ip_name}
+                  >
+                    {ip.ip_name}
+                  </span>
+                  <div className="flex-1 h-2 rounded-full bg-stone-100 overflow-hidden">
+                    <div
+                      className={`h-full ${active ? "bg-stone-700" : "bg-stone-400"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span
+                    className="text-xs tabular-nums font-semibold text-stone-900 w-16 text-right"
+                    title={`Estimated unlicensed market: $${usd.toLocaleString()}`}
+                  >
+                    {usd > 0 ? fmtUsdCompact.format(usd) : <span className="text-stone-300">—</span>}
+                  </span>
+                  <span
+                    className="text-xs tabular-nums text-stone-500 w-10 text-right"
+                    title={`${ip.findings} finding${ip.findings === 1 ? "" : "s"}`}
+                  >
+                    {ip.findings}
+                  </span>
+                </button>
               </li>
             );
           })}
@@ -483,12 +578,18 @@ function CountriesCard({
 }
 
 /** Build the Tasks deep-link for a seller row. Returns null for blank
- *  seller names so the row falls back to "unknown" text. */
-function sellerLink(seller: string | null, domain: string | null): string | null {
+ *  seller names so the row falls back to "unknown" text. Threads the active
+ *  dashboard IP filter through as `ip_id` when set. */
+function sellerLink(
+  seller: string | null,
+  domain: string | null,
+  ipId: string | null,
+): string | null {
   if (!seller) return null;
   const p = new URLSearchParams();
   p.set("seller", seller);
   if (domain) p.set("platform", domain);
+  if (ipId) p.set("ip_id", ipId);
   return `/monitoring/tasks?${p.toString()}`;
 }
 
