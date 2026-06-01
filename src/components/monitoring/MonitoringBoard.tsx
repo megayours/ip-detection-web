@@ -579,7 +579,7 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
 
   if (urls.length === 0) {
     return (
-      <div className="w-full max-w-[60vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg flex items-center justify-center text-xs text-stone-400">
+      <div className="w-full aspect-square bg-stone-50 border border-stone-200 rounded-lg flex items-center justify-center text-xs text-stone-400">
         No image
       </div>
     );
@@ -606,7 +606,7 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         target="_blank"
         rel="noreferrer"
         title="Open full size"
-        className="block w-full max-w-[60vh] mx-auto aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
+        className="block w-full aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
       >
         <img
           src={active}
@@ -961,10 +961,18 @@ function FindingComparison({
           onUpdated={onUpdated}
         />
       </div>
-      {/* Single image carousel. Page screenshot is included as the first slide
-          when available; product photos follow (best-matched marked). */}
-      <ListingCarousel f={f} />
 
+      {/* Two-column body: images on the left (fills a bounded column), all the
+          enrichment data on the right. Collapses to a single column below lg. */}
+      <div className="grid lg:grid-cols-[minmax(320px,42%)_1fr] gap-x-6 gap-y-4 items-start">
+        {/* LEFT — single image carousel. Page screenshot is the first slide
+            when captured; product photos follow (best-matched marked). */}
+        <div className="lg:sticky lg:top-4">
+          <ListingCarousel f={f} />
+        </div>
+
+        {/* RIGHT — enrichment data, packed tighter than the old stacked layout. */}
+        <div className="space-y-3 min-w-0">
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
         <span className="text-[10px] uppercase tracking-wider text-stone-400">priority</span>
@@ -1008,7 +1016,7 @@ function FindingComparison({
 
       {/* Listing context (from VLM enrichment) — what's on sale, type, where */}
       {f.listing_title && (
-        <h3 className="text-sm font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
+        <h3 className="text-base font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
       )}
 
       <div className="flex items-center gap-2 flex-wrap text-[11px]">
@@ -1148,6 +1156,8 @@ function FindingComparison({
         <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline break-all">
           · open listing ↗
         </a>
+      </div>
+        </div>
       </div>
     </div>
   );
