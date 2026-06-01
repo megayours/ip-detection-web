@@ -363,23 +363,32 @@ function SellersCard({
               </tr>
             </thead>
             <tbody>
-              {rows.map((s, i) => (
-                <tr key={`${s.seller_name}-${s.domain}-${i}`} className="border-b border-stone-50 last:border-0">
-                  <td className="py-2 pr-3 font-medium text-stone-800 truncate max-w-[14rem]">
-                    {s.seller_name || <span className="text-stone-400">unknown</span>}
-                  </td>
-                  <td className="py-2 pr-3 text-stone-500">{s.domain}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums font-semibold text-stone-900">
-                    {s.findings}
-                  </td>
-                  <td className="py-2 pr-3 text-right tabular-nums text-stone-600">
-                    {s.rating != null ? s.rating.toFixed(1) : "—"}
-                  </td>
-                  <td className="py-2 text-right tabular-nums text-stone-600">
-                    {s.sales != null ? s.sales.toLocaleString() : "—"}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((s, i) => {
+                const target = sellerLink(s.seller_name, s.domain);
+                return (
+                  <tr key={`${s.seller_name}-${s.domain}-${i}`} className="border-b border-stone-50 last:border-0 hover:bg-stone-50 transition-colors">
+                    <td className="py-2 pr-3 font-medium text-stone-800 truncate max-w-[14rem]">
+                      {target ? (
+                        <Link to={target} className="hover:underline">
+                          {s.seller_name}
+                        </Link>
+                      ) : (
+                        <span className="text-stone-400">unknown</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-stone-500">{s.domain}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums font-semibold text-stone-900">
+                      {s.findings}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-stone-600">
+                      {s.rating != null ? s.rating.toFixed(1) : "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-stone-600">
+                      {s.sales != null ? s.sales.toLocaleString() : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -471,6 +480,16 @@ function CountriesCard({
       )}
     </CardShell>
   );
+}
+
+/** Build the Tasks deep-link for a seller row. Returns null for blank
+ *  seller names so the row falls back to "unknown" text. */
+function sellerLink(seller: string | null, domain: string | null): string | null {
+  if (!seller) return null;
+  const p = new URLSearchParams();
+  p.set("seller", seller);
+  if (domain) p.set("platform", domain);
+  return `/monitoring/tasks?${p.toString()}`;
 }
 
 function shortDay(iso: string): string {

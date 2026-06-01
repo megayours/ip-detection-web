@@ -195,7 +195,7 @@ export function MonitoringBoard({
               ))}
             </select>
           )}
-          {facets.sellers && facets.sellers.length > 1 && (
+          {(filters.seller || (facets.sellers && facets.sellers.length > 0)) && (
             <select
               value={filters.seller ?? "all"}
               onChange={(e) =>
@@ -206,8 +206,14 @@ export function MonitoringBoard({
               title="Filter by seller"
               className={FILTER_SELECT}
             >
-              <option value="all">All sellers ({facets.sellers.reduce((s, x) => s + x.n, 0)})</option>
-              {facets.sellers.map((s) => (
+              <option value="all">All sellers ({(facets.sellers ?? []).reduce((s, x) => s + x.n, 0)})</option>
+              {/* Ensure the active filter is selectable even if facets dropped it
+                  (e.g. tenant has many sellers and the active one fell off the
+                  top-50 list, or the seller has zero current findings). */}
+              {filters.seller && !(facets.sellers ?? []).some((x) => x.seller_name === filters.seller) && (
+                <option value={filters.seller}>{filters.seller}</option>
+              )}
+              {(facets.sellers ?? []).map((s) => (
                 <option key={s.seller_name} value={s.seller_name}>
                   {s.seller_name} ({s.n})
                 </option>
