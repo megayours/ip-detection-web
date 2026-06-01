@@ -91,7 +91,7 @@ export default function Dashboard() {
             Watch your first intellectual property to start gathering findings.
           </p>
           <Link
-            to="/monitors"
+            to="/monitoring/settings"
             className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-full bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800 transition-colors"
           >
             Start monitoring an IP →
@@ -174,13 +174,13 @@ function KpiRow({ kpis }: { kpis: DashboardSummary["kpis"] }) {
     to: string | null;
     accent?: string;
   }> = [
-    { label: "To triage", value: kpis.to_triage, to: "/inbox?tab=monitoring&status=pending", accent: "text-stone-900" },
-    { label: "Confirmed", value: kpis.confirmed, to: "/inbox?tab=monitoring&status=confirmed", accent: "text-blue-700" },
-    { label: "In progress", value: kpis.in_progress, to: "/inbox?tab=monitoring&status=takedown_sent", accent: "text-amber-700" },
-    { label: "Enforced (30d)", value: kpis.enforced_30d, to: "/inbox?tab=monitoring&status=enforced", accent: "text-emerald-700" },
-    { label: "High risk", value: kpis.high_risk, to: "/inbox?tab=monitoring", accent: "text-red-700" },
-    { label: "IPs monitored", value: kpis.ips_monitored, to: "/monitors" },
-    { label: "Platforms monitored", value: kpis.platforms_monitored, to: "/monitors" },
+    { label: "To triage", value: kpis.to_triage, to: "/monitoring/tasks?status=pending", accent: "text-stone-900" },
+    { label: "Confirmed", value: kpis.confirmed, to: "/monitoring/tasks?status=confirmed", accent: "text-blue-700" },
+    { label: "In progress", value: kpis.in_progress, to: "/monitoring/tasks?status=takedown_sent", accent: "text-amber-700" },
+    { label: "Enforced (30d)", value: kpis.enforced_30d, to: "/monitoring/tasks?status=enforced", accent: "text-emerald-700" },
+    { label: "High risk", value: kpis.high_risk, to: "/monitoring/tasks", accent: "text-red-700" },
+    { label: "IPs monitored", value: kpis.ips_monitored, to: "/monitoring/settings" },
+    { label: "Platforms monitored", value: kpis.platforms_monitored, to: "/monitoring/settings" },
   ];
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">

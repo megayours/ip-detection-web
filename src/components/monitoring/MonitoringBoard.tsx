@@ -22,6 +22,7 @@ export interface BoardFilters {
   priority: MonitoringPriorityBand | null;
   ip_id: string | null;
   platform: string | null;
+  seller: string | null;
   show_dismissed: boolean;
   sort: MonitoringSortMode;
 }
@@ -190,6 +191,25 @@ export function MonitoringBoard({
               {facets.platforms.map((p) => (
                 <option key={p.domain} value={p.domain}>
                   {p.domain} ({p.n})
+                </option>
+              ))}
+            </select>
+          )}
+          {facets.sellers && facets.sellers.length > 1 && (
+            <select
+              value={filters.seller ?? "all"}
+              onChange={(e) =>
+                onFiltersChange({
+                  seller: e.target.value === "all" ? null : e.target.value,
+                })
+              }
+              title="Filter by seller"
+              className={FILTER_SELECT}
+            >
+              <option value="all">All sellers ({facets.sellers.reduce((s, x) => s + x.n, 0)})</option>
+              {facets.sellers.map((s) => (
+                <option key={s.seller_name} value={s.seller_name}>
+                  {s.seller_name} ({s.n})
                 </option>
               ))}
             </select>

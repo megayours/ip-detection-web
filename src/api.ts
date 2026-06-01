@@ -1555,6 +1555,8 @@ export interface MonitoringFacets {
   priorities: { high: number; med: number; low: number };
   platforms: Array<{ domain: string; n: number }>;
   ips: Array<{ ip_id: string; name: string | null; n: number }>;
+  /** Top-50 sellers (by finding count). Server-capped. */
+  sellers: Array<{ seller_name: string; n: number }>;
   total: number;
 }
 
@@ -1570,6 +1572,7 @@ export interface MonitoringFindingsQuery {
   status?: MonitoringStatusFilter | null;
   ip_id?: string | null;
   platform?: string | null;
+  seller?: string | null;
   show_dismissed?: boolean;
   sort?: MonitoringSortMode;
   cursor?: string | null;
@@ -1590,6 +1593,7 @@ export function listMonitoringFindingsGlobal(
   if (opts.status)       params.set("status", opts.status);
   if (opts.ip_id)        params.set("ip_id", opts.ip_id);
   if (opts.platform)     params.set("platform", opts.platform);
+  if (opts.seller)       params.set("seller", opts.seller);
   if (opts.show_dismissed) params.set("show_dismissed", "true");
   if (opts.sort)         params.set("sort", opts.sort);
   if (opts.cursor)       params.set("cursor", opts.cursor);

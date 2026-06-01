@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
-import { listIpReviews, needsAttention, type IpReview } from "../api";
+import { type IpReview } from "../api";
 import ClearanceBrands from "./ClearanceBrands";
 import ClearanceVisual from "./ClearanceVisual";
 
 /**
  * `/clearance` is now a thin route that only handles the legacy fast-check
  * tools via `?mode=brands|visual`. Without a mode it redirects to the
- * unified Inbox — the sidebar's "Clearance" entry points at the wizard
- * (`/ip-reviews/new`), not here.
+ * canonical `/clearance/tasks` board.
  */
 type LegacyMode = "brands" | "visual";
 
@@ -40,123 +39,7 @@ export default function Clearance() {
     }} />;
   }
 
-  return <Navigate to="/inbox?tab=clearance" replace />;
-}
-
-type InboxTab = "needs" | "done";
-
-/**
- * Reusable clearance-inbox body — header/h1 omitted because the parent
- * (`/inbox`) owns the page title and tab strip.
- */
-export function ClearanceInboxView() {
-  const [reviews, setReviews] = useState<IpReview[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [tab, setTab] = useState<InboxTab>("needs");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let alive = true;
-    listIpReviews({ limit: 200 })
-      .then(({ reviews }) => alive && setReviews(reviews))
-      .catch((e) => alive && setError(e instanceof Error ? e.message : "Failed to load"))
-      .finally(() => alive && setLoaded(true));
-    return () => { alive = false; };
-  }, []);
-
-  const { needs, done } = useMemo(() => {
-    const needs: IpReview[] = [];
-    const done: IpReview[] = [];
-    for (const r of reviews) {
-      if (needsAttention(r)) needs.push(r);
-      else done.push(r);
-    }
-    return { needs, done };
-  }, [reviews]);
-
-  const rows = tab === "needs" ? needs : done;
-
-  return (
-    <div className="rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex items-center gap-6 border-b border-stone-200 px-4">
-          <TabButton
-            active={tab === "needs"}
-            onClick={() => setTab("needs")}
-            label="Needs attention"
-            count={needs.length}
-            badgeTone={needs.length > 0 ? "red" : "muted"}
-          />
-          <TabButton
-            active={tab === "done"}
-            onClick={() => setTab("done")}
-            label="Done"
-            count={done.length}
-            badgeTone="muted"
-          />
-        </div>
-
-        {!loaded && (
-          <div className="text-sm text-stone-400 py-8 text-center">Loading…</div>
-        )}
-        {error && <div className="text-sm text-red-600 py-6 px-4">{error}</div>}
-
-        {loaded && reviews.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-sm text-stone-600">Nothing in your inbox.</p>
-            <p className="text-xs text-stone-400 mt-1">
-              Start a clearance review or set up monitoring to populate this list.
-            </p>
-          </div>
-        )}
-
-        {loaded && reviews.length > 0 && (
-          <div className="divide-y divide-stone-100">
-            {rows.length === 0 ? (
-              <div className="py-12 text-center text-xs text-stone-400">
-                {tab === "needs" ? "You're all caught up." : "Nothing here yet."}
-              </div>
-            ) : (
-              rows.map((r) => <TaskRow key={r.id} review={r} muted={tab === "done"} />)
-            )}
-          </div>
-        )}
-    </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  label,
-  count,
-  badgeTone,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  badgeTone: "red" | "muted";
-}) {
-  const badgeCls =
-    badgeTone === "red" && count > 0
-      ? "bg-red-100 text-red-700"
-      : "bg-stone-100 text-stone-500";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1.5 -mb-px py-2 border-b-2 text-sm font-medium transition-colors ${
-        active
-          ? "border-stone-900 text-stone-900"
-          : "border-transparent text-stone-500 hover:text-stone-800"
-      }`}
-    >
-      {label}
-      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${badgeCls}`}>
-        {count}
-      </span>
-    </button>
-  );
+  return <Navigate to="/clearance/tasks" replace />;
 }
 
 const DECISION_LABEL: Record<string, { label: string; cls: string }> = {
@@ -168,7 +51,7 @@ const DECISION_LABEL: Record<string, { label: string; cls: string }> = {
  * Compact single-line task row, Gmail/Linear-inspired. Borders come from
  * the parent's `divide-y` so rows pack tightly without doubling lines.
  */
-function TaskRow({ review, muted = false }: { review: IpReview; muted?: boolean }) {
+export function TaskRow({ review, muted = false }: { review: IpReview; muted?: boolean }) {
   const primary = primarySignal(review);
   const when = relativeDate(review.created_at);
   return (

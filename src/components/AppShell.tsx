@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
-  Inbox,
   Library,
   Radar,
   ShieldCheck,
   Settings as SettingsIcon,
   Shield,
   ChevronDown,
+  ListTodo,
+  Plus,
   Menu,
   X,
 } from "lucide-react";
@@ -21,7 +22,8 @@ import { listIpReviews, needsAttention, getMonitoringFindingsCount } from "../ap
  *  notification, not a live counter. */
 const INBOX_POLL_MS = 60_000;
 
-const BP_OPEN_KEY = "appshell.bp.open";
+const MON_OPEN_KEY = "appshell.mon.open";
+const CLE_OPEN_KEY = "appshell.cle.open";
 
 /**
  * Application shell — left sidebar (lg+) / off-canvas drawer (below lg) +
@@ -30,11 +32,12 @@ const BP_OPEN_KEY = "appshell.bp.open";
  *
  * Sidebar layout (top → bottom):
  *   Dashboard
- *   Inbox            (badge = open clearance + open monitoring)
- *   ── separator ──
- *   Brand Protection
- *     ↳ Monitoring   (manage which URLs to crawl per IP)
- *     ↳ Clearance    (launch the wizard — IP cleared before launch)
+ *   Monitoring
+ *     ↳ Tasks        (badge = open monitoring findings)
+ *     ↳ Settings     (manage which IPs + URLs to crawl)
+ *   Clearance
+ *     ↳ Tasks        (badge = clearance reviews needing attention)
+ *     ↳ New          (launch the clearance wizard)
  *
  * IPs lives on the desktop topbar, not the sidebar — managing the IP
  * registry is an occasional task, not day-to-day triage, so it shouldn't
@@ -44,46 +47,45 @@ export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [inboxCount, setInboxCount] = useState(0);
+  const [clearanceCount, setClearanceCount] = useState(0);
   const [monitoringCount, setMonitoringCount] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Brand Protection group expanded/collapsed state. Persist, but auto-expand
-  // whenever the active path belongs to a BP child route.
-  const bpPathActive =
+  // Per-group expanded/collapsed state. Persist, but auto-expand whenever
+  // the active path belongs to a child route of that group.
+  const monPathActive =
+    pathname.startsWith("/monitoring") ||
     pathname === "/monitors" ||
     pathname.startsWith("/monitors/") ||
-    pathname === "/clearance" ||
-    pathname.startsWith("/clearance/") ||
+    pathname === "/findings" ||
+    pathname.startsWith("/findings/");
+  const clePathActive =
+    pathname.startsWith("/clearance") ||
     pathname.startsWith("/ip-reviews/new");
-  const [bpOpen, setBpOpen] = useState<boolean>(() => {
-    try {
-      const v = localStorage.getItem(BP_OPEN_KEY);
-      if (v === "0") return false;
-      if (v === "1") return true;
-    } catch {
-      /* ignore */
-    }
-    return true;
-  });
-  useEffect(() => {
-    if (bpPathActive && !bpOpen) setBpOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bpPathActive]);
-  useEffect(() => {
-    try {
-      localStorage.setItem(BP_OPEN_KEY, bpOpen ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [bpOpen]);
 
-  // Poll the inbox + monitoring badge counts while the user is signed in.
-  // Refetch on path change too — when the lawyer locks a decision or triages
-  // a finding and navigates back, the badge updates without waiting a tick.
+  const [monOpen, setMonOpen] = useState<boolean>(() => loadOpen(MON_OPEN_KEY));
+  const [cleOpen, setCleOpen] = useState<boolean>(() => loadOpen(CLE_OPEN_KEY));
+  useEffect(() => {
+    if (monPathActive && !monOpen) setMonOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monPathActive]);
+  useEffect(() => {
+    if (clePathActive && !cleOpen) setCleOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clePathActive]);
+  useEffect(() => {
+    try { localStorage.setItem(MON_OPEN_KEY, monOpen ? "1" : "0"); } catch { /* ignore */ }
+  }, [monOpen]);
+  useEffect(() => {
+    try { localStorage.setItem(CLE_OPEN_KEY, cleOpen ? "1" : "0"); } catch { /* ignore */ }
+  }, [cleOpen]);
+
+  // Poll the per-group badge counts while the user is signed in. Refetch on
+  // path change too — when the lawyer locks a decision or triages a finding
+  // and navigates back, the badge updates without waiting a tick.
   useEffect(() => {
     if (!user) {
-      setInboxCount(0);
+      setClearanceCount(0);
       setMonitoringCount(0);
       return;
     }
@@ -91,11 +93,11 @@ export default function AppShell() {
     async function refresh() {
       try {
         const [{ reviews }, { count }] = await Promise.all([
-          listIpReviews({ limit: 200 }),
+          listIpReviews({ mode: "clearance", limit: 200 }),
           getMonitoringFindingsCount(),
         ]);
         if (!alive) return;
-        setInboxCount(reviews.filter(needsAttention).length);
+        setClearanceCount(reviews.filter(needsAttention).length);
         setMonitoringCount(count);
       } catch {
         // Non-fatal — badges just stay at the prior value.
@@ -145,38 +147,46 @@ export default function AppShell() {
           label="Dashboard"
           active={pathname === "/" || pathname === "/dashboard"}
         />
-        <NavItem
-          to="/inbox"
-          icon={<Inbox size={18} />}
-          label="Inbox"
-          active={
-            isActive("/inbox") ||
-            // Treat legacy routes as Inbox-active while their redirects fire.
-            pathname === "/findings" ||
-            pathname.startsWith("/findings/") ||
-            (pathname === "/clearance" && !window.location.search.includes("mode="))
-          }
-          badge={inboxCount + monitoringCount}
-        />
-
-        <div className="my-3 border-t border-stone-200/60" />
 
         <NavGroup
-          label="Brand Protection"
-          open={bpOpen}
-          onToggle={() => setBpOpen((v) => !v)}
+          label="Monitoring"
+          icon={<Radar size={14} />}
+          open={monOpen}
+          onToggle={() => setMonOpen((v) => !v)}
         >
           <NavItem
-            to="/monitors"
-            icon={<Radar size={18} />}
-            label="Monitoring"
-            active={isActive("/monitors")}
+            to="/monitoring/tasks"
+            icon={<ListTodo size={18} />}
+            label="Tasks"
+            active={isActive("/monitoring/tasks") || pathname === "/findings" || pathname.startsWith("/findings/")}
+            badge={monitoringCount}
           />
           <NavItem
-            to="/ip-reviews/new"
-            icon={<ShieldCheck size={18} />}
-            label="Clearance"
-            active={pathname.startsWith("/ip-reviews/new")}
+            to="/monitoring/settings"
+            icon={<SettingsIcon size={18} />}
+            label="Settings"
+            active={isActive("/monitoring/settings") || isActive("/monitors")}
+          />
+        </NavGroup>
+
+        <NavGroup
+          label="Clearance"
+          icon={<ShieldCheck size={14} />}
+          open={cleOpen}
+          onToggle={() => setCleOpen((v) => !v)}
+        >
+          <NavItem
+            to="/clearance/tasks"
+            icon={<ListTodo size={18} />}
+            label="Tasks"
+            active={isActive("/clearance/tasks")}
+            badge={clearanceCount}
+          />
+          <NavItem
+            to="/clearance/new"
+            icon={<Plus size={18} />}
+            label="New"
+            active={isActive("/clearance/new") || pathname.startsWith("/ip-reviews/new")}
           />
         </NavGroup>
       </nav>
@@ -317,11 +327,13 @@ function NavItem({
 
 function NavGroup({
   label,
+  icon,
   open,
   onToggle,
   children,
 }: {
   label: string;
+  icon?: React.ReactNode;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
@@ -333,7 +345,10 @@ function NavGroup({
         onClick={onToggle}
         className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 hover:text-stone-600 transition-colors"
       >
-        <span>{label}</span>
+        <span className="flex items-center gap-1.5">
+          {icon}
+          {label}
+        </span>
         <ChevronDown
           size={12}
           className={`transition-transform ${open ? "" : "-rotate-90"}`}
@@ -342,6 +357,19 @@ function NavGroup({
       {open && <div className="space-y-0.5">{children}</div>}
     </div>
   );
+}
+
+/** localStorage open/closed state loader — keeps the sidebar group state
+ *  consistent across reloads. Defaults to open. */
+function loadOpen(key: string): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === "0") return false;
+    if (v === "1") return true;
+  } catch {
+    /* ignore */
+  }
+  return true;
 }
 
 function UserMenu({

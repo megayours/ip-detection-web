@@ -12,9 +12,10 @@ import Cases from "./pages/Cases";
 import CaseDetail from "./pages/CaseDetail";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
+import ClearanceTasks from "./pages/ClearanceTasks";
 import IpReviewDetail from "./pages/IpReviewDetail";
 import Findings from "./pages/Findings";
-import Inbox from "./pages/Inbox";
+import MonitoringTasks from "./pages/MonitoringTasks";
 import Monitors from "./pages/Monitors";
 import Dashboard from "./pages/Dashboard";
 import BrandsCatalog from "./pages/BrandsCatalog";
@@ -37,6 +38,18 @@ function RegistryRedirect() {
 function RegistryAuditRedirect() {
   const { id } = useParams();
   return <Navigate to={`/ips/${id}/audit`} replace />;
+}
+
+/** `/inbox` → `/monitoring/tasks` (or `/clearance/tasks` if `?tab=clearance`).
+ *  The old unified inbox is gone; preserve any non-tab params on the way. */
+function InboxRedirect() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const tab = params.get("tab");
+  params.delete("tab");
+  const qs = params.toString();
+  const target = tab === "clearance" ? "/clearance/tasks" : "/monitoring/tasks";
+  return <Navigate to={qs ? `${target}?${qs}` : target} replace />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -114,17 +127,21 @@ export default function App() {
       {/* Signed-in routes (AppShell layout) */}
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/inbox" element={<Inbox />} />
         <Route path="/ips" element={<Registry />} />
         <Route path="/ips/new" element={<RegistryWizard />} />
         <Route path="/ips/:id" element={<RegistryDetail />} />
         <Route path="/ips/:id/audit" element={<RegistryAudit />} />
-        {/* Findings + Clearance (no mode) both redirect to /inbox. Routes kept
-            so deep links (dashboard KPIs, old bookmarks) keep landing somewhere. */}
+        {/* Canonical task/admin entrypoints for each pipeline. */}
+        <Route path="/monitoring/tasks" element={<MonitoringTasks />} />
+        <Route path="/monitoring/settings" element={<Monitors />} />
+        <Route path="/clearance/tasks" element={<ClearanceTasks />} />
+        <Route path="/clearance/new" element={<ClearanceReviewNew />} />
+        {/* Legacy routes — kept so dashboard KPI deep links + bookmarks keep
+            landing somewhere; the components redirect to the canonical paths. */}
         <Route path="/findings" element={<Findings />} />
-        <Route path="/monitors" element={<Monitors />} />
+        <Route path="/monitors" element={<Navigate to="/monitoring/settings" replace />} />
         <Route path="/clearance" element={<Clearance />} />
-        <Route path="/ip-reviews/new" element={<ClearanceReviewNew />} />
+        <Route path="/ip-reviews/new" element={<Navigate to="/clearance/new" replace />} />
         <Route path="/ip-reviews/:id" element={<IpReviewDetail />} />
         <Route path="/clearance/brands/catalog" element={<BrandsCatalog />} />
         <Route path="/clearance/designs/catalog" element={<DesignsCatalog />} />
@@ -149,11 +166,11 @@ export default function App() {
       <Route path="/registry/new" element={<Navigate to="/ips/new" replace />} />
       <Route path="/registry/:id" element={<RegistryRedirect />} />
       <Route path="/registry/:id/audit" element={<RegistryAuditRedirect />} />
-      <Route path="/monitoring" element={<Navigate to="/inbox?tab=monitoring" replace />} />
-      <Route path="/monitoring/*" element={<Navigate to="/inbox?tab=monitoring" replace />} />
+      <Route path="/monitoring" element={<Navigate to="/monitoring/tasks" replace />} />
+      <Route path="/inbox" element={<InboxRedirect />} />
       <Route path="/trademarks" element={<Navigate to="/ips" replace />} />
       <Route path="/trademarks/:id" element={<TrademarkRedirect />} />
-      <Route path="/ip-reviews" element={<Navigate to="/inbox?tab=clearance" replace />} />
+      <Route path="/ip-reviews" element={<Navigate to="/clearance/tasks" replace />} />
       <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
     </Routes>
   );

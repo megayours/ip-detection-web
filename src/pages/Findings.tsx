@@ -11,9 +11,9 @@ import {
 } from "../api";
 import { MonitoringBoard } from "../components/monitoring/MonitoringBoard";
 
-/** Legacy route — redirects to the unified Inbox under the Monitoring tab. */
+/** Legacy route — redirects to the canonical Monitoring Tasks page. */
 export default function Findings() {
-  return <Navigate to="/inbox?tab=monitoring" replace />;
+  return <Navigate to="/monitoring/tasks" replace />;
 }
 
 /** Single source of truth for the inbox filter set, read from / written to
@@ -23,6 +23,7 @@ interface InboxFilters {
   priority: MonitoringPriorityBand | null;
   ip_id: string | null;
   platform: string | null;
+  seller: string | null;
   show_dismissed: boolean;
   sort: MonitoringSortMode;
 }
@@ -42,6 +43,7 @@ function parseFilters(params: URLSearchParams): InboxFilters {
     priority: priority === "high" || priority === "med" || priority === "low" ? priority : null,
     ip_id: params.get("ip_id"),
     platform: params.get("platform"),
+    seller: params.get("seller"),
     show_dismissed: params.get("show_dismissed") === "true",
     sort:
       sort === "score_desc" || sort === "score_asc" ||
@@ -64,6 +66,7 @@ function writeFilters(base: URLSearchParams, f: InboxFilters): URLSearchParams {
   setOrDel("priority", f.priority);
   setOrDel("ip_id", f.ip_id);
   setOrDel("platform", f.platform);
+  setOrDel("seller", f.seller);
   setOrDel("show_dismissed", f.show_dismissed ? "true" : null);
   setOrDel("sort", f.sort === DEFAULT_SORT ? null : f.sort);
   return next;
