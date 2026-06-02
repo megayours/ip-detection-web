@@ -292,7 +292,6 @@ export interface PrimitiveResultsBlob {
 
 export type CaseReviewStatus =
   | "pending"
-  | "confirmed"
   | "takedown_sent"
   | "enforced"
   | "dismissed";
@@ -1178,7 +1177,6 @@ export interface IpReviewFinding {
   // Enforcement-pipeline status (from cases LEFT JOIN). null when the finding
   // hasn't graduated to a case yet — UI treats null as 'pending'.
   review_status: CaseReviewStatus | null;
-  confirmed_at: string | null;
   takedown_sent_at: string | null;
   enforced_at: string | null;
   // Round-3 dashboard metadata — all nullable (only populated when visible on
@@ -1466,20 +1464,8 @@ export function dismissIpFinding(ipId: string, resultId: string) {
 }
 
 /** Enforcement-pipeline transitions for a finding (all require the finding to
- *  have a linked case). pending → confirmed → takedown_sent → enforced;
+ *  have a linked case). Triage goes pending → takedown_sent (on send) → enforced;
  *  reopen jumps any state back to pending. */
-export function confirmIpFinding(ipId: string, resultId: string) {
-  return request<{ ok: boolean }>(
-    `/api/ip/${ipId}/monitoring/findings/${resultId}/confirm`,
-    { method: "POST" },
-  );
-}
-export function markIpFindingTakedownSent(ipId: string, resultId: string) {
-  return request<{ ok: boolean }>(
-    `/api/ip/${ipId}/monitoring/findings/${resultId}/takedown-sent`,
-    { method: "POST" },
-  );
-}
 export function markIpFindingEnforced(ipId: string, resultId: string) {
   return request<{ ok: boolean }>(
     `/api/ip/${ipId}/monitoring/findings/${resultId}/enforce`,
@@ -1541,7 +1527,7 @@ export type MonitoringSortMode =
 
 export type MonitoringPriorityBand = "high" | "med" | "low";
 export type MonitoringStatusFilter =
-  | "pending" | "confirmed" | "takedown_sent" | "enforced" | "dismissed";
+  | "pending" | "takedown_sent" | "enforced" | "dismissed";
 
 /** Full-tenant facet counts returned alongside every findings page. */
 export interface MonitoringFacets {
@@ -1626,7 +1612,6 @@ export function getMonitoringFindingsCount() {
 export interface DashboardSummary {
   kpis: {
     to_triage: number;
-    confirmed: number;
     in_progress: number;
     enforced_30d: number;
     high_risk: number;

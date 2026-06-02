@@ -247,7 +247,6 @@ function KpiRow({ kpis, ipId }: { kpis: DashboardSummary["kpis"]; ipId: string |
     accent?: string;
   }> = [
     { label: "To triage", value: kpis.to_triage, to: withIp("/monitoring/tasks?status=pending", ipId), accent: "text-stone-900" },
-    { label: "Confirmed", value: kpis.confirmed, to: withIp("/monitoring/tasks?status=confirmed", ipId), accent: "text-blue-700" },
     { label: "In progress", value: kpis.in_progress, to: withIp("/monitoring/tasks?status=takedown_sent", ipId), accent: "text-amber-700" },
     { label: "Enforced (30d)", value: kpis.enforced_30d, to: withIp("/monitoring/tasks?status=enforced", ipId), accent: "text-emerald-700" },
     { label: "High risk", value: kpis.high_risk, to: withIp("/monitoring/tasks", ipId), accent: "text-red-700" },

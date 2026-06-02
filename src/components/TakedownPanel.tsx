@@ -223,7 +223,7 @@ function MessageRow({ message }: { message: TakedownMessage }) {
   );
 }
 
-function ComposeModal({
+export function ComposeModal({
   caseId,
   onClose,
   onSent,

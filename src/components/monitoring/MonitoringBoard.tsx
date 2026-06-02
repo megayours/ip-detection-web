@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import TakedownPanel from "../TakedownPanel";
+import TakedownPanel, { ComposeModal } from "../TakedownPanel";
 import CaseComments from "../CaseComments";
 import {
   addIpLicense,
-  confirmIpFinding,
   dismissIpFinding,
   markIpFindingEnforced,
   reenrichIpFinding,
@@ -342,7 +341,6 @@ const SORT_OPTIONS: Array<{ key: MonitoringSortMode; label: string }> = [
 // Slim status pipeline pills. `null` is rendered as "pending".
 const STATUS_FILTERS: Array<{ key: string; label: string }> = [
   { key: "pending", label: "To triage" },
-  { key: "confirmed", label: "Confirmed" },
   { key: "takedown_sent", label: "Sent" },
   { key: "enforced", label: "Enforced" },
   { key: "dismissed", label: "Dismissed" },
@@ -351,8 +349,6 @@ const STATUS_FILTERS: Array<{ key: string; label: string }> = [
 function statusBadge(s: CaseReviewStatus | null | undefined) {
   const status = (s ?? "pending") as CaseReviewStatus | "pending";
   switch (status) {
-    case "confirmed":
-      return { label: "Confirmed", cls: "bg-blue-100 text-blue-700" };
     case "takedown_sent":
       return { label: "Takedown sent", cls: "bg-amber-100 text-amber-700" };
     case "enforced":
@@ -375,7 +371,7 @@ function StatusFilterBar({
   onSelect: (s: string | null) => void;
 }) {
   const total =
-    counts.pending + counts.confirmed + counts.takedown_sent + counts.enforced;
+    counts.pending + counts.takedown_sent + counts.enforced;
   const pill = (key: string | null, label: string, n: number) => {
     const isActive = active === key;
     return (
@@ -1166,13 +1162,14 @@ function FindingComparison({
         </div>
       </div>
 
-      {/* Takedown + discussion — inlined here so the email flow, reply thread,
-          and case comments live with the finding instead of on a separate case
-          page. Takedown shows once the finding is confirmed; comments whenever
-          a case exists. */}
+      {/* Takedown thread + discussion — inlined here so the email flow, reply
+          thread, and case comments live with the finding instead of on a separate
+          case page. Triage sends the first takedown straight from the row header
+          (Send takedown); this panel surfaces the thread once a request exists.
+          Comments show whenever a case exists. */}
       {f.case_id && (
         <div className="border-t border-stone-200 pt-4 space-y-5">
-          {["confirmed", "takedown_sent", "enforced"].includes(
+          {["takedown_sent", "enforced"].includes(
             (f.dismissed_at ? "dismissed" : f.review_status) ?? "",
           ) && (
             <TakedownPanel caseId={f.case_id} compact onStatusChange={onUpdated} />
@@ -1206,6 +1203,7 @@ function FindingActions({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [licensing, setLicensing] = useState(false);
+  const [composing, setComposing] = useState(false);
 
   async function run(label: string, fn: () => Promise<unknown>) {
     if (busy) return;
@@ -1311,25 +1309,24 @@ function FindingActions({
   let buttons: React.ReactNode = null;
 
   if (state === "pending") {
+    // Triage decision: send the first takedown (auto-advances to takedown_sent)
+    // or dismiss — no separate "confirm" step. License is the fast-path for a
+    // recognised seller.
     buttons = (
       <>
         <button
           type="button"
-          disabled={!ipId || busy === "confirm"}
-          onClick={() =>
-            ipId && run("confirm", () => confirmIpFinding(ipId, f.result_id))
-          }
+          disabled={!f.case_id}
+          title={f.case_id ? undefined : "Still preparing this case…"}
+          onClick={() => setComposing(true)}
           className={blue}
         >
-          {busy === "confirm" ? "Working…" : "Confirm"}
+          Send takedown
         </button>
         {licenseBtn}
         {dismissBtn}
       </>
     );
-  } else if (state === "confirmed") {
-    // Takedown is sent from the inlined panel in the expanded body below.
-    buttons = dismissBtn;
   } else if (state === "takedown_sent") {
     buttons = (
       <>
@@ -1358,6 +1355,16 @@ function FindingActions({
     <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
       {buttons}
       {refreshBtn}
+      {composing && f.case_id && (
+        <ComposeModal
+          caseId={f.case_id}
+          onClose={() => setComposing(false)}
+          onSent={() => {
+            setComposing(false);
+            onUpdated(); // case flips to takedown_sent; board refresh re-renders the row
+          }}
+        />
+      )}
     </div>
   );
 }

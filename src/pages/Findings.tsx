@@ -36,7 +36,7 @@ function parseFilters(params: URLSearchParams): InboxFilters {
   const sort = params.get("sort");
   return {
     status:
-      status === "pending" || status === "confirmed" || status === "takedown_sent" ||
+      status === "pending" || status === "takedown_sent" ||
       status === "enforced" || status === "dismissed"
         ? status
         : null,
