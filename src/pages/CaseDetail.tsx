@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import Avatar from "../components/Avatar";
 import CommentBody from "../components/CommentBody";
+import TakedownPanel from "../components/TakedownPanel";
 
 export default function CaseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -300,6 +301,15 @@ export default function CaseDetail() {
             trademark_name: data.trademark?.name ?? null,
             created_at: c.created_at,
           }}
+        />
+      )}
+
+      {/* Takedown — email the platform's IP intake + track the reply thread */}
+      {(c.source_url || data.takedown) && (
+        <TakedownPanel
+          caseId={c.id}
+          thread={data.takedown ?? null}
+          onRefresh={load}
         />
       )}
 
@@ -1215,7 +1225,7 @@ function ActionRow({
   enrichment: CaseEnrichment;
   sourceUrl: string | null;
 }) {
-  const [modal, setModal] = useState<"cd" | "takedown" | null>(null);
+  const [modal, setModal] = useState<"cd" | null>(null);
 
   const lensUrl = sourceUrl
     ? `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(sourceUrl)}`
@@ -1255,17 +1265,10 @@ function ActionRow({
           >
             Generate cease &amp; desist
           </button>
-          <button
-            onClick={() => setModal("takedown")}
-            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white"
-          >
-            Draft takedown notice
-          </button>
         </div>
       </div>
       {modal && (
         <ActionLetterModal
-          kind={modal}
           enrichment={enrichment}
           sourceUrl={sourceUrl}
           onClose={() => setModal(null)}
@@ -1276,12 +1279,10 @@ function ActionRow({
 }
 
 function ActionLetterModal({
-  kind,
   enrichment,
   sourceUrl,
   onClose,
 }: {
-  kind: "cd" | "takedown";
   enrichment: CaseEnrichment;
   sourceUrl: string | null;
   onClose: () => void;
@@ -1292,9 +1293,7 @@ function ActionLetterModal({
   const listing = enrichment.listing_title || "[Listing title]";
   const url = sourceUrl || "[Listing URL]";
 
-  const body =
-    kind === "cd"
-      ? `${today}
+  const body = `${today}
 
 To: ${seller}
 Re: Unauthorized use of intellectual property — ${listing}
@@ -1318,28 +1317,7 @@ will result in enforcement action including a takedown notice to ${platform}
 and any further remedies available under applicable law.
 
 Sincerely,
-[Rights-holder / counsel name]`
-      : `${today}
-
-DMCA / Marketplace Takedown Notice — ${platform}
-
-The undersigned, on behalf of the rights-holder of the intellectual property
-depicted in the following listing, requests that ${platform} remove the
-material identified below:
-
-  Listing title:   ${listing}
-  Listing URL:     ${url}
-  Seller:          ${seller}
-  Platform:        ${platform}
-  Detected match:  ${enrichment.match_explanation ?? "[describe the IP match]"}
-  Infringement:    ${prettyEnum(enrichment.infringement_type ?? "unclear")}
-  License status:  ${prettyEnum(enrichment.license_status ?? "unclear")}
-
-I have a good-faith belief that the use of the material described above is
-not authorized by the rights-holder, its agent, or the law. I declare under
-penalty of perjury that the information in this notification is accurate.
-
-[Rights-holder / counsel signature, contact details]`;
+[Rights-holder / counsel name]`;
 
   return (
     <div
@@ -1355,9 +1333,7 @@ penalty of perjury that the information in this notification is accurate.
             <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
               Mockup — copy &amp; edit before sending
             </div>
-            <h3 className="font-bold text-stone-900">
-              {kind === "cd" ? "Cease & desist letter" : "Takedown notice"}
-            </h3>
+            <h3 className="font-bold text-stone-900">Cease &amp; desist letter</h3>
           </div>
           <button
             onClick={onClose}

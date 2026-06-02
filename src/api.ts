@@ -388,6 +388,7 @@ export interface CaseDetailResponse {
   comments: CaseComment[];
   monitor_evidence?: MonitorEvidence | null;
   enrichment?: CaseEnrichment | null;
+  takedown?: TakedownThread | null;
 }
 
 export interface ListCasesFilter {
@@ -485,6 +486,122 @@ export function postCaseComment(caseId: string, body: string) {
 export function deleteCaseComment(caseId: string, commentId: string) {
   return request<{ ok: boolean }>(`/api/cases/${caseId}/comments/${commentId}`, {
     method: "DELETE",
+  });
+}
+
+// --- Takedown email ---
+// Sends the takedown to the platform's intake address (e.g. Etsy's legal@) and
+// tracks the reply thread. Replaces the old PDF-download + mark-sent flow.
+
+export type TakedownRequestStatus =
+  | "queued"
+  | "sent"
+  | "failed"
+  | "replied"
+  | "closed";
+
+export interface TakedownRequiredField {
+  key: string;
+  label: string;
+}
+
+/** A user-selectable intake route (only `ip_owner` routes are returned). */
+export interface TakedownRouteOption {
+  id: string;
+  label: string;
+  to_email: string;
+  is_default: boolean;
+  required_fields: TakedownRequiredField[];
+}
+
+export interface TakedownDraft {
+  subject: string;
+  body: string;
+  /** Required-field labels the signer profile still has to fill in. */
+  missing_fields: string[];
+}
+
+/** Reusable per-tenant signer details that populate every notice. */
+export interface TakedownProfile {
+  legal_name: string | null;
+  organization: string | null;
+  address: string | null;
+  phone: string | null;
+  contact_email: string | null;
+  signatory_name: string | null;
+  signatory_title: string | null;
+}
+
+export interface TakedownDraftResponse {
+  /** False when Postmark env isn't set — the UI disables sending. */
+  configured: boolean;
+  routes: TakedownRouteOption[];
+  suggested_target_id: string | null;
+  profile: TakedownProfile | null;
+  draft: TakedownDraft | null;
+}
+
+export interface TakedownRequest {
+  id: string;
+  case_id: string;
+  target_id: string | null;
+  to_email: string;
+  subject: string;
+  body: string;
+  status: TakedownRequestStatus;
+  provider_message_id: string | null;
+  error: string | null;
+  reply_to: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface TakedownMessage {
+  id: string;
+  request_id: string;
+  case_id: string;
+  direction: "outbound" | "inbound";
+  from_email: string | null;
+  to_email: string | null;
+  subject: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface TakedownThread {
+  request: TakedownRequest;
+  messages: TakedownMessage[];
+}
+
+export function getTakedownDraft(caseId: string) {
+  return request<TakedownDraftResponse>(`/api/cases/${caseId}/takedown/draft`);
+}
+
+export function sendTakedown(
+  caseId: string,
+  payload: { target_id: string; subject: string; body: string },
+) {
+  return request<{ request: TakedownRequest }>(
+    `/api/cases/${caseId}/takedown/send`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export function replyTakedown(caseId: string, body: string) {
+  return request<{ message: TakedownMessage }>(
+    `/api/cases/${caseId}/takedown/reply`,
+    { method: "POST", body: JSON.stringify({ body }) },
+  );
+}
+
+export function getTakedownProfile() {
+  return request<{ profile: TakedownProfile | null }>(`/api/takedown/profile`);
+}
+
+export function updateTakedownProfile(patch: Partial<TakedownProfile>) {
+  return request<{ profile: TakedownProfile }>(`/api/takedown/profile`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
   });
 }
 

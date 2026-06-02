@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   addIpLicense,
   confirmIpFinding,
   dismissIpFinding,
   markIpFindingEnforced,
-  markIpFindingTakedownSent,
-  openIpFindingTakedownPacket,
   reenrichIpFinding,
   reopenIpFinding,
   type CaseReviewStatus,
@@ -1224,7 +1223,6 @@ function FindingActions({
   const primaryCls =
     "px-2.5 py-1 rounded-md text-[11px] font-semibold disabled:opacity-50";
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
-  const amber = `${primaryCls} bg-amber-500 text-white hover:bg-amber-400`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
   const dark = `${primaryCls} bg-stone-900 text-white hover:bg-stone-800`;
   const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
@@ -1311,28 +1309,11 @@ function FindingActions({
   } else if (state === "confirmed") {
     buttons = (
       <>
-        <button
-          type="button"
-          disabled={!ipId || busy === "packet"}
-          onClick={() =>
-            ipId &&
-            run("packet", () => openIpFindingTakedownPacket(ipId, f.result_id))
-          }
-          className={dark}
-        >
-          {busy === "packet" ? "Preparing…" : "Generate takedown"}
-        </button>
-        <button
-          type="button"
-          disabled={!ipId || busy === "sent"}
-          onClick={() =>
-            ipId &&
-            run("sent", () => markIpFindingTakedownSent(ipId, f.result_id))
-          }
-          className={amber}
-        >
-          {busy === "sent" ? "Working…" : "Mark sent"}
-        </button>
+        {f.case_id && (
+          <Link to={`/cases/${f.case_id}`} className={dark}>
+            Send takedown →
+          </Link>
+        )}
         {dismissBtn}
       </>
     );
@@ -1350,17 +1331,11 @@ function FindingActions({
         >
           {busy === "enforce" ? "Working…" : "Mark enforced"}
         </button>
-        <button
-          type="button"
-          disabled={!ipId || busy === "packet"}
-          onClick={() =>
-            ipId &&
-            run("packet", () => openIpFindingTakedownPacket(ipId, f.result_id))
-          }
-          className={ghostStone}
-        >
-          {busy === "packet" ? "Preparing…" : "Re-open packet"}
-        </button>
+        {f.case_id && (
+          <Link to={`/cases/${f.case_id}`} className={ghostStone}>
+            View takedown →
+          </Link>
+        )}
         {dismissBtn}
       </>
     );
