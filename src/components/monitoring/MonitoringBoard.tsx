@@ -750,18 +750,19 @@ function topImageUrl(f: IpReviewFinding): string | null {
 // than the per-listing `1` that systematically under-counts.
 const QTY_FALLBACK = 10;
 
-// Per-row "Estimated unlicensed market" = price_value × quantity.
-// Returns null when we can't compute (no structured price).
+// Per-row "Estimated unlicensed market" = USD unit price × quantity. Uses the
+// server-converted `price_value_usd` so every row reads in one currency (USD),
+// regardless of the listing's native currency. Returns null when no price.
 function estimatedMarket(
   f: IpReviewFinding,
 ): { value: number; currency: string } | null {
   // Coerce: Postgres NUMERIC arrives as a string when not cast to float8.
-  const price = f.price_value == null ? null : Number(f.price_value);
+  const price = f.price_value_usd == null ? null : Number(f.price_value_usd);
   if (price == null || !Number.isFinite(price) || price <= 0) return null;
   const qty = f.quantity_available && f.quantity_available > 0
     ? f.quantity_available
     : QTY_FALLBACK;
-  return { value: price * qty, currency: f.price_currency ?? "USD" };
+  return { value: price * qty, currency: "USD" };
 }
 
 function formatMoney(amount: number, currency: string): string {
@@ -877,7 +878,7 @@ function FindingRow({
         className="shrink-0 hidden md:inline-block w-24 text-right text-[12px] font-semibold tabular-nums text-stone-800"
         title={
           market
-            ? `${f.price ?? formatMoney(Number(f.price_value), market.currency)} × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK}`
+            ? `${f.price ?? formatMoney(Number(f.price_value_usd), "USD")} × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK} (USD)`
             : "No structured price yet"
         }
       >
@@ -1020,8 +1021,13 @@ function FindingComparison({
       )}
 
       <div className="flex items-center gap-2 flex-wrap text-[11px]">
-        {f.price && (
-          <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-semibold">{f.price}</span>
+        {(f.price_value_usd != null || f.price) && (
+          <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-semibold">
+            {f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : f.price}
+            {f.price_value_usd != null && f.price && (
+              <span className="ml-1 font-normal text-stone-400">({f.price})</span>
+            )}
+          </span>
         )}
         {f.shipping_price && (
           <span className="text-stone-500" title="Shipping">+ {f.shipping_price}</span>
