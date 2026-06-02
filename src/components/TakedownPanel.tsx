@@ -56,6 +56,25 @@ export default function TakedownPanel({
     };
   }, [caseId]);
 
+  // Light polling while a request is open, so a platform reply (ingested by
+  // the worker's IMAP poller) appears without the user re-expanding the row.
+  // Only nudges the parent board when the request's status actually changes.
+  useEffect(() => {
+    if (!thread || thread.request.status === "closed") return;
+    const prevStatus = thread.request.status;
+    const iv = setInterval(async () => {
+      try {
+        const r = await getTakedownThread(caseId);
+        setThread(r.takedown);
+        if (r.takedown && r.takedown.request.status !== prevStatus) onStatusChange?.();
+      } catch {
+        /* ignore transient poll errors */
+      }
+    }, 45000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseId, thread?.request.status, thread?.messages.length]);
+
   async function reload() {
     try {
       const r = await getTakedownThread(caseId);
