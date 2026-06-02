@@ -297,27 +297,6 @@ export type CaseReviewStatus =
   | "enforced"
   | "dismissed";
 
-export interface Case {
-  id: string;
-  tenant_id: string;
-  account_id: string;
-  trademark_id: string;
-  job_id: string | null;
-  storage_path: string;
-  source_url: string | null;
-  score: number;
-  primitive_results: PrimitiveResultsBlob | null;
-  review_status: CaseReviewStatus;
-  confirmed_at: string | null;
-  takedown_sent_at: string | null;
-  enforced_at: string | null;
-  created_at: string;
-  updated_at: string;
-  // Annotated by /api/cases routes:
-  image_url?: string;
-  trademark?: { id: string; name: string } | null;
-}
-
 export interface CaseComment {
   id: string;
   case_id: string;
@@ -328,28 +307,6 @@ export interface CaseComment {
     display_name: string | null;
     picture_url: string | null;
   };
-}
-
-export interface MonitorEvidence {
-  result_id: string;
-  run_id: string;
-  page_url: string;
-  image_url: string | null;
-  domain: string;
-  keyword: string | null;
-  similarity_score: number;
-  inliers: number | null;
-  vlm_verdict: string | null;
-  vlm_confidence: number | null;
-  vlm_reasoning: string | null;
-  match_bucket: string;
-  /** How the match fired: 'visual' (embedding-based), 'name' (IP name in
-   * the listing card title), or 'both'. Null on rows written before the
-   * column was added. */
-  match_method: string | null;
-  matched_ref_storage_path: string | null;
-  matched_ref_image_url: string | null;
-  run_created_at: string;
 }
 
 export type LicenseStatus = "likely_licensed" | "likely_unlicensed" | "unclear";
@@ -379,95 +336,6 @@ export interface CaseEnrichment {
   creator_type: CreatorType | string | null;
   error: string | null;
   enriched_at: string;
-}
-
-export interface CaseDetailResponse {
-  case: Case;
-  trademark: { id: string; name: string; description: string | null } | null;
-  reference_images: Array<{ id: string; image_url: string }>;
-  comments: CaseComment[];
-  monitor_evidence?: MonitorEvidence | null;
-  enrichment?: CaseEnrichment | null;
-  takedown?: TakedownThread | null;
-}
-
-export interface ListCasesFilter {
-  source_url?: string;
-  trademark_id?: string;
-  status?: CaseReviewStatus;
-  job_id?: string;
-  limit?: number;
-}
-
-export function listCases(filter: ListCasesFilter = {}) {
-  const params = new URLSearchParams();
-  if (filter.source_url) params.set("source_url", filter.source_url);
-  if (filter.trademark_id) params.set("trademark_id", filter.trademark_id);
-  if (filter.status) params.set("status", filter.status);
-  if (filter.job_id) params.set("job_id", filter.job_id);
-  if (filter.limit !== undefined) params.set("limit", String(filter.limit));
-  const qs = params.toString();
-  return request<{ cases: Case[] }>(`/api/cases${qs ? `?${qs}` : ""}`);
-}
-
-export function getCase(id: string) {
-  return request<CaseDetailResponse>(`/api/cases/${id}`);
-}
-
-export function updateCase(
-  id: string,
-  patch: { review_status: CaseReviewStatus }
-) {
-  return request<{ case: Case }>(`/api/cases/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
-}
-
-export function deleteCase(id: string) {
-  return request<{ ok: boolean }>(`/api/cases/${id}`, { method: "DELETE" });
-}
-
-/** Cross-site match from monitor history — same image found on another
- *  monitored domain by an earlier monitor run. */
-export interface CrossSiteInternalMatch {
-  result_id: string;
-  case_id: string | null;
-  domain: string;
-  page_url: string;
-  image_url: string | null;
-  similarity: number;
-  seller_name: string | null;
-  listing_title: string | null;
-  review_status: string | null;
-  created_at: string;
-}
-
-/** Cross-site match from the open web — found by Brave title search after
- *  enrichment, then SigLIP-similarity-scored against the case's image. */
-export interface CrossSiteExternalMatch {
-  id: string;
-  case_id: string;
-  source: string;
-  page_url: string;
-  image_url: string | null;
-  title: string | null;
-  similarity_score: number;
-  created_at: string;
-}
-
-export function listCrossSiteMatches(
-  caseId: string,
-  opts: { threshold?: number; limit?: number } = {},
-) {
-  const params = new URLSearchParams();
-  if (opts.threshold !== undefined) params.set("threshold", String(opts.threshold));
-  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
-  const qs = params.toString();
-  return request<{
-    internal: CrossSiteInternalMatch[];
-    external: CrossSiteExternalMatch[];
-  }>(`/api/cases/${caseId}/cross-site${qs ? `?${qs}` : ""}`);
 }
 
 // --- Case comments ---
@@ -571,6 +439,12 @@ export interface TakedownMessage {
 export interface TakedownThread {
   request: TakedownRequest;
   messages: TakedownMessage[];
+}
+
+export function getTakedownThread(caseId: string) {
+  return request<{ takedown: TakedownThread | null }>(
+    `/api/cases/${caseId}/takedown`,
+  );
 }
 
 export function getTakedownDraft(caseId: string) {

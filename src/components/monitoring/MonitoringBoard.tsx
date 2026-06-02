@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import TakedownPanel from "../TakedownPanel";
+import CaseComments from "../CaseComments";
 import {
   addIpLicense,
   confirmIpFinding,
@@ -1158,6 +1159,21 @@ function FindingComparison({
       </div>
         </div>
       </div>
+
+      {/* Takedown + discussion — inlined here so the email flow, reply thread,
+          and case comments live with the finding instead of on a separate case
+          page. Takedown shows once the finding is confirmed; comments whenever
+          a case exists. */}
+      {f.case_id && (
+        <div className="border-t border-stone-200 pt-4 space-y-5">
+          {["confirmed", "takedown_sent", "enforced"].includes(
+            (f.dismissed_at ? "dismissed" : f.review_status) ?? "",
+          ) && (
+            <TakedownPanel caseId={f.case_id} compact onStatusChange={onUpdated} />
+          )}
+          <CaseComments caseId={f.case_id} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -1224,7 +1240,6 @@ function FindingActions({
     "px-2.5 py-1 rounded-md text-[11px] font-semibold disabled:opacity-50";
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
-  const dark = `${primaryCls} bg-stone-900 text-white hover:bg-stone-800`;
   const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
   const ghostEmerald = `${primaryCls} border border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white`;
 
@@ -1307,16 +1322,8 @@ function FindingActions({
       </>
     );
   } else if (state === "confirmed") {
-    buttons = (
-      <>
-        {f.case_id && (
-          <Link to={`/cases/${f.case_id}`} className={dark}>
-            Send takedown →
-          </Link>
-        )}
-        {dismissBtn}
-      </>
-    );
+    // Takedown is sent from the inlined panel in the expanded body below.
+    buttons = dismissBtn;
   } else if (state === "takedown_sent") {
     buttons = (
       <>
@@ -1331,11 +1338,6 @@ function FindingActions({
         >
           {busy === "enforce" ? "Working…" : "Mark enforced"}
         </button>
-        {f.case_id && (
-          <Link to={`/cases/${f.case_id}`} className={ghostStone}>
-            View takedown →
-          </Link>
-        )}
         {dismissBtn}
       </>
     );

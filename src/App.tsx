@@ -8,8 +8,6 @@ import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
 import RegistryAudit from "./pages/RegistryAudit";
 import RegistryWizard from "./pages/RegistryWizard";
-import Cases from "./pages/Cases";
-import CaseDetail from "./pages/CaseDetail";
 import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
 import ClearanceTasks from "./pages/ClearanceTasks";
@@ -146,8 +144,6 @@ export default function App() {
         <Route path="/clearance/brands/catalog" element={<BrandsCatalog />} />
         <Route path="/clearance/designs/catalog" element={<DesignsCatalog />} />
         <Route path="/clearance/pop/catalog" element={<PopCultureCatalog />} />
-        <Route path="/cases" element={<Cases />} />
-        <Route path="/cases/:id" element={<CaseDetail />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

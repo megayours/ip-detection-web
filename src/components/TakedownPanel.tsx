@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  getTakedownThread,
   getTakedownDraft,
   sendTakedown,
   replyTakedown,
@@ -19,23 +20,51 @@ const STATUS_META: Record<TakedownRequestStatus, { label: string; cls: string }>
 };
 
 /**
- * Case-scoped takedown email flow. Before a request exists it offers a compose
- * modal (pre-filled from the platform intake template + signer profile); after,
- * it shows the sent notice, the platform's replies, and a follow-up composer.
+ * Case-scoped takedown email flow. Loads its own thread by case id, so it can
+ * live on the case page or inline in the monitoring finding collapsible.
+ * Before a request exists it offers a compose modal (pre-filled from the
+ * platform intake template + signer profile); after, it shows the sent notice,
+ * the platform's replies, and a follow-up composer.
  */
 export default function TakedownPanel({
   caseId,
-  thread,
-  onRefresh,
+  onStatusChange,
+  compact = false,
 }: {
   caseId: string;
-  thread: TakedownThread | null;
-  onRefresh: () => Promise<void> | void;
+  /** Fired after a send/reply so a parent list can refresh the case's status. */
+  onStatusChange?: () => void;
+  /** Denser heading for embedding inside the monitoring finding collapsible. */
+  compact?: boolean;
 }) {
+  const [thread, setThread] = useState<TakedownThread | null>(null);
+  const [loading, setLoading] = useState(true);
   const [composing, setComposing] = useState(false);
   const [replyDraft, setReplyDraft] = useState("");
   const [replying, setReplying] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    getTakedownThread(caseId)
+      .then((r) => alive && setThread(r.takedown))
+      .catch((e) => alive && setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [caseId]);
+
+  async function reload() {
+    try {
+      const r = await getTakedownThread(caseId);
+      setThread(r.takedown);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+    onStatusChange?.();
+  }
 
   async function submitReply(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +75,7 @@ export default function TakedownPanel({
     try {
       await replyTakedown(caseId, body);
       setReplyDraft("");
-      await onRefresh();
+      await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -57,10 +86,16 @@ export default function TakedownPanel({
   const status = thread ? STATUS_META[thread.request.status] : null;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-black text-stone-900 tracking-tight">Takedown</h2>
-        {thread && (
+        {compact ? (
+          <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+            Takedown
+          </h3>
+        ) : (
+          <h2 className="text-lg font-black text-stone-900 tracking-tight">Takedown</h2>
+        )}
+        {thread && !loading && (
           <button
             onClick={() => setComposing(true)}
             className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700"
@@ -76,7 +111,11 @@ export default function TakedownPanel({
         </div>
       )}
 
-      {!thread ? (
+      {loading ? (
+        <div className="py-6 flex justify-center">
+          <div className="w-5 h-5 border-2 border-stone-900 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : !thread ? (
         <div className="bg-white rounded-2xl border border-stone-200 p-5 space-y-3">
           <p className="text-sm text-stone-600">
             Email the platform's IP intake to request removal of this listing.
@@ -152,7 +191,7 @@ export default function TakedownPanel({
           onClose={() => setComposing(false)}
           onSent={async () => {
             setComposing(false);
-            await onRefresh();
+            await reload();
           }}
         />
       )}
