@@ -804,12 +804,7 @@ const BENCHMARK_ROWS: BenchmarkRowData[] = [
     accuracy: (0.872 + 0.04) / 2,
   },
   {
-    name: "MegaYours (Light)",
-    description: "Indexed-catalog matching — broad, low-latency coverage of registered IP",
-    accuracy: (0.258 + 0.923) / 2,
-  },
-  {
-    name: "MegaYours (Max)",
+    name: "MegaYours",
     description: "Catalog matching plus AI review layer — full coverage across famous and lesser-known IP",
     accuracy: (0.981 + 0.976) / 2,
     highlight: true,
