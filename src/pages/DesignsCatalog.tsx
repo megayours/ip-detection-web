@@ -77,7 +77,7 @@ export default function DesignsCatalog() {
           </p>
         </div>
         <Link
-          to="/clearance?mode=designs"
+          to="/clearance/tasks"
           className="text-xs font-medium text-stone-500 hover:text-stone-900 whitespace-nowrap"
         >
           ← Back to clearance

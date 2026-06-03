@@ -88,12 +88,6 @@ export default function BrandsCatalog() {
             .
           </p>
         </div>
-        <Link
-          to="/clearance?mode=brands"
-          className="text-xs font-medium text-stone-500 hover:text-stone-900 whitespace-nowrap"
-        >
-          ← Back to clearance
-        </Link>
       </div>
 
       <div className="mb-4 flex items-center gap-3">

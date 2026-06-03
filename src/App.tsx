@@ -8,7 +8,6 @@ import Registry from "./pages/Registry";
 import RegistryDetail from "./pages/RegistryDetail";
 import RegistryAudit from "./pages/RegistryAudit";
 import RegistryWizard from "./pages/RegistryWizard";
-import Clearance from "./pages/Clearance";
 import ClearanceReviewNew from "./pages/ClearanceReviewNew";
 import ClearanceTasks from "./pages/ClearanceTasks";
 import IpReviewDetail from "./pages/IpReviewDetail";
@@ -138,7 +137,7 @@ export default function App() {
             landing somewhere; the components redirect to the canonical paths. */}
         <Route path="/findings" element={<Findings />} />
         <Route path="/monitors" element={<Navigate to="/monitoring/settings" replace />} />
-        <Route path="/clearance" element={<Clearance />} />
+        <Route path="/clearance" element={<Navigate to="/clearance/tasks" replace />} />
         <Route path="/ip-reviews/new" element={<Navigate to="/clearance/new" replace />} />
         <Route path="/ip-reviews/:id" element={<IpReviewDetail />} />
         <Route path="/clearance/brands/catalog" element={<BrandsCatalog />} />
@@ -167,7 +166,6 @@ export default function App() {
       <Route path="/trademarks" element={<Navigate to="/ips" replace />} />
       <Route path="/trademarks/:id" element={<TrademarkRedirect />} />
       <Route path="/ip-reviews" element={<Navigate to="/clearance/tasks" replace />} />
-      <Route path="/design-match" element={<Navigate to="/clearance?mode=visual" replace />} />
     </Routes>
   );
 }

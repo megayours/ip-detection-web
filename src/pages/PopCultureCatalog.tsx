@@ -106,7 +106,7 @@ export default function PopCultureCatalog() {
           </p>
         </div>
         <Link
-          to="/clearance?mode=pop"
+          to="/clearance/tasks"
           className="text-xs font-medium text-stone-500 hover:text-stone-900 whitespace-nowrap"
         >
           ← Back to clearance

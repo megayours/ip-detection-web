@@ -1,46 +1,5 @@
-import { useEffect } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { type IpReview } from "../api";
-import ClearanceBrands from "./ClearanceBrands";
-import ClearanceVisual from "./ClearanceVisual";
-
-/**
- * `/clearance` is now a thin route that only handles the legacy fast-check
- * tools via `?mode=brands|visual`. Without a mode it redirects to the
- * canonical `/clearance/tasks` board.
- */
-type LegacyMode = "brands" | "visual";
-
-export default function Clearance() {
-  const [params, setParams] = useSearchParams();
-  const raw = params.get("mode");
-
-  useEffect(() => {
-    if (raw === "designs" || raw === "pop") {
-      const next = new URLSearchParams(params);
-      next.set("mode", "visual");
-      next.delete("type");
-      setParams(next, { replace: true });
-    }
-  }, [raw, params, setParams]);
-
-  const legacyMode: LegacyMode | null =
-    raw === "brands" || raw === "visual" ? raw : null;
-
-  if (legacyMode) {
-    return <LegacyView mode={legacyMode} setMode={(m) => {
-      const p = new URLSearchParams(params);
-      p.set("mode", m);
-      setParams(p, { replace: false });
-    }} clearMode={() => {
-      const p = new URLSearchParams(params);
-      p.delete("mode");
-      setParams(p, { replace: false });
-    }} />;
-  }
-
-  return <Navigate to="/clearance/tasks" replace />;
-}
 
 const DECISION_LABEL: Record<string, { label: string; cls: string }> = {
   cleared: { label: "Cleared", cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
@@ -123,61 +82,4 @@ function relativeDate(iso: string): string {
   const day = Math.floor(hr / 24);
   if (day < 7) return `${day}d`;
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function LegacyView({
-  mode,
-  setMode,
-  clearMode,
-}: {
-  mode: LegacyMode;
-  setMode: (m: LegacyMode) => void;
-  clearMode: () => void;
-}) {
-  const subtitle =
-    mode === "brands"
-      ? "Pre-screen images against registered trademarks"
-      : "Search WIPO designs and Giantbomb pop-culture catalogs";
-
-  return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="mb-3">
-        <button
-          onClick={clearMode}
-          className="text-[11px] text-stone-500 hover:text-stone-800"
-        >
-          ← Back to inbox
-        </button>
-      </div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight">
-          {mode === "brands" ? "Brands fast check" : "Visual match"}
-        </h1>
-        <p className="text-xs text-stone-400 mt-0.5">{subtitle}</p>
-      </div>
-
-      <div className="mb-6 inline-flex p-1 bg-stone-100 rounded-full">
-        {(["brands", "visual"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
-              mode === m
-                ? "bg-white text-stone-900 shadow-sm"
-                : "text-stone-500 hover:text-stone-800"
-            }`}
-          >
-            {m === "brands" ? "Brands" : "Visual Match"}
-          </button>
-        ))}
-      </div>
-
-      <div className={mode === "brands" ? "" : "hidden"}>
-        <ClearanceBrands />
-      </div>
-      <div className={mode === "visual" ? "" : "hidden"}>
-        <ClearanceVisual />
-      </div>
-    </div>
-  );
 }
