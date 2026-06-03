@@ -1172,7 +1172,12 @@ function FindingComparison({
           {["takedown_sent", "enforced"].includes(
             (f.dismissed_at ? "dismissed" : f.review_status) ?? "",
           ) && (
-            <TakedownPanel caseId={f.case_id} compact onStatusChange={onUpdated} />
+            <TakedownPanel
+              caseId={f.case_id}
+              platform={f.domain}
+              compact
+              onStatusChange={onUpdated}
+            />
           )}
           <CaseComments caseId={f.case_id} compact />
         </div>

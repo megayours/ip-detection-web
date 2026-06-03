@@ -28,10 +28,13 @@ const STATUS_META: Record<TakedownRequestStatus, { label: string; cls: string }>
  */
 export default function TakedownPanel({
   caseId,
+  platform,
   onStatusChange,
   compact = false,
 }: {
   caseId: string;
+  /** Marketplace the listing is on (e.g. "etsy.com") — shown in the confirm step. */
+  platform?: string;
   /** Fired after a send/reply so a parent list can refresh the case's status. */
   onStatusChange?: () => void;
   /** Denser heading for embedding inside the monitoring finding collapsible. */
@@ -39,6 +42,8 @@ export default function TakedownPanel({
 }) {
   const [thread, setThread] = useState<TakedownThread | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
+  const [directSending, setDirectSending] = useState(false);
   const [composing, setComposing] = useState(false);
   const [replyDraft, setReplyDraft] = useState("");
   const [replying, setReplying] = useState(false);
@@ -85,6 +90,38 @@ export default function TakedownPanel({
     onStatusChange?.();
   }
 
+  // Quick path from the confirm dialog: send the pre-filled draft for the
+  // suggested route without opening the editor. Falls back to the editor if
+  // there's no route/draft to auto-send.
+  async function sendDirect() {
+    setDirectSending(true);
+    setError("");
+    try {
+      const d = await getTakedownDraft(caseId);
+      if (!d.configured) {
+        setError("Email isn't configured yet — contact your administrator.");
+        return;
+      }
+      const targetId = d.suggested_target_id ?? d.routes[0]?.id ?? "";
+      if (!targetId || !d.draft) {
+        setConfirming(false);
+        setComposing(true);
+        return;
+      }
+      await sendTakedown(caseId, {
+        target_id: targetId,
+        subject: d.draft.subject,
+        body: d.draft.body,
+      });
+      setConfirming(false);
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDirectSending(false);
+    }
+  }
+
   async function submitReply(e: React.FormEvent) {
     e.preventDefault();
     const body = replyDraft.trim();
@@ -116,7 +153,10 @@ export default function TakedownPanel({
         )}
         {thread && !loading && (
           <button
-            onClick={() => setComposing(true)}
+            onClick={() => {
+              setError("");
+              setConfirming(true);
+            }}
             className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700"
           >
             Send another
@@ -141,7 +181,10 @@ export default function TakedownPanel({
             We'll track the request and any reply right here.
           </p>
           <button
-            onClick={() => setComposing(true)}
+            onClick={() => {
+              setError("");
+              setConfirming(true);
+            }}
             className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-sm font-semibold text-white"
           >
             Send takedown request
@@ -204,6 +247,24 @@ export default function TakedownPanel({
         </div>
       )}
 
+      {confirming && (
+        <ConfirmSendModal
+          platform={platform}
+          sending={directSending}
+          error={error}
+          onSend={sendDirect}
+          onEdit={() => {
+            setConfirming(false);
+            setComposing(true);
+          }}
+          onCancel={() => {
+            if (directSending) return;
+            setConfirming(false);
+            setError("");
+          }}
+        />
+      )}
+
       {composing && (
         <ComposeModal
           caseId={caseId}
@@ -215,6 +276,80 @@ export default function TakedownPanel({
         />
       )}
     </section>
+  );
+}
+
+/** Title-cased platform name from a domain ("etsy.com" → "Etsy"). */
+function prettyPlatform(platform?: string): string {
+  const p = (platform ?? "").trim().toLowerCase().replace(/^www\./, "");
+  const label = p.split(".")[0];
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "the platform";
+}
+
+function ConfirmSendModal({
+  platform,
+  sending,
+  error,
+  onSend,
+  onEdit,
+  onCancel,
+}: {
+  platform?: string;
+  sending: boolean;
+  error: string;
+  onSend: () => void;
+  onEdit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      onClick={onCancel}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl border border-stone-200 max-w-md w-full overflow-hidden"
+      >
+        <div className="px-5 py-4 border-b border-stone-100">
+          <h3 className="font-bold text-stone-900">Send takedown notice</h3>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <p className="text-sm text-stone-600">
+            You're about to email{" "}
+            <span className="font-semibold text-stone-900">{prettyPlatform(platform)}</span>{" "}
+            a takedown notice for this listing. Their reply will be tracked here.
+          </p>
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 text-xs rounded-xl px-3 py-2">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-stone-100 flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={sending}
+            className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onEdit}
+            disabled={sending}
+            className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700 disabled:opacity-50"
+          >
+            Edit before sending
+          </button>
+          <button
+            onClick={onSend}
+            disabled={sending}
+            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
