@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import TakedownPanel, { ComposeModal } from "../TakedownPanel";
+import TakedownPanel, { ComposeModal, ConfirmSendModal } from "../TakedownPanel";
 import CaseComments from "../CaseComments";
 import {
   addIpLicense,
@@ -7,6 +7,8 @@ import {
   markIpFindingEnforced,
   reenrichIpFinding,
   reopenIpFinding,
+  getTakedownDraft,
+  sendTakedown,
   type CaseReviewStatus,
   type IpReviewFinding,
   type MonitoringFacets,
@@ -1209,6 +1211,42 @@ function FindingActions({
   const [busy, setBusy] = useState<string | null>(null);
   const [licensing, setLicensing] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [directSending, setDirectSending] = useState(false);
+  const [sendErr, setSendErr] = useState("");
+
+  // Quick path from the confirm dialog: send the pre-filled draft for the
+  // suggested route without opening the editor. Falls back to the editor when
+  // there's no route/draft to auto-send.
+  async function sendDirect() {
+    if (!f.case_id) return;
+    setDirectSending(true);
+    setSendErr("");
+    try {
+      const d = await getTakedownDraft(f.case_id);
+      if (!d.configured) {
+        setSendErr("Email isn't configured yet — contact your administrator.");
+        return;
+      }
+      const targetId = d.suggested_target_id ?? d.routes[0]?.id ?? "";
+      if (!targetId || !d.draft) {
+        setConfirming(false);
+        setComposing(true);
+        return;
+      }
+      await sendTakedown(f.case_id, {
+        target_id: targetId,
+        subject: d.draft.subject,
+        body: d.draft.body,
+      });
+      setConfirming(false);
+      onUpdated();
+    } catch (e) {
+      setSendErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDirectSending(false);
+    }
+  }
 
   async function run(label: string, fn: () => Promise<unknown>) {
     if (busy) return;
@@ -1323,7 +1361,10 @@ function FindingActions({
           type="button"
           disabled={!f.case_id}
           title={f.case_id ? undefined : "Still preparing this case…"}
-          onClick={() => setComposing(true)}
+          onClick={() => {
+            setSendErr("");
+            setConfirming(true);
+          }}
           className={blue}
         >
           Send takedown
@@ -1360,6 +1401,23 @@ function FindingActions({
     <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
       {buttons}
       {refreshBtn}
+      {confirming && f.case_id && (
+        <ConfirmSendModal
+          platform={f.domain}
+          sending={directSending}
+          error={sendErr}
+          onSend={sendDirect}
+          onEdit={() => {
+            setConfirming(false);
+            setComposing(true);
+          }}
+          onCancel={() => {
+            if (directSending) return;
+            setConfirming(false);
+            setSendErr("");
+          }}
+        />
+      )}
       {composing && f.case_id && (
         <ComposeModal
           caseId={f.case_id}

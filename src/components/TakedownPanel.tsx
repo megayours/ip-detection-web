@@ -286,7 +286,7 @@ function prettyPlatform(platform?: string): string {
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : "the platform";
 }
 
-function ConfirmSendModal({
+export function ConfirmSendModal({
   platform,
   sending,
   error,
