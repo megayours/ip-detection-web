@@ -134,10 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     !!user && actingTenantId != null && actingTenantId !== user.tenant_id;
 
   function switchTenant(tenantId: string) {
+    if (tenantId === actingTenantId) return; // already operating on this tenant
     // Selecting the home tenant clears the override entirely.
     persistActingTenant(user && tenantId === user.tenant_id ? null : tenantId);
-    // Full reload is the simplest correct way to re-scope every cached view.
-    window.location.reload();
+    // Hard navigate to the SPA root (not reload()): reloading a deep client
+    // route like /dashboard asks the static host for a file that doesn't exist
+    // (404 on GitHub Pages). Loading "/" always serves index.html, boots fresh
+    // in the new tenant scope, and HomeSwitch routes back to the dashboard.
+    window.location.assign("/");
   }
 
   function signIn() {
