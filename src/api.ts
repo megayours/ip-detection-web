@@ -30,7 +30,7 @@ export function setActingTenant(t: string | null) {
 
 /** Attach the Bearer token and (when set) the acting-tenant override. */
 function authHeaders(headers: Record<string, string>) {
-  authHeaders(headers);
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   if (actingTenant) headers["X-Acting-Tenant"] = actingTenant;
 }
 
