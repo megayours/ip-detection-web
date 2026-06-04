@@ -12,10 +12,18 @@ import {
   Plus,
   Menu,
   X,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
-import { listIpReviews, needsAttention, getMonitoringFindingsCount } from "../api";
+import {
+  listIpReviews,
+  needsAttention,
+  getMonitoringFindingsCount,
+  listTenants,
+  tenantLabel,
+  type Tenant,
+} from "../api";
 
 /** Inbox badge polling cadence. Cheap server-side aggregation + small payload,
  *  but no need to refetch every few seconds — the badge is a glanceable
@@ -44,7 +52,23 @@ const CLE_OPEN_KEY = "appshell.cle.open";
  * compete for sidebar real estate.
  */
 export default function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, actingTenantId, isActingAsOther, switchTenant } = useAuth();
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+
+  // Load the tenant roster once for the admin "operate as any tenant" switcher.
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      setTenants([]);
+      return;
+    }
+    let alive = true;
+    listTenants()
+      .then(({ tenants }) => alive && setTenants(tenants))
+      .catch(() => {/* non-fatal — switcher just stays empty */});
+    return () => { alive = false; };
+  }, [user]);
+
+  const actingTenant = tenants.find((t) => t.id === actingTenantId) ?? null;
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [clearanceCount, setClearanceCount] = useState(0);
@@ -207,7 +231,16 @@ export default function AppShell() {
             active={isActive("/admin")}
           />
         )}
-        {user && <UserMenu user={user} onLogout={async () => { await logout(); navigate("/"); }} />}
+        {user && (
+          <UserMenu
+            user={user}
+            tenants={tenants}
+            actingTenantId={actingTenantId}
+            isActingAsOther={isActingAsOther}
+            onSwitchTenant={switchTenant}
+            onLogout={async () => { await logout(); navigate("/"); }}
+          />
+        )}
       </div>
     </aside>
   );
@@ -267,6 +300,12 @@ export default function AppShell() {
 
         {/* Main */}
         <main className="flex-1 min-w-0 lg:h-screen lg:overflow-y-auto">
+          {isActingAsOther && (
+            <ActingTenantBanner
+              label={actingTenant ? tenantLabel(actingTenant) : (actingTenantId ?? "")}
+              onReturn={() => user && switchTenant(user.tenant_id)}
+            />
+          )}
           {/* Desktop topbar — only IPs lives here; it's an infrequent
               admin-y action, kept out of the day-to-day sidebar. */}
           <div className="hidden lg:flex sticky top-0 z-20 bg-cream/90 backdrop-blur-md border-b border-stone-200/60 h-12 items-center justify-end px-6">
@@ -372,15 +411,49 @@ function loadOpen(key: string): boolean {
   return true;
 }
 
+/** Sticky strip shown while an admin operates on a tenant other than their own,
+ *  so the impersonation is never silent. */
+function ActingTenantBanner({ label, onReturn }: { label: string; onReturn: () => void }) {
+  return (
+    <div className="sticky top-0 z-30 flex items-center gap-2 px-4 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-900 text-xs">
+      <Building2 size={14} className="shrink-0" />
+      <span className="min-w-0 truncate">
+        Acting as <span className="font-semibold">{label}</span>
+      </span>
+      <button
+        type="button"
+        onClick={onReturn}
+        className="ml-auto shrink-0 font-semibold underline underline-offset-2 hover:text-amber-950"
+      >
+        Return to your tenant
+      </button>
+    </div>
+  );
+}
+
 function UserMenu({
   user,
+  tenants,
+  actingTenantId,
+  isActingAsOther,
+  onSwitchTenant,
   onLogout,
 }: {
-  user: { email: string | null; display_name: string | null; picture_url: string | null };
+  user: {
+    email: string | null;
+    display_name: string | null;
+    picture_url: string | null;
+    role?: "user" | "admin";
+  };
+  tenants: Tenant[];
+  actingTenantId: string | null;
+  isActingAsOther: boolean;
+  onSwitchTenant: (tenantId: string) => void;
   onLogout: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isAdmin = user.role === "admin";
 
   useEffect(() => {
     if (!open) return;
@@ -420,6 +493,26 @@ function UserMenu({
               <div className="text-xs text-stone-500 truncate">{user.email}</div>
             )}
           </div>
+          {isAdmin && (
+            <div className="px-3 py-2.5 border-b border-stone-100">
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-1">
+                <Building2 size={12} /> Operate as tenant
+              </label>
+              <select
+                value={actingTenantId ?? ""}
+                onChange={(e) => onSwitchTenant(e.target.value)}
+                className={`w-full text-sm rounded-lg border px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-stone-300 ${
+                  isActingAsOther ? "border-amber-400 text-amber-900" : "border-stone-300 text-stone-800"
+                }`}
+              >
+                {tenants.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {tenantLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <button
             onClick={async () => {
               setOpen(false);

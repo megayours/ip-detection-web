@@ -12,9 +12,31 @@ export function setToken(t: string | null) {
   else localStorage.removeItem("auth_token");
 }
 
+// --- Acting tenant (admin "operate as any tenant") ---
+// When an admin selects a tenant in the switcher we persist its id and send it
+// as `X-Acting-Tenant` on every request. The API honors it only for admins and
+// scopes the whole request to that tenant. Non-admins never set this.
+let actingTenant: string | null = localStorage.getItem("acting_tenant");
+
+export function getActingTenant() {
+  return actingTenant;
+}
+
+export function setActingTenant(t: string | null) {
+  actingTenant = t;
+  if (t) localStorage.setItem("acting_tenant", t);
+  else localStorage.removeItem("acting_tenant");
+}
+
+/** Attach the Bearer token and (when set) the acting-tenant override. */
+function authHeaders(headers: Record<string, string>) {
+  authHeaders(headers);
+  if (actingTenant) headers["X-Acting-Tenant"] = actingTenant;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  authHeaders(headers);
   if (init?.body && typeof init.body === "string") headers["Content-Type"] = "application/json";
 
   const res = await fetch(`${API}${path}`, { ...init, headers });
@@ -190,7 +212,7 @@ export async function uploadTrademarkImages(trademarkId: string, files: File[]) 
   for (const f of files) form.append("images", f);
 
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  authHeaders(headers);
 
   const res = await fetch(`${API}/api/ip/${trademarkId}/images`, {
     method: "POST",
@@ -574,6 +596,24 @@ export const ADMIN_SOURCES = [
 ] as const;
 export type AdminSource = (typeof ADMIN_SOURCES)[number];
 
+export interface Tenant {
+  id: string;
+  name: string | null;
+  email_domain: string | null;
+  owner_workos_user_id: string | null;
+  created_at: string;
+}
+
+/** Human label for a tenant in the admin switcher. */
+export function tenantLabel(t: Tenant): string {
+  return t.name || t.email_domain || t.id;
+}
+
+/** All tenants, for the admin "operate as any tenant" switcher. Admin-only. */
+export function listTenants() {
+  return request<{ tenants: Tenant[] }>(`/api/admin/tenants`);
+}
+
 export function searchAdminIps(opts: {
   source?: string;
   q?: string;
@@ -617,7 +657,7 @@ export async function uploadAdminImages(id: string, files: File[]) {
   for (const f of files) form.append("images", f);
 
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  authHeaders(headers);
 
   const res = await fetch(`${API}/api/admin/ips/${encodeURIComponent(id)}/images`, {
     method: "POST",
@@ -1052,7 +1092,7 @@ export async function createIpReview(
   for (const f of inspirationImages) form.append("inspiration", f);
 
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  authHeaders(headers);
   const res = await fetch(`${API}/api/ip-reviews`, { method: "POST", headers, body: form });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -1184,7 +1224,7 @@ export function deleteIpReview(id: string) {
  */
 export async function openIpReviewReport(id: string): Promise<void> {
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  authHeaders(headers);
   const res = await fetch(`${API}/api/ip-reviews/${id}/report.pdf`, { headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -1296,7 +1336,7 @@ export async function openIpFindingTakedownPacket(
   resultId: string,
 ): Promise<void> {
   const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  authHeaders(headers);
   const res = await fetch(
     `${API}/api/ip/${ipId}/monitoring/findings/${resultId}/takedown-packet.pdf`,
     { headers },

@@ -6,6 +6,8 @@ import {
   getToken,
   workosLoginUrl,
   logout as apiLogout,
+  getActingTenant,
+  setActingTenant as persistActingTenant,
   type AuthUser,
 } from "../api";
 
@@ -14,6 +16,14 @@ interface AuthContextType {
   loading: boolean;
   signIn: () => void;
   logout: () => Promise<void>;
+  /** Effective tenant the UI is operating on. Equals the home tenant unless an
+   *  admin has switched. */
+  actingTenantId: string | null;
+  /** True when an admin is operating on a tenant other than their own. */
+  isActingAsOther: boolean;
+  /** Admin-only: switch the acting tenant (pass the home tenant id to clear the
+   *  override). Persists and reloads so every view re-fetches in the new scope. */
+  switchTenant: (tenantId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -101,6 +111,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getMe()
         .then(({ user }) => {
           if (user) {
+            // A persisted acting-tenant override is only meaningful for admins;
+            // drop a stale one for everyone else so requests stay home-scoped.
+            if (user.role !== "admin" && getActingTenant()) {
+              persistActingTenant(null);
+            }
             setUser(user);
             if (justSignedIn && returnTo) navigate(returnTo, { replace: true });
           } else {
@@ -113,6 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [navigate]);
 
+  // Effective acting tenant: the persisted override, or the home tenant.
+  const actingTenantId = getActingTenant() ?? user?.tenant_id ?? null;
+  const isActingAsOther =
+    !!user && actingTenantId != null && actingTenantId !== user.tenant_id;
+
+  function switchTenant(tenantId: string) {
+    // Selecting the home tenant clears the override entirely.
+    persistActingTenant(user && tenantId === user.tenant_id ? null : tenantId);
+    // Full reload is the simplest correct way to re-scope every cached view.
+    window.location.reload();
+  }
+
   function signIn() {
     // Hand off the stashed return path so the backend can echo it through the
     // OAuth state and back to us as `?next=…`. Full-page navigation — WorkOS
@@ -123,11 +150,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await apiLogout();
+    persistActingTenant(null);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signIn,
+        logout,
+        actingTenantId,
+        isActingAsOther,
+        switchTenant,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
