@@ -234,7 +234,7 @@ export function MonitoringBoard({
       if (action === "send") {
         if (state !== "pending") skip("already sent or closed");
         else if (!f.case_id) skip("still preparing");
-        else if (f.signer_ready === false) skip("missing signer");
+        else if (f.signer_ready === false) skip("missing signer information");
         else eligible.push(f);
       } else if (action === "dismiss") {
         if (f.dismissed_at) skip("already dismissed");

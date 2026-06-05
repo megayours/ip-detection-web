@@ -35,11 +35,16 @@ function parseFilters(params: URLSearchParams): InboxFilters {
   const priority = params.get("priority");
   const sort = params.get("sort");
   return {
+    // Default to "To triage" (pending); an explicit `status=all` clears it.
     status:
-      status === "pending" || status === "takedown_sent" ||
-      status === "enforced" || status === "dismissed"
-        ? status
-        : null,
+      status === "all"
+        ? null
+        : status === "pending" || status === "takedown_sent" ||
+            status === "enforced" || status === "dismissed"
+          ? status
+          : status === null
+            ? "pending"
+            : null,
     priority: priority === "high" || priority === "med" || priority === "low" ? priority : null,
     ip_id: params.get("ip_id"),
     platform: params.get("platform"),
@@ -62,7 +67,9 @@ function writeFilters(base: URLSearchParams, f: InboxFilters): URLSearchParams {
     if (v) next.set(k, v);
     else next.delete(k);
   };
-  setOrDel("status", f.status);
+  // "pending" is the default → drop it; null means All → persist as `all`
+  // so the choice survives a refresh instead of snapping back to pending.
+  setOrDel("status", f.status === "pending" ? null : f.status ?? "all");
   setOrDel("priority", f.priority);
   setOrDel("ip_id", f.ip_id);
   setOrDel("platform", f.platform);
