@@ -1318,6 +1318,14 @@ export function removeIpMonitoringPlatform(ipId: string, domainId: string) {
   );
 }
 
+/** Stop monitoring an IP entirely — removes all its watched platforms. */
+export function removeIpMonitoring(ipId: string) {
+  return request<{ ok: boolean; removed: number }>(
+    `/api/ip/${ipId}/monitoring`,
+    { method: "DELETE" },
+  );
+}
+
 /** "Refresh now" — fans out one run per linked platform server-side. */
 export function triggerIpMonitoringRun(ipId: string) {
   return request<{ jobs_enqueued: number }>(`/api/ip/${ipId}/monitoring/runs`, {

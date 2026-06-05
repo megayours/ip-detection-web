@@ -4,6 +4,7 @@ import {
   addIpMonitoringPlatform,
   listMonitoredIps,
   listTrademarks,
+  removeIpMonitoring,
   type MonitoredIpSummary,
   type Trademark,
 } from "../api";
@@ -75,6 +76,23 @@ function MonitoredIpCard({
   onChanged: () => void;
 }) {
   const hasKeywords = (ip.keywords ?? []).length > 0;
+  const [removing, setRemoving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function stopMonitoring() {
+    if (removing) return;
+    if (!confirm(`Stop monitoring ${ip.ip_name}? This removes all its watched platforms.`)) return;
+    setRemoving(true);
+    setErr("");
+    try {
+      await removeIpMonitoring(ip.ip_id);
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setRemoving(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -106,13 +124,26 @@ function MonitoredIpCard({
             )}
           </div>
         </div>
-        <Link
-          to={`/ips/${ip.ip_id}/audit`}
-          className="text-xs text-blue-700 hover:underline shrink-0"
-        >
-          Audit log →
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            to={`/ips/${ip.ip_id}/audit`}
+            className="text-xs text-blue-700 hover:underline"
+          >
+            Audit log →
+          </Link>
+          <button
+            type="button"
+            onClick={stopMonitoring}
+            disabled={removing}
+            className="text-xs text-stone-400 hover:text-red-600 font-semibold disabled:opacity-50"
+            title="Stop monitoring this IP"
+          >
+            {removing ? "Removing…" : "Stop monitoring"}
+          </button>
+        </div>
       </div>
+
+      {err && <div className="text-xs text-red-600">{err}</div>}
 
       <PlatformsPanel
         ipId={ip.ip_id}
