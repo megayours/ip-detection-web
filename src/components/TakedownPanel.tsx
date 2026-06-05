@@ -4,6 +4,7 @@ import {
   getTakedownThread,
   getTakedownDraft,
   sendTakedown,
+  autoSendTakedown,
   replyTakedown,
   type TakedownDraftResponse,
   type TakedownMessage,
@@ -100,22 +101,16 @@ export default function TakedownPanel({
     setDirectSending(true);
     setError("");
     try {
-      const d = await getTakedownDraft(caseId);
-      if (!d.configured) {
+      const r = await autoSendTakedown(caseId);
+      if (r.status === "unconfigured") {
         setError("Email isn't configured yet — contact your administrator.");
         return;
       }
-      const targetId = d.suggested_target_id ?? d.routes[0]?.id ?? "";
-      if (!targetId || !d.draft) {
+      if (r.status === "needs_compose") {
         setConfirming(false);
         setComposing(true);
         return;
       }
-      await sendTakedown(caseId, {
-        target_id: targetId,
-        subject: d.draft.subject,
-        body: d.draft.body,
-      });
       setConfirming(false);
       await reload();
     } catch (e) {

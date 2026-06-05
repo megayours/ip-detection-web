@@ -7,8 +7,7 @@ import {
   markIpFindingEnforced,
   reenrichIpFinding,
   reopenIpFinding,
-  getTakedownDraft,
-  sendTakedown,
+  autoSendTakedown,
   type CaseReviewStatus,
   type IpReviewFinding,
   type MonitoringFacets,
@@ -49,6 +48,56 @@ function formatAgo(iso: string | null): string | null {
   if (days < 30) return `${days}d ago`;
   const months = Math.round(days / 30);
   return months < 12 ? `${months}mo ago` : `${Math.round(months / 12)}y ago`;
+}
+
+// --- Batch operations (multi-select) ---------------------------------------
+
+type BatchAction = "send" | "dismiss" | "enforce";
+
+const BATCH_META: Record<
+  BatchAction,
+  { label: string; verb: string; gerund: string }
+> = {
+  send: { label: "Send takedowns", verb: "Sent", gerund: "Send takedowns for" },
+  dismiss: { label: "Dismiss", verb: "Dismissed", gerund: "Dismiss" },
+  enforce: { label: "Mark enforced", verb: "Marked enforced", gerund: "Mark enforced" },
+};
+
+/** Run `worker` over `items` with at most `concurrency` in flight. */
+async function runPool<T>(
+  items: T[],
+  worker: (item: T) => Promise<void>,
+  concurrency: number,
+) {
+  let cursor = 0;
+  const pull = async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await worker(item);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, pull),
+  );
+}
+
+/** "Sent 9 · skipped 3: 2 missing signer, 1 already sent · 1 failed" */
+function summarizeBatch(
+  action: BatchAction,
+  ok: number,
+  skipped: Record<string, number>,
+  failed: number,
+): string {
+  const parts = [`${BATCH_META[action].verb} ${ok}`];
+  const skipTotal = Object.values(skipped).reduce((a, b) => a + b, 0);
+  if (skipTotal > 0) {
+    const detail = Object.entries(skipped)
+      .map(([reason, n]) => `${n} ${reason}`)
+      .join(", ");
+    parts.push(`skipped ${skipTotal}: ${detail}`);
+  }
+  if (failed > 0) parts.push(`${failed} failed`);
+  return parts.join(" · ");
 }
 
 /**
@@ -135,6 +184,116 @@ export function MonitoringBoard({
       alert(e instanceof Error ? e.message : "Failed to dismiss finding");
     }
   }
+
+  // --- Multi-select + batch operations -------------------------------------
+  // Selection is keyed by result_id and page-local (covers loaded rows only).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmAction, setConfirmAction] = useState<BatchAction | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
+
+  // Reset selection when the filter set changes — the rows it referenced are
+  // gone. (Pruning on every refetch isn't needed: stale ids are simply ignored.)
+  const filterKey = JSON.stringify(filters);
+  useEffect(() => {
+    setSelected(new Set());
+    setBatchResult(null);
+  }, [filterKey]);
+
+  function toggleSelect(resultId: string) {
+    setBatchResult(null);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(resultId)) next.delete(resultId);
+      else next.add(resultId);
+      return next;
+    });
+  }
+  function toggleSelectAll() {
+    setBatchResult(null);
+    setSelected((prev) =>
+      prev.size === findings.length
+        ? new Set()
+        : new Set(findings.map((f) => f.result_id)),
+    );
+  }
+
+  // Split the current selection for an action into rows to act on vs.
+  // skip-reason counts to report. `state` mirrors FindingActions' derivation.
+  function partitionSelection(action: BatchAction) {
+    const eligible: IpReviewFinding[] = [];
+    const skipped: Record<string, number> = {};
+    const skip = (r: string) => {
+      skipped[r] = (skipped[r] ?? 0) + 1;
+    };
+    for (const f of findings) {
+      if (!selected.has(f.result_id)) continue;
+      const state: CaseReviewStatus = f.dismissed_at
+        ? "dismissed"
+        : (f.review_status ?? "pending");
+      if (action === "send") {
+        if (state !== "pending") skip("already sent or closed");
+        else if (!f.case_id) skip("still preparing");
+        else if (f.signer_ready === false) skip("missing signer");
+        else eligible.push(f);
+      } else if (action === "dismiss") {
+        if (f.dismissed_at) skip("already dismissed");
+        else if (!(f.ip_id ?? ipId)) skip("no associated IP");
+        else eligible.push(f);
+      } else {
+        if (state !== "takedown_sent") skip("not awaiting enforcement");
+        else if (!(f.ip_id ?? ipId)) skip("no associated IP");
+        else eligible.push(f);
+      }
+    }
+    return { eligible, skipped };
+  }
+
+  async function runBatch(action: BatchAction) {
+    const { eligible, skipped } = partitionSelection(action);
+    const skipCounts: Record<string, number> = { ...skipped };
+    let ok = 0;
+    let failed = 0;
+    if (eligible.length === 0) {
+      setBatchResult(summarizeBatch(action, 0, skipCounts, 0));
+      return;
+    }
+    setBatchProgress({ done: 0, total: eligible.length });
+    const bump = (reason: string) => {
+      skipCounts[reason] = (skipCounts[reason] ?? 0) + 1;
+    };
+    await runPool(
+      eligible,
+      async (f) => {
+        try {
+          if (action === "send") {
+            const r = await autoSendTakedown(f.case_id as string);
+            if (r.status === "sent") ok++;
+            else if (r.status === "needs_compose") bump("needs manual compose");
+            else bump("email not configured");
+          } else if (action === "dismiss") {
+            await dismissIpFinding((f.ip_id ?? ipId) as string, f.result_id);
+            ok++;
+          } else {
+            await markIpFindingEnforced((f.ip_id ?? ipId) as string, f.result_id);
+            ok++;
+          }
+        } catch {
+          failed++;
+        } finally {
+          setBatchProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+        }
+      },
+      4,
+    );
+    setBatchProgress(null);
+    setSelected(new Set());
+    setBatchResult(summarizeBatch(action, ok, skipCounts, failed));
+    onRefresh();
+  }
+
+  const allSelected = findings.length > 0 && selected.size === findings.length;
+  const someSelected = selected.size > 0 && !allSelected;
 
   return (
     <>
@@ -252,11 +411,86 @@ export function MonitoringBoard({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white">
-        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-stone-900">
-            Findings <span className="text-stone-400 font-normal">({findings.length}{nextCursor ? "+" : ""})</span>
-          </h2>
+        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {findings.length > 0 && (
+              <input
+                type="checkbox"
+                aria-label="Select all loaded findings"
+                checked={allSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = someSelected;
+                }}
+                onChange={toggleSelectAll}
+                className="shrink-0"
+              />
+            )}
+            <h2 className="text-sm font-bold text-stone-900">
+              {selected.size > 0 ? (
+                <span>{selected.size} selected</span>
+              ) : (
+                <>
+                  Findings{" "}
+                  <span className="text-stone-400 font-normal">
+                    ({findings.length}{nextCursor ? "+" : ""})
+                  </span>
+                </>
+              )}
+            </h2>
+          </div>
+          {selected.size > 0 && (
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {batchProgress ? (
+                <span className="text-xs text-stone-500">
+                  Working… ({batchProgress.done}/{batchProgress.total})
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction("send")}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-500"
+                  >
+                    Send takedowns
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction("enforce")}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 text-white hover:bg-emerald-500"
+                  >
+                    Mark enforced
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction("dismiss")}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(new Set())}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-stone-500 hover:text-stone-700"
+                  >
+                    Clear
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
+        {batchResult && (
+          <div className="px-5 py-2 border-b border-stone-100 bg-stone-50 text-xs text-stone-600 flex items-center justify-between gap-3">
+            <span>{batchResult}</span>
+            <button
+              type="button"
+              onClick={() => setBatchResult(null)}
+              className="text-stone-400 hover:text-stone-600 font-semibold shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {findings.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
             {runInProgress
@@ -276,15 +510,29 @@ export function MonitoringBoard({
               const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
               return (
                 <div key={f.result_id}>
-                  <FindingRow
-                    f={f}
-                    expanded={expanded}
-                    isDismissed={rowDismissed}
-                    showIp={ipAware}
-                    onToggle={() =>
-                      setActiveId((prev) => (prev === f.result_id ? null : f.result_id))
-                    }
-                  />
+                  <div className="flex items-center">
+                    <label
+                      className={`pl-3 pr-1 flex items-center shrink-0 cursor-pointer ${
+                        rowDismissed ? "opacity-50" : ""
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label="Select finding"
+                        checked={selected.has(f.result_id)}
+                        onChange={() => toggleSelect(f.result_id)}
+                      />
+                    </label>
+                    <FindingRow
+                      f={f}
+                      expanded={expanded}
+                      isDismissed={rowDismissed}
+                      showIp={ipAware}
+                      onToggle={() =>
+                        setActiveId((prev) => (prev === f.result_id ? null : f.result_id))
+                      }
+                    />
+                  </div>
                   {expanded && (
                     <div className="bg-stone-50 border-t border-stone-100 px-5 py-5">
                       <FindingComparison
@@ -323,7 +571,100 @@ export function MonitoringBoard({
           </div>
         )}
       </div>
+
+      {confirmAction && (
+        <BatchConfirmModal
+          action={confirmAction}
+          {...partitionSelection(confirmAction)}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => {
+            const a = confirmAction;
+            setConfirmAction(null);
+            void runBatch(a);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** Confirm dialog for a bulk action — previews how many of the selection will
+ *  be acted on vs. skipped (and why) before running. */
+function BatchConfirmModal({
+  action,
+  eligible,
+  skipped,
+  onConfirm,
+  onCancel,
+}: {
+  action: BatchAction;
+  eligible: IpReviewFinding[];
+  skipped: Record<string, number>;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const meta = BATCH_META[action];
+  const skipTotal = Object.values(skipped).reduce((a, b) => a + b, 0);
+  return (
+    <div
+      onClick={onCancel}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl border border-stone-200 max-w-md w-full overflow-hidden"
+      >
+        <div className="px-5 py-4 border-b border-stone-100">
+          <h3 className="font-bold text-stone-900">{meta.label}</h3>
+        </div>
+        <div className="px-5 py-4 space-y-3 text-sm text-stone-600">
+          {eligible.length > 0 ? (
+            <p>
+              {meta.gerund}{" "}
+              <span className="font-semibold text-stone-900">
+                {eligible.length} finding{eligible.length === 1 ? "" : "s"}
+              </span>
+              {action === "send"
+                ? ". Each uses the suggested route + pre-filled draft for its platform."
+                : "."}
+            </p>
+          ) : (
+            <p>None of the selected findings are eligible for this action.</p>
+          )}
+          {skipTotal > 0 && (
+            <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
+              <p className="font-semibold text-stone-700">
+                Skipping {skipTotal}:
+              </p>
+              <ul className="mt-1 space-y-0.5 text-stone-500">
+                {Object.entries(skipped).map(([reason, n]) => (
+                  <li key={reason}>
+                    {n} {reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-stone-100 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={eligible.length === 0}
+            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {meta.label}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -811,7 +1152,7 @@ function FindingRow({
       onClick={onToggle}
       aria-expanded={expanded}
       title={updatedAgo ? `Updated ${updatedAgo}` : undefined}
-      className={`w-full text-left flex items-center gap-3 px-3 py-2 transition-colors ${
+      className={`flex-1 min-w-0 text-left flex items-center gap-3 px-3 py-2 transition-colors ${
         expanded ? "bg-stone-50" : "hover:bg-stone-50"
       } ${isDismissed ? "opacity-50" : ""}`}
     >
@@ -1224,22 +1565,16 @@ function FindingActions({
     setDirectSending(true);
     setSendErr("");
     try {
-      const d = await getTakedownDraft(f.case_id);
-      if (!d.configured) {
+      const r = await autoSendTakedown(f.case_id);
+      if (r.status === "unconfigured") {
         setSendErr("Email isn't configured yet — contact your administrator.");
         return;
       }
-      const targetId = d.suggested_target_id ?? d.routes[0]?.id ?? "";
-      if (!targetId || !d.draft) {
+      if (r.status === "needs_compose") {
         setConfirming(false);
         setComposing(true);
         return;
       }
-      await sendTakedown(f.case_id, {
-        target_id: targetId,
-        subject: d.draft.subject,
-        body: d.draft.body,
-      });
       setConfirming(false);
       onUpdated();
     } catch (e) {

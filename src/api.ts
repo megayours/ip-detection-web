@@ -482,6 +482,29 @@ export function sendTakedown(
   );
 }
 
+/** Send the suggested-route takedown draft for a case without opening the
+ *  editor — the quick path shared by the single-row "Send takedown" and the
+ *  board's batch send. Returns a discriminated status so callers can fall back
+ *  to manual compose (no route/draft) or surface "email not configured". */
+export async function autoSendTakedown(
+  caseId: string,
+): Promise<
+  | { status: "sent"; request: TakedownRequest }
+  | { status: "needs_compose" }
+  | { status: "unconfigured" }
+> {
+  const d = await getTakedownDraft(caseId);
+  if (!d.configured) return { status: "unconfigured" };
+  const target_id = d.suggested_target_id ?? d.routes[0]?.id ?? "";
+  if (!target_id || !d.draft) return { status: "needs_compose" };
+  const { request } = await sendTakedown(caseId, {
+    target_id,
+    subject: d.draft.subject,
+    body: d.draft.body,
+  });
+  return { status: "sent", request };
+}
+
 export function replyTakedown(caseId: string, body: string) {
   return request<{ message: TakedownMessage }>(
     `/api/cases/${caseId}/takedown/reply`,
