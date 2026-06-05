@@ -1137,8 +1137,12 @@ function FindingRow({
   const updatedAgo = formatAgo(f.last_checked_at);
   const title = f.listing_title ?? f.page_url;
   const sellerLine = f.seller_name || "—";
-  const priceText =
-    f.price ?? (f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : null);
+  // Show the USD-normalized price so the Price column reads monotonically when
+  // sorted (the sort key is USD across mixed currencies). Native price + est.
+  // market live in the tooltip.
+  const priceUsd =
+    f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : null;
+  const priceText = priceUsd ?? f.price ?? null;
 
   return (
     <>
@@ -1215,9 +1219,14 @@ function FindingRow({
       <td
         className="hidden md:table-cell py-2 px-2 align-middle text-right whitespace-nowrap text-[12px] font-semibold tabular-nums text-stone-800"
         title={
-          market
-            ? `Est. market ${formatMoney(market.value, market.currency)} (unit × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK})`
-            : "No structured price yet"
+          [
+            f.price ? `Listed ${f.price}` : null,
+            market
+              ? `Est. market ${formatMoney(market.value, market.currency)} (unit × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK})`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "No structured price yet"
         }
       >
         {priceText ?? <span className="text-stone-300">—</span>}

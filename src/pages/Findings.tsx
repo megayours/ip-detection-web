@@ -53,7 +53,10 @@ function parseFilters(params: URLSearchParams): InboxFilters {
     sort:
       sort === "score_desc" || sort === "score_asc" ||
       sort === "found_desc" || sort === "found_asc" ||
-      sort === "updated_desc" || sort === "updated_asc"
+      sort === "updated_desc" || sort === "updated_asc" ||
+      sort === "price_desc" || sort === "price_asc" ||
+      sort === "seller_desc" || sort === "seller_asc" ||
+      sort === "platform_desc" || sort === "platform_asc"
         ? sort
         : DEFAULT_SORT,
   };
