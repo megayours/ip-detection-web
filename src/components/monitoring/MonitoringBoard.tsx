@@ -529,7 +529,7 @@ export function MonitoringBoard({
                         <tr>
                           <td
                             colSpan={9}
-                            className="bg-stone-50 border-t border-stone-100 px-5 py-5"
+                            className="bg-stone-50 border-t border-stone-100 px-4 py-3"
                           >
                             <FindingComparison
                               key={f.result_id}
@@ -928,7 +928,7 @@ function BboxOverlay({
  *  shows its similarity %. Falls back to discovery `image_url` only when the
  *  gallery is empty. The page screenshot is rendered separately below. */
 function ListingCarousel({ f }: { f: IpReviewFinding }) {
-  const scored = f.gallery_scores ?? [];
+  const scored = useMemo(() => f.gallery_scores ?? [], [f.gallery_scores]);
   const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
   // Per-URL bbox in gallery-image pixel coords from the worker's keypoint
   // localizer. Drawn as an SVG overlay on the hero so the reviewer can see
@@ -956,10 +956,15 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
   }, [f.screenshot_url, scored, f.image_urls, f.image_url]);
 
   const [idx, setIdx] = useState(0);
-  // Reset selection when the underlying finding changes.
-  useEffect(() => {
-    setIdx(0);
-  }, [f.result_id]);
+  // Natural dimensions of the active hero image — needed so the SVG bbox
+  // overlay (in pixel coords) lines up under the same `object-contain`
+  // letterboxing as the <img>. Keyed by URL so switching slides invalidates a
+  // stale measurement during render (no setState-in-effect). Switching finding
+  // remounts the whole panel via the `key` on <FindingComparison>, so `idx`
+  // resets to 0 on its own — no reset effect needed.
+  const [natural, setNatural] = useState<{ url: string; w: number; h: number } | null>(null);
+
+  const active = urls[Math.min(idx, urls.length - 1)];
 
   if (urls.length === 0) {
     return (
@@ -969,18 +974,11 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
     );
   }
 
-  const active = urls[Math.min(idx, urls.length - 1)];
   const activeSim = scoredByUrl.get(active);
   const activeBbox = bboxByUrl.get(active);
   const bestUrl = scored[0]?.url;
-
-  // Natural dimensions of the active hero image — needed so the SVG bbox
-  // overlay (in pixel coords) lines up under the same `object-contain`
-  // letterboxing as the <img>. Reset when the active URL changes.
-  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
-  useEffect(() => {
-    setNatural(null);
-  }, [active]);
+  // Only honor the measurement when it belongs to the current slide.
+  const activeNatural = natural?.url === active ? natural : null;
 
   return (
     <div className="space-y-2">
@@ -990,7 +988,7 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         target="_blank"
         rel="noreferrer"
         title="Open full size"
-        className="block w-full aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
+        className="block w-full aspect-square max-h-[280px] bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
       >
         <img
           src={active}
@@ -998,17 +996,17 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
           className="w-full h-full object-contain"
           onLoad={(e) => {
             const img = e.currentTarget;
-            setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+            setNatural({ url: active, w: img.naturalWidth, h: img.naturalHeight });
           }}
         />
-        {activeBbox && natural && (
+        {activeBbox && activeNatural && (
           // SVG laid over the container with its viewBox = the image's natural
           // pixel space. Default preserveAspectRatio ("xMidYMid meet") matches
           // <img>'s `object-contain` letterboxing, so the overlay lands on the
           // same pixels regardless of the container's aspect ratio.
           <BboxOverlay
-            naturalW={natural.w}
-            naturalH={natural.h}
+            naturalW={activeNatural.w}
+            naturalH={activeNatural.h}
             bbox={activeBbox}
           />
         )}
@@ -1279,28 +1277,43 @@ function FindingComparison({
   const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
 
   return (
-    <div className="space-y-4">
-      {/* Header: IP + status + listing source on the left, the state-driven
-          action group pinned top-right. Context follows below the image. */}
+    <div className="space-y-2.5">
+      {/* Top meta strip — priority · status · IP · source · key flags on the
+          left; the state-driven action group pinned right. Merges what used to
+          be a header row + a separate priority/method chip strip. */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {showIp && f.ip_name && (
-              <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
-                {f.ip_name}
-              </span>
-            )}
-            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${sb.cls}`}>
-              {sb.label}
+        <div className="min-w-0 flex items-center gap-x-2 gap-y-1 flex-wrap">
+          <span className={`text-base font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
+          <span className="text-[9px] uppercase tracking-wider text-stone-400">priority</span>
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${sb.cls}`}>
+            {sb.label}
+          </span>
+          {showIp && f.ip_name && (
+            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
+              {f.ip_name}
             </span>
-          </div>
-          <div className="text-[11px] text-stone-500 mt-1 truncate">
-            <span className="uppercase tracking-wide text-stone-400">Found on </span>
+          )}
+          <span className="text-[11px] text-stone-500 truncate">
+            <span className="uppercase tracking-wide text-stone-400">on </span>
             <span className="font-semibold text-stone-700">{f.domain}</span>
-            {isChallenge && (
-              <span className="ml-1.5 text-red-600">⚠ bot-wall page (not the listing)</span>
-            )}
-          </div>
+          </span>
+          {isChallenge && (
+            <span
+              className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-red-100 text-red-700"
+              title="Listing-page enrichment was blocked by a bot-wall / reCAPTCHA — details deferred to a later run"
+            >
+              challenge
+            </span>
+          )}
+          {isDismissed && (
+            f.dismissal_reason === "licensed" ? (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">licensed</span>
+            ) : f.dismissal_reason?.startsWith("dead_link") ? (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700">dead link</span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">dismissed</span>
+            )
+          )}
         </div>
         <FindingActions
           f={f}
@@ -1313,61 +1326,21 @@ function FindingComparison({
         />
       </div>
 
-      {/* Two-column body: images on the left (fills a bounded column), all the
-          enrichment data on the right. Collapses to a single column below lg. */}
-      <div className="grid lg:grid-cols-[minmax(320px,42%)_1fr] gap-x-6 gap-y-4 items-start">
+      {/* Two-column body: bounded image left, enrichment data right. Collapses
+          to a single column below lg. */}
+      <div className="grid lg:grid-cols-[minmax(240px,32%)_1fr] gap-x-4 gap-y-3 items-start">
         {/* LEFT — single image carousel. Page screenshot is the first slide
             when captured; product photos follow (best-matched marked). */}
         <div className="lg:sticky lg:top-4">
           <ListingCarousel f={f} />
         </div>
 
-        {/* RIGHT — enrichment data, packed tighter than the old stacked layout. */}
-        <div className="space-y-3 min-w-0">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`text-lg font-bold ${priorityCls}`}>{f.enforcement_priority.toFixed(2)}</span>
-        <span className="text-[10px] uppercase tracking-wider text-stone-400">priority</span>
-        {f.source_method && (
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
-            {methodChip(f.source_method).label}
-          </span>
-        )}
-        {f.match_method && (
-          <span
-            className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${matchMethodChip(f.match_method).cls}`}
-            title={matchMethodChip(f.match_method).title}
-          >
-            {matchMethodChip(f.match_method).label}
-          </span>
-        )}
-        {f.vlm_verdict && (
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
-            vlm: {f.vlm_verdict}
-            {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
-          </span>
-        )}
-        {isChallenge && (
-          <span
-            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-red-100 text-red-700"
-            title="Listing-page enrichment was blocked by a bot-wall / reCAPTCHA — details deferred to a later run"
-          >
-            challenge
-          </span>
-        )}
-        {isDismissed && (
-          f.dismissal_reason === "licensed" ? (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">licensed</span>
-          ) : f.dismissal_reason?.startsWith("dead_link") ? (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700">dead link</span>
-          ) : (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">dismissed</span>
-          )
-        )}
-      </div>
+        {/* RIGHT — enrichment data. */}
+        <div className="space-y-2 min-w-0">
 
       {/* Listing context (from VLM enrichment) — what's on sale, type, where */}
       {f.listing_title && (
-        <h3 className="text-base font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
+        <h3 className="text-sm font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
       )}
 
       <div className="flex items-center gap-2 flex-wrap text-[11px]">
@@ -1427,34 +1400,30 @@ function FindingComparison({
       </div>
 
       {(f.seller_name || f.seller_url) && (
-        <div className="text-[11px] text-stone-600 space-y-0.5">
-          <div>
+        <div className="text-[11px] text-stone-500 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
+          <span>
             <span className="text-stone-400">Seller: </span>
             {f.seller_url ? (
-              <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+              <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline font-medium">
                 {f.seller_name || f.seller_url}
               </a>
             ) : (
-              <span className="font-medium">{f.seller_name}</span>
+              <span className="font-medium text-stone-600">{f.seller_name}</span>
             )}
-          </div>
-          {(f.seller_rating != null || f.seller_sales != null || f.seller_years_active != null) && (
-            <div className="text-stone-400 flex items-center gap-2 flex-wrap">
-              {f.seller_rating != null && (
-                <span>
-                  ★ <span className="font-semibold text-stone-600">{Number(f.seller_rating).toFixed(1)}</span>
-                  {f.seller_rating_count != null && f.seller_rating_count > 0 && (
-                    <span className="text-stone-400"> ({Number(f.seller_rating_count).toLocaleString()})</span>
-                  )}
-                </span>
+          </span>
+          {f.seller_rating != null && (
+            <span>
+              ★ <span className="font-semibold text-stone-600">{Number(f.seller_rating).toFixed(1)}</span>
+              {f.seller_rating_count != null && f.seller_rating_count > 0 && (
+                <span className="text-stone-400"> ({Number(f.seller_rating_count).toLocaleString()})</span>
               )}
-              {f.seller_sales != null && f.seller_sales > 0 && (
-                <span>· {f.seller_sales.toLocaleString()} sales</span>
-              )}
-              {f.seller_years_active != null && f.seller_years_active > 0 && (
-                <span>· {f.seller_years_active}y on platform</span>
-              )}
-            </div>
+            </span>
+          )}
+          {f.seller_sales != null && f.seller_sales > 0 && (
+            <span>· {f.seller_sales.toLocaleString()} sales</span>
+          )}
+          {f.seller_years_active != null && f.seller_years_active > 0 && (
+            <span>· {f.seller_years_active}y</span>
           )}
         </div>
       )}
@@ -1499,11 +1468,9 @@ function FindingComparison({
         <p className="text-[11px] text-stone-400 italic">Listing details still being analysed…</p>
       )}
 
+      {/* Footer meta — reviewer-relevant timestamps + the listing link. */}
       <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-400">
-        <span>sim {Math.round((f.similarity_score ?? 0) * 100)}%</span>
-        {f.inliers != null && <span>· inliers {f.inliers}</span>}
-        {f.published_at && <span>· {f.published_at}</span>}
-        <span>· found {new Date(f.found_at).toLocaleDateString()}</span>
+        <span>found {new Date(f.found_at).toLocaleDateString()}</span>
         {f.last_checked_at && (
           <span title={new Date(f.last_checked_at).toLocaleString()}>
             · last visit {formatAgo(f.last_checked_at)}
@@ -1513,6 +1480,38 @@ function FindingComparison({
           · open listing ↗
         </a>
       </div>
+
+      {/* Signals — developer-facing match diagnostics, collapsed by default so
+          they don't crowd the reviewer's primary scan. */}
+      <details className="text-[11px] text-stone-400">
+        <summary className="cursor-pointer hover:text-stone-600 select-none">Signals</summary>
+        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+          <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600">sim {Math.round((f.similarity_score ?? 0) * 100)}%</span>
+          {f.inliers != null && (
+            <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600">inliers {f.inliers}</span>
+          )}
+          {f.source_method && (
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
+              {methodChip(f.source_method).label}
+            </span>
+          )}
+          {f.match_method && (
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${matchMethodChip(f.match_method).cls}`}
+              title={matchMethodChip(f.match_method).title}
+            >
+              {matchMethodChip(f.match_method).label}
+            </span>
+          )}
+          {f.vlm_verdict && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
+              vlm: {f.vlm_verdict}
+              {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
+            </span>
+          )}
+          {f.published_at && <span className="text-stone-400">· {f.published_at}</span>}
+        </div>
+      </details>
         </div>
       </div>
 
@@ -1522,7 +1521,7 @@ function FindingComparison({
           (Send takedown); this panel surfaces the thread once a request exists.
           Comments show whenever a case exists. */}
       {f.case_id && (
-        <div className="border-t border-stone-200 pt-4 space-y-5">
+        <div className="border-t border-stone-200 pt-3 space-y-4">
           {["takedown_sent", "enforced"].includes(
             (f.dismissed_at ? "dismissed" : f.review_status) ?? "",
           ) && (
