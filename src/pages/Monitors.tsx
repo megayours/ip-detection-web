@@ -8,6 +8,7 @@ import {
   type Trademark,
 } from "../api";
 import { PlatformsPanel } from "../components/monitoring/PlatformsPanel";
+import { COUNTRIES, countryLabel } from "../lib/countries";
 
 /**
  * Per-IP monitoring management page. Add new monitored IPs, see each IP's
@@ -134,6 +135,7 @@ function AddMonitoredIp({
   const [open, setOpen] = useState(false);
   const [all, setAll] = useState<Trademark[] | null>(null);
   const [picked, setPicked] = useState("");
+  const [pickedCountry, setPickedCountry] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -159,8 +161,9 @@ function AddMonitoredIp({
     setBusy(true);
     setErr("");
     try {
-      await addIpMonitoringPlatform(picked, url.trim());
+      await addIpMonitoringPlatform(picked, url.trim(), pickedCountry || null);
       setPicked("");
+      setPickedCountry("");
       setOpen(false);
       onAdded();
     } catch (e) {
@@ -222,6 +225,19 @@ function AddMonitoredIp({
             {available.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={pickedCountry}
+            onChange={(e) => setPickedCountry(e.target.value)}
+            title="Scrape-from country (residential proxy egress) — optional"
+            className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs bg-white text-stone-700 min-w-[10rem]"
+          >
+            <option value="">🌐 Default (no proxy)</option>
+            {COUNTRIES.map((cn) => (
+              <option key={cn.code} value={cn.code}>
+                {countryLabel(cn.code)}
               </option>
             ))}
           </select>

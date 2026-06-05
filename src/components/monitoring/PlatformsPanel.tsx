@@ -4,10 +4,12 @@ import {
   listIpMonitoringPlatforms,
   addIpMonitoringPlatform,
   setIpMonitoringPlatformEnabled,
+  setIpMonitoringPlatformCountry,
   removeIpMonitoringPlatform,
   triggerIpMonitoringRun,
   type MonitoredDomain,
 } from "../../api";
+import { COUNTRIES, countryLabel } from "../../lib/countries";
 
 /**
  * The watched-platforms panel for a single IP: list domains (with
@@ -37,6 +39,7 @@ export function PlatformsPanel({
 
   const [platforms, setPlatforms] = useState<MonitoredDomain[]>([]);
   const [newDomain, setNewDomain] = useState("");
+  const [newCountry, setNewCountry] = useState("");
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState("");
@@ -60,14 +63,25 @@ export function PlatformsPanel({
     setAdding(true);
     setErr("");
     try {
-      await addIpMonitoringPlatform(ipId, d);
+      await addIpMonitoringPlatform(ipId, d, newCountry || null);
       setNewDomain("");
+      setNewCountry("");
       await loadPlatforms();
       onPlatformsChanged?.();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function changeCountry(p: MonitoredDomain, country: string) {
+    try {
+      await setIpMonitoringPlatformCountry(ipId, p.id, country || null);
+      await loadPlatforms();
+      onPlatformsChanged?.();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -157,6 +171,19 @@ export function PlatformsPanel({
                 {p.enabled ? "On" : "Off"}
               </button>
               <span className="font-mono text-stone-700 flex-1 min-w-0 truncate">{p.domain}</span>
+              <select
+                value={p.country ?? ""}
+                onChange={(e) => void changeCountry(p, e.target.value)}
+                title="Scrape-from country (residential proxy egress)"
+                className="shrink-0 px-1.5 py-0.5 rounded-md border border-stone-200 bg-white text-[11px] text-stone-600 max-w-[9rem]"
+              >
+                <option value="">🌐 Default</option>
+                {COUNTRIES.map((cn) => (
+                  <option key={cn.code} value={cn.code}>
+                    {countryLabel(cn.code)}
+                  </option>
+                ))}
+              </select>
               <span className="text-stone-400 shrink-0">
                 {p.last_run_at ? `last run ${new Date(p.last_run_at).toLocaleDateString()}` : "never run"}
               </span>
@@ -187,6 +214,22 @@ export function PlatformsPanel({
             placeholder="etsy.com or https://www.etsy.com/search?q=…"
             className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs w-full"
           />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] text-stone-400 uppercase tracking-wide">Scrape from (optional)</span>
+          <select
+            value={newCountry}
+            onChange={(e) => setNewCountry(e.target.value)}
+            title="Route this platform's scrapes through a residential proxy in this country"
+            className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs bg-white text-stone-700 min-w-[10rem]"
+          >
+            <option value="">🌐 Default (no proxy)</option>
+            {COUNTRIES.map((cn) => (
+              <option key={cn.code} value={cn.code}>
+                {countryLabel(cn.code)}
+              </option>
+            ))}
+          </select>
         </div>
         <button
           onClick={add}
