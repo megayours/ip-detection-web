@@ -1389,7 +1389,10 @@ export async function openIpFindingTakedownPacket(
 export type MonitoringSortMode =
   | "score_desc" | "score_asc"
   | "found_desc" | "found_asc"
-  | "updated_desc" | "updated_asc";
+  | "updated_desc" | "updated_asc"
+  | "price_desc" | "price_asc"
+  | "seller_desc" | "seller_asc"
+  | "platform_desc" | "platform_asc";
 
 export type MonitoringPriorityBand = "high" | "med" | "low";
 export type MonitoringStatusFilter =

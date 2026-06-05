@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import TakedownPanel, { ComposeModal, ConfirmSendModal } from "../TakedownPanel";
 import CaseComments from "../CaseComments";
 import {
@@ -161,7 +161,6 @@ export function MonitoringBoard({
 
   const counts = facets.priorities;
   const total = facets.total;
-  const dismissedCount = facets.statuses.dismissed ?? 0;
 
   async function handleDismiss(f: IpReviewFinding) {
     if (dismissing.has(f.result_id)) return;
@@ -297,25 +296,36 @@ export function MonitoringBoard({
 
   return (
     <>
-      <StatusFilterBar
-        counts={facets.statuses}
-        active={filters.status}
-        onSelect={(s) =>
-          onFiltersChange({ status: s as MonitoringStatusFilter | null })
-        }
-      />
-
-      {/* One clean filter bar: severity pills + IP + platform + dismissed. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-3 mt-3">
-        <PriorityBanner
-          counts={{ ...counts, total }}
-          active={filters.priority ?? "all"}
-          onSelect={(p) =>
-            onFiltersChange({
-              priority: p === "all" ? null : (p as MonitoringPriorityBand),
-            })
-          }
-        />
+      {/* Secondary toolbar — priority + facet filters. Status lives in the
+          tabs on the table; sorting lives in the sortable column headers. */}
+      <div className="flex items-center justify-end gap-2 flex-wrap mb-3">
+        <div className="relative">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-stone-400">
+            <svg viewBox="0 0 12 12" width="12" height="12" fill="currentColor" aria-hidden>
+              <rect x="0.5" y="5" width="2.5" height="6" rx="0.5" />
+              <rect x="4.75" y="3" width="2.5" height="8" rx="0.5" />
+              <rect x="9" y="1" width="2.5" height="10" rx="0.5" />
+            </svg>
+          </span>
+          <select
+            value={filters.priority ?? "all"}
+            onChange={(e) =>
+              onFiltersChange({
+                priority:
+                  e.target.value === "all"
+                    ? null
+                    : (e.target.value as MonitoringPriorityBand),
+              })
+            }
+            title="Filter by priority"
+            className={`${FILTER_SELECT} pl-7`}
+          >
+            <option value="all">All priorities ({total})</option>
+            <option value="high">High ({counts.high})</option>
+            <option value="med">Medium ({counts.med})</option>
+            <option value="low">Low ({counts.low})</option>
+          </select>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           {ipAware && facets.ips.length > 1 && (
             <select
@@ -380,65 +390,22 @@ export function MonitoringBoard({
               ))}
             </select>
           )}
-          <select
-            value={filters.sort}
-            onChange={(e) =>
-              onFiltersChange({ sort: e.target.value as MonitoringSortMode })
-            }
-            title="Sort findings"
-            className={FILTER_SELECT}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <label
-            className={`flex items-center gap-1.5 text-[11px] ${
-              dismissedCount === 0 ? "text-stone-300" : "text-stone-500"
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={filters.show_dismissed}
-              onChange={(e) => onFiltersChange({ show_dismissed: e.target.checked })}
-              disabled={dismissedCount === 0}
-            />
-            Show dismissed ({dismissedCount})
-          </label>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-stone-200 bg-white">
-        <div className="px-5 py-3 border-b border-stone-200 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {findings.length > 0 && (
-              <input
-                type="checkbox"
-                aria-label="Select all loaded findings"
-                checked={allSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = someSelected;
-                }}
-                onChange={toggleSelectAll}
-                className="shrink-0"
-              />
-            )}
-            <h2 className="text-sm font-bold text-stone-900">
-              {selected.size > 0 ? (
-                <span>{selected.size} selected</span>
-              ) : (
-                <>
-                  Findings{" "}
-                  <span className="text-stone-400 font-normal">
-                    ({findings.length}{nextCursor ? "+" : ""})
-                  </span>
-                </>
-              )}
-            </h2>
-          </div>
-          {selected.size > 0 && (
+      <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+        <StatusTabs
+          counts={facets.statuses}
+          active={filters.status}
+          onSelect={(s) =>
+            onFiltersChange({ status: s as MonitoringStatusFilter | null })
+          }
+        />
+        {selected.size > 0 && (
+          <div className="px-4 py-2 border-b border-stone-100 bg-stone-50 flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-stone-600">
+              {selected.size} selected
+            </span>
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {batchProgress ? (
                 <span className="text-xs text-stone-500">
@@ -477,8 +444,8 @@ export function MonitoringBoard({
                 </>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
         {batchResult && (
           <div className="px-5 py-2 border-b border-stone-100 bg-stone-50 text-xs text-stone-600 flex items-center justify-between gap-3">
             <span>{batchResult}</span>
@@ -502,54 +469,86 @@ export function MonitoringBoard({
               )}
           </div>
         ) : (
-          /* Gmail-style compact row list. Each row toggles an inline detail
-             panel; only one row is open at a time. */
-          <div className="divide-y divide-stone-100">
-            {findings.map((f) => {
-              const expanded = f.result_id === effectiveActiveId;
-              const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
-              return (
-                <div key={f.result_id}>
-                  <div className="flex items-center">
-                    <label
-                      className={`pl-3 pr-1 flex items-center shrink-0 cursor-pointer ${
-                        rowDismissed ? "opacity-50" : ""
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label="Select finding"
-                        checked={selected.has(f.result_id)}
-                        onChange={() => toggleSelect(f.result_id)}
-                      />
-                    </label>
-                    <FindingRow
-                      f={f}
-                      expanded={expanded}
-                      isDismissed={rowDismissed}
-                      showIp={ipAware}
-                      onToggle={() =>
-                        setActiveId((prev) => (prev === f.result_id ? null : f.result_id))
-                      }
+          /* Columnar findings table. Sortable headers drive the server sort;
+             clicking a row still expands the inline comparison panel (only one
+             row open at a time). */
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-wide text-stone-400">
+                  <th className="w-8 pl-3 pr-1 py-2 align-middle">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all loaded findings"
+                      checked={allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someSelected;
+                      }}
+                      onChange={toggleSelectAll}
+                      className="align-middle"
                     />
-                  </div>
-                  {expanded && (
-                    <div className="bg-stone-50 border-t border-stone-100 px-5 py-5">
-                      <FindingComparison
-                        key={f.result_id}
-                        f={f}
-                        ipId={f.ip_id ?? ipId}
-                        showIp={ipAware}
-                        isDismissed={rowDismissed}
-                        isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
-                        onDismiss={() => handleDismiss(f)}
-                        onUpdated={onRefresh}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  </th>
+                  <SortHeader label="Rate" col="rate" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="w-14" />
+                  <th className="py-2 px-2 font-semibold">Image</th>
+                  <th className="py-2 px-2 font-semibold">Description</th>
+                  <SortHeader label="Seller" col="seller" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="hidden md:table-cell" />
+                  <SortHeader label="Platform" col="platform" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="hidden lg:table-cell" />
+                  <th className="hidden sm:table-cell py-2 px-2 font-semibold">Status</th>
+                  <SortHeader label="Price" col="price" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} align="right" className="hidden md:table-cell" />
+                  <SortHeader label="Days" col="days" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} align="right" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {findings.map((f) => {
+                  const expanded = f.result_id === effectiveActiveId;
+                  const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
+                  return (
+                    <Fragment key={f.result_id}>
+                      <tr
+                        onClick={() =>
+                          setActiveId((prev) => (prev === f.result_id ? null : f.result_id))
+                        }
+                        className={`cursor-pointer transition-colors ${
+                          expanded ? "bg-stone-50" : "hover:bg-stone-50"
+                        } ${rowDismissed ? "opacity-50" : ""}`}
+                      >
+                        <td
+                          className="w-8 pl-3 pr-1 align-middle"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label="Select finding"
+                            checked={selected.has(f.result_id)}
+                            onChange={() => toggleSelect(f.result_id)}
+                          />
+                        </td>
+                        <FindingRow f={f} expanded={expanded} showIp={ipAware} />
+                      </tr>
+                      {expanded && (
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="bg-stone-50 border-t border-stone-100 px-5 py-5"
+                          >
+                            <FindingComparison
+                              key={f.result_id}
+                              f={f}
+                              ipId={f.ip_id ?? ipId}
+                              showIp={ipAware}
+                              isDismissed={rowDismissed}
+                              isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
+                              onDismiss={() => handleDismiss(f)}
+                              onUpdated={onRefresh}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
         {/* Pagination footer: Load more when the server says there's another
@@ -668,18 +667,17 @@ function BatchConfirmModal({
   );
 }
 
-type PriorityFilter = "all" | "high" | "med" | "low";
-
-// Sort options surfaced in the filter bar. Default `score_desc` mirrors the
+// Sortable table columns → their asc/desc server sort modes. Clicking a header
+// applies `desc` first, then toggles. `score_desc` (the default) mirrors the
 // backend ORDER BY (priority desc, found_at desc).
-const SORT_OPTIONS: Array<{ key: MonitoringSortMode; label: string }> = [
-  { key: "score_desc",   label: "Score · highest first" },
-  { key: "score_asc",    label: "Score · lowest first" },
-  { key: "found_desc",   label: "Found · newest first" },
-  { key: "found_asc",    label: "Found · oldest first" },
-  { key: "updated_desc", label: "Updated · most recent" },
-  { key: "updated_asc",  label: "Updated · least recent" },
-];
+type SortCol = "rate" | "seller" | "platform" | "price" | "days";
+const SORT_COLS: Record<SortCol, { asc: MonitoringSortMode; desc: MonitoringSortMode }> = {
+  rate: { desc: "score_desc", asc: "score_asc" },
+  seller: { desc: "seller_desc", asc: "seller_asc" },
+  platform: { desc: "platform_desc", asc: "platform_asc" },
+  price: { desc: "price_desc", asc: "price_asc" },
+  days: { desc: "found_desc", asc: "found_asc" },
+};
 
 // Slim status pipeline pills. `null` is rendered as "pending".
 const STATUS_FILTERS: Array<{ key: string; label: string }> = [
@@ -704,7 +702,9 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
   }
 }
 
-function StatusFilterBar({
+// Status pipeline as underline tabs flush on the top edge of the results card.
+// The active tab is the primary level of hierarchy; the count rides each tab.
+function StatusTabs({
   counts,
   active,
   onSelect,
@@ -713,31 +713,76 @@ function StatusFilterBar({
   active: string | null;
   onSelect: (s: string | null) => void;
 }) {
-  const total =
-    counts.pending + counts.takedown_sent + counts.enforced;
-  const pill = (key: string | null, label: string, n: number) => {
+  const total = counts.pending + counts.takedown_sent + counts.enforced;
+  const tab = (key: string | null, label: string, n: number) => {
     const isActive = active === key;
     return (
       <button
         key={key ?? "all"}
         type="button"
-        onClick={() => onSelect(isActive ? null : key)}
+        onClick={() => onSelect(key)}
         aria-pressed={isActive}
-        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+        className={`relative px-3.5 py-2.5 text-[13px] font-semibold whitespace-nowrap transition-colors border-b-2 -mb-px ${
           isActive
-            ? "border-stone-900 bg-stone-900 text-white"
-            : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+            ? "border-stone-900 text-stone-900"
+            : "border-transparent text-stone-500 hover:text-stone-800"
         }`}
       >
-        {label} <span className="font-bold tabular-nums">{n}</span>
+        {label}
+        <span
+          className={`ml-1.5 text-[11px] font-bold tabular-nums ${
+            isActive ? "text-stone-500" : "text-stone-400"
+          }`}
+        >
+          {n}
+        </span>
       </button>
     );
   };
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {pill(null, "All", total)}
-      {STATUS_FILTERS.map((s) => pill(s.key, s.label, counts[s.key] ?? 0))}
+    <div className="flex items-center gap-1 px-3 border-b border-stone-200 overflow-x-auto">
+      {tab(null, "All", total)}
+      {STATUS_FILTERS.map((s) => tab(s.key, s.label, counts[s.key] ?? 0))}
     </div>
+  );
+}
+
+// Sortable column header. First click sorts desc, subsequent clicks toggle.
+// A subtle ↕ marks sortable columns; the active column shows the direction.
+function SortHeader({
+  label,
+  col,
+  sort,
+  onSort,
+  align = "left",
+  className = "",
+}: {
+  label: string;
+  col: SortCol;
+  sort: MonitoringSortMode;
+  onSort: (next: MonitoringSortMode) => void;
+  align?: "left" | "right";
+  className?: string;
+}) {
+  const { asc, desc } = SORT_COLS[col];
+  const active = sort === asc || sort === desc;
+  const isAsc = sort === asc;
+  const next = sort === desc ? asc : desc;
+  return (
+    <th className={`py-2 px-2 font-semibold ${className}`}>
+      <button
+        type="button"
+        onClick={() => onSort(next)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-stone-700 ${
+          align === "right" ? "flex-row-reverse" : ""
+        } ${active ? "text-stone-700" : ""}`}
+      >
+        <span>{label}</span>
+        <span className={`text-[8px] leading-none ${active ? "opacity-100" : "opacity-30"}`} aria-hidden>
+          {active ? (isAsc ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }
 
@@ -1026,57 +1071,6 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
   );
 }
 
-function PriorityBanner({
-  counts,
-  active,
-  onSelect,
-}: {
-  counts: { high: number; med: number; low: number; total: number };
-  active: PriorityFilter;
-  onSelect: (f: PriorityFilter) => void;
-}) {
-  // Compact toggle pills: clicking the active band clears back to "all".
-  const pill = (
-    band: PriorityFilter,
-    label: string,
-    value: number,
-    tones: { base: string; on: string },
-    title: string,
-  ) => {
-    const isActive = active === band;
-    return (
-      <button
-        type="button"
-        onClick={() => onSelect(isActive && band !== "all" ? "all" : band)}
-        aria-pressed={isActive}
-        title={title}
-        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-          isActive ? tones.on : tones.base
-        }`}
-      >
-        {label} <span className="font-bold tabular-nums">{value}</span>
-      </button>
-    );
-  };
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {pill("high", "High", counts.high,
-        { base: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100", on: "border-red-600 bg-red-600 text-white" },
-        "Enforcement priority ≥ 0.75")}
-      {pill("med", "Medium", counts.med,
-        { base: "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100", on: "border-amber-500 bg-amber-500 text-white" },
-        "0.50–0.74")}
-      {pill("low", "Low", counts.low,
-        { base: "border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100", on: "border-yellow-500 bg-yellow-500 text-white" },
-        "< 0.50")}
-      {pill("all", "All", counts.total,
-        { base: "border-stone-200 bg-stone-100 text-stone-700 hover:bg-stone-200", on: "border-stone-900 bg-stone-900 text-white" },
-        "All findings, across platforms")}
-    </div>
-  );
-}
-
-
 // Top matched gallery image (highest similarity). Falls back to the
 // discovery image when the gallery wasn't enriched.
 function topImageUrl(f: IpReviewFinding): string | null {
@@ -1116,21 +1110,19 @@ function formatMoney(amount: number, currency: string): string {
   }
 }
 
-/** Gmail-style single-line row. Click anywhere to toggle the inline detail
- *  panel. Crucial fields per the inbox spec:
- *  score · top image · seller · found (tooltip: updated) · state · est. market · platform. */
+/** Table cells (columns 2-9) for one finding. The enclosing <tr> owns the
+ *  click-to-expand + selection styling. Columns:
+ *  rate · image · description · seller · platform · status · price · days.
+ *  Seller/platform/status/price progressively hide on narrower viewports;
+ *  seller·platform then fold into the description cell's secondary line. */
 function FindingRow({
   f,
   expanded,
-  isDismissed,
   showIp,
-  onToggle,
 }: {
   f: IpReviewFinding;
   expanded: boolean;
-  isDismissed: boolean;
   showIp?: boolean;
-  onToggle: () => void;
 }) {
   const priorityBg =
     f.enforcement_priority >= 0.75
@@ -1145,48 +1137,44 @@ function FindingRow({
   const updatedAgo = formatAgo(f.last_checked_at);
   const title = f.listing_title ?? f.page_url;
   const sellerLine = f.seller_name || "—";
+  const priceText =
+    f.price ?? (f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : null);
 
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      title={updatedAgo ? `Updated ${updatedAgo}` : undefined}
-      className={`flex-1 min-w-0 text-left flex items-center gap-3 px-3 py-2 transition-colors ${
-        expanded ? "bg-stone-50" : "hover:bg-stone-50"
-      } ${isDismissed ? "opacity-50" : ""}`}
-    >
-      {/* Expand caret — single column so the row alignment doesn't jump. */}
-      <span
-        className={`shrink-0 text-stone-400 text-xs w-3 transition-transform ${
-          expanded ? "rotate-90" : ""
-        }`}
-        aria-hidden
-      >
-        ▸
-      </span>
+    <>
+      {/* Rate — caret + colored priority pill. */}
+      <td className="py-2 px-2 align-middle whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className={`text-stone-400 text-xs transition-transform ${expanded ? "rotate-90" : ""}`}
+            aria-hidden
+          >
+            ▸
+          </span>
+          <span
+            className={`text-[11px] font-bold tabular-nums rounded px-1.5 py-0.5 ${priorityBg}`}
+            title="Enforcement priority"
+          >
+            {f.enforcement_priority.toFixed(2)}
+          </span>
+        </span>
+      </td>
 
-      {/* (1) Score — colored pill, monospace numerics for column alignment. */}
-      <span
-        className={`shrink-0 text-[11px] font-bold tabular-nums rounded px-1.5 py-0.5 w-10 text-center ${priorityBg}`}
-        title="Enforcement priority"
-      >
-        {f.enforcement_priority.toFixed(2)}
-      </span>
+      {/* Image. */}
+      <td className="py-2 px-2 align-middle">
+        {thumb ? (
+          <img
+            src={thumb}
+            alt=""
+            className="w-9 h-9 rounded object-cover border border-stone-200"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded bg-stone-100" />
+        )}
+      </td>
 
-      {/* (2) Top matched image. */}
-      {thumb ? (
-        <img
-          src={thumb}
-          alt=""
-          className="shrink-0 w-9 h-9 rounded object-cover border border-stone-200"
-        />
-      ) : (
-        <div className="shrink-0 w-9 h-9 rounded bg-stone-100" />
-      )}
-
-      {/* Title + seller stacked, flex-grow so it eats the leftover space. */}
-      <div className="flex-1 min-w-0">
+      {/* Description — title + IP chip; folds seller·platform in on small screens. */}
+      <td className="py-2 px-2 align-middle max-w-0 w-full">
         <div className="flex items-center gap-1.5 min-w-0">
           {showIp && f.ip_name && (
             <span className="shrink-0 inline-block px-1 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide">
@@ -1197,38 +1185,52 @@ function FindingRow({
             {title}
           </span>
         </div>
-        {/* (3) Seller + (7) Platform on the same secondary line. */}
-        <div className="text-[11px] text-stone-500 truncate">
+        <div className="md:hidden text-[11px] text-stone-500 truncate">
           <span className="font-medium">{sellerLine}</span>
           <span className="mx-1.5 text-stone-300">·</span>
           <span>{f.domain}</span>
         </div>
-      </div>
+      </td>
 
-      {/* (5) State badge. */}
-      <span
-        className={`shrink-0 hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${sb.cls}`}
-      >
-        {sb.label}
-      </span>
+      {/* Seller. */}
+      <td className="hidden md:table-cell py-2 px-2 align-middle max-w-[10rem] truncate text-[12px] text-stone-600">
+        {sellerLine}
+      </td>
 
-      {/* (6) Estimated unlicensed market for this item. */}
-      <span
-        className="shrink-0 hidden md:inline-block w-24 text-right text-[12px] font-semibold tabular-nums text-stone-800"
+      {/* Platform. */}
+      <td className="hidden lg:table-cell py-2 px-2 align-middle whitespace-nowrap text-[12px] text-stone-600">
+        {f.domain}
+      </td>
+
+      {/* Status. */}
+      <td className="hidden sm:table-cell py-2 px-2 align-middle">
+        <span
+          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${sb.cls}`}
+        >
+          {sb.label}
+        </span>
+      </td>
+
+      {/* Price — listing price; tooltip carries the estimated unlicensed market. */}
+      <td
+        className="hidden md:table-cell py-2 px-2 align-middle text-right whitespace-nowrap text-[12px] font-semibold tabular-nums text-stone-800"
         title={
           market
-            ? `${f.price ?? formatMoney(Number(f.price_value_usd), "USD")} × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK} (USD)`
+            ? `Est. market ${formatMoney(market.value, market.currency)} (unit × qty ${f.quantity_available && f.quantity_available > 0 ? f.quantity_available : QTY_FALLBACK})`
             : "No structured price yet"
         }
       >
-        {market ? formatMoney(market.value, market.currency) : <span className="text-stone-300">—</span>}
-      </span>
+        {priceText ?? <span className="text-stone-300">—</span>}
+      </td>
 
-      {/* (4) Date — found relative; tooltip on row carries updated. */}
-      <span className="shrink-0 w-14 text-right text-[11px] text-stone-500 tabular-nums">
+      {/* Days — found relative; tooltip carries last-checked. */}
+      <td
+        className="py-2 px-2 align-middle text-right whitespace-nowrap text-[11px] text-stone-500 tabular-nums"
+        title={updatedAgo ? `Updated ${updatedAgo}` : undefined}
+      >
         {foundAgo}
-      </span>
-    </button>
+      </td>
+    </>
   );
 }
 
