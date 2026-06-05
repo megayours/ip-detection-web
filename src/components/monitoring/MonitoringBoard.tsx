@@ -1277,7 +1277,9 @@ function FindingComparison({
   const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
 
   return (
-    <div className="space-y-2.5">
+    // Cap + center the content so the panel doesn't sprawl edge-to-edge on wide
+    // monitors (which left short text lines + the comment box floating in white).
+    <div className="space-y-2.5 max-w-6xl mx-auto">
       {/* Top meta strip — priority · status · IP · source · key flags on the
           left; the state-driven action group pinned right. Merges what used to
           be a header row + a separate priority/method chip strip. */}
