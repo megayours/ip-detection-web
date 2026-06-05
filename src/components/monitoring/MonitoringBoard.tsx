@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import TakedownPanel, { ComposeModal, ConfirmSendModal } from "../TakedownPanel";
 import CaseComments from "../CaseComments";
 import {
@@ -1355,13 +1356,22 @@ function FindingActions({
   if (state === "pending") {
     // Triage decision: send the first takedown (auto-advances to takedown_sent)
     // or dismiss — no separate "confirm" step. License is the fast-path for a
-    // recognised seller.
+    // recognised seller. The send is blocked until the IP has a takedown signer
+    // (signer_ready) — the notice links to that IP's page to fill it in.
+    const ipHref = (f.ip_id ?? ipId) ? `/ips/${f.ip_id ?? ipId}` : "/ips";
+    const signerReady = f.signer_ready ?? true;
     buttons = (
       <>
         <button
           type="button"
-          disabled={!f.case_id}
-          title={f.case_id ? undefined : "Still preparing this case…"}
+          disabled={!f.case_id || !signerReady}
+          title={
+            !f.case_id
+              ? "Still preparing this case…"
+              : !signerReady
+                ? "Add this IP's takedown signer before sending"
+                : undefined
+          }
           onClick={() => {
             setSendErr("");
             setConfirming(true);
@@ -1370,6 +1380,15 @@ function FindingActions({
         >
           Send takedown
         </button>
+        {!signerReady && (
+          <Link
+            to={ipHref}
+            className="text-[11px] font-semibold text-amber-700 underline hover:text-amber-800"
+            title="This IP has no takedown signer yet — set it to enable takedowns"
+          >
+            Add signer for this IP first
+          </Link>
+        )}
         {licenseBtn}
         {dismissBtn}
       </>

@@ -1060,6 +1060,9 @@ export interface IpReviewFinding {
   // render an IP chip. Absent on per-IP findings (the IP is implied).
   ip_id?: string;
   ip_name?: string | null;
+  /** True when the finding's IP has a complete takedown signer profile. The
+   *  board disables "Send takedown" until it's set. Tenant-wide board only. */
+  signer_ready?: boolean;
 }
 
 export interface IpReviewContext {
