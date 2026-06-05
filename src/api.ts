@@ -410,7 +410,7 @@ export interface TakedownDraft {
   missing_fields: string[];
 }
 
-/** Reusable per-tenant signer details that populate every notice. */
+/** Per-IP signer details that populate every notice for that IP. */
 export interface TakedownProfile {
   legal_name: string | null;
   organization: string | null;
@@ -489,15 +489,20 @@ export function replyTakedown(caseId: string, body: string) {
   );
 }
 
-export function getTakedownProfile() {
-  return request<{ profile: TakedownProfile | null }>(`/api/takedown/profile`);
+export function getIpTakedownProfile(ipId: string) {
+  return request<{ profile: TakedownProfile | null }>(
+    `/api/ip/${ipId}/takedown/profile`,
+  );
 }
 
-export function updateTakedownProfile(patch: Partial<TakedownProfile>) {
-  return request<{ profile: TakedownProfile }>(`/api/takedown/profile`, {
-    method: "PUT",
-    body: JSON.stringify(patch),
-  });
+export function updateIpTakedownProfile(
+  ipId: string,
+  patch: Partial<TakedownProfile>,
+) {
+  return request<{ profile: TakedownProfile }>(
+    `/api/ip/${ipId}/takedown/profile`,
+    { method: "PUT", body: JSON.stringify(patch) },
+  );
 }
 
 // --- Giantbomb catalog browse (standalone Pop-Culture catalog page) ---

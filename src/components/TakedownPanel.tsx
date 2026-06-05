@@ -28,11 +28,14 @@ const STATUS_META: Record<TakedownRequestStatus, { label: string; cls: string }>
  */
 export default function TakedownPanel({
   caseId,
+  ipId,
   platform,
   onStatusChange,
   compact = false,
 }: {
   caseId: string;
+  /** IP the case belongs to — links the incomplete-signer notice to /ips/{ipId}. */
+  ipId?: string;
   /** Marketplace the listing is on (e.g. "etsy.com") — shown in the confirm step. */
   platform?: string;
   /** Fired after a send/reply so a parent list can refresh the case's status. */
@@ -268,6 +271,7 @@ export default function TakedownPanel({
       {composing && (
         <ComposeModal
           caseId={caseId}
+          ipId={ipId}
           onClose={() => setComposing(false)}
           onSent={async () => {
             setComposing(false);
@@ -379,10 +383,13 @@ function MessageRow({ message }: { message: TakedownMessage }) {
 
 export function ComposeModal({
   caseId,
+  ipId,
   onClose,
   onSent,
 }: {
   caseId: string;
+  /** IP the case belongs to — links the incomplete-signer notice to /ips/{ipId}. */
+  ipId?: string;
   onClose: () => void;
   onSent: () => Promise<void> | void;
 }) {
@@ -516,12 +523,16 @@ export function ComposeModal({
 
               {missing.length > 0 && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 space-y-1">
-                  <p className="font-bold text-amber-900">Your signer profile is incomplete</p>
+                  <p className="font-bold text-amber-900">This IP's signer profile is incomplete</p>
                   <p>
-                    This notice still needs: {missing.join(", ")}. Add these in{" "}
-                    <Link to="/settings" className="font-semibold underline">
-                      Settings
-                    </Link>{" "}
+                    This notice still needs: {missing.join(", ")}. Add these on{" "}
+                    {ipId ? (
+                      <Link to={`/ips/${ipId}`} className="font-semibold underline">
+                        this IP's page
+                      </Link>
+                    ) : (
+                      "the IP's page"
+                    )}{" "}
                     so the notice is valid — or fill them into the body below.
                   </p>
                 </div>

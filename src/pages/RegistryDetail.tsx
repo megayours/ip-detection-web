@@ -16,6 +16,7 @@ import {
 import { useJobPoller } from "../hooks/useJobPoller";
 import ImageUploader from "../components/ImageUploader";
 import { PlatformsPanel } from "../components/monitoring/PlatformsPanel";
+import IpTakedownSigner from "../components/IpTakedownSigner";
 
 export default function RegistryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -273,6 +274,9 @@ export default function RegistryDetail() {
 
       {/* Monitoring — watched platforms + findings board */}
       <MonitoringSection ip={ip} />
+
+      {/* Takedown signer — per-IP rights-holder + signatory details */}
+      <IpTakedownSigner ipId={ip.id} />
 
       {/* Index job status */}
       {indexJob && indexJob.status !== "completed" && (

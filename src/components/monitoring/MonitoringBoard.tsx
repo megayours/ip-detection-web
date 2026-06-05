@@ -1176,6 +1176,7 @@ function FindingComparison({
           ) && (
             <TakedownPanel
               caseId={f.case_id}
+              ipId={f.ip_id}
               platform={f.domain}
               compact
               onStatusChange={onUpdated}
@@ -1421,6 +1422,7 @@ function FindingActions({
       {composing && f.case_id && (
         <ComposeModal
           caseId={f.case_id}
+          ipId={f.ip_id}
           onClose={() => setComposing(false)}
           onSent={() => {
             setComposing(false);
