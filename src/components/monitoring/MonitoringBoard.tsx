@@ -1505,13 +1505,12 @@ function FindingComparison({
           {f.published_at && <span className="text-stone-400">· {f.published_at}</span>}
         </div>
       </details>
-        </div>
-      </div>
 
-      {/* Primary triage actions — moved below the body and enlarged so a
-          reviewer can decide (takedown / license / dismiss) without hunting a
-          small header control. */}
-      <div className="border-t border-stone-200 pt-3">
+      {/* Primary triage actions — sit at the foot of the enrichment column
+          (right of the image, under the description) and enlarged so a reviewer
+          can decide (takedown / license / dismiss) without hunting a small
+          header control. */}
+      <div className="border-t border-stone-200 pt-3 mt-1">
         <FindingActions
           f={f}
           ipId={ipId}
@@ -1521,6 +1520,8 @@ function FindingComparison({
           onDismiss={onDismiss}
           onUpdated={onUpdated}
         />
+      </div>
+        </div>
       </div>
 
       {/* Takedown thread + discussion — inlined here so the email flow, reply
