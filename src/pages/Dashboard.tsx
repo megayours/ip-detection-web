@@ -26,6 +26,17 @@ const IP_COLORS = [
   "#4f46e5", "#7c3aed", "#db2777", "#0f766e", "#a16207",
 ];
 
+/** Fallback KPIs so a missing `kpis` field can't crash the tiles. */
+const EMPTY_KPIS: DashboardGroups["kpis"] = {
+  to_triage: 0,
+  in_progress: 0,
+  enforced_30d: 0,
+  high_risk: 0,
+  ips_monitored: 0,
+  platforms_monitored: 0,
+  total_unlicensed_market_usd: 0,
+};
+
 /**
  * Tenant dashboard — always grouped by IP. One round-trip to
  * /api/monitoring/dashboard/groups; every breakdown is colored by IP, so a
@@ -69,7 +80,11 @@ export default function Dashboard() {
     );
   }
 
-  const empty = data.ips.length === 0;
+  // Defensive defaults — tolerate a partial/older API response shape rather
+  // than crashing the whole page on a missing field.
+  const ips = data.ips ?? [];
+  const kpis = data.kpis ?? EMPTY_KPIS;
+  const empty = ips.length === 0;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -100,31 +115,31 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <UnlicensedMarketHero totalUsd={data.kpis.total_unlicensed_market_usd ?? 0} />
-          <KpiRow kpis={data.kpis} />
-          <FindingsOverTimeCard timeseries={data.timeseries} ips={data.ips} colors={colors} />
+          <UnlicensedMarketHero totalUsd={kpis.total_unlicensed_market_usd ?? 0} />
+          <KpiRow kpis={kpis} />
+          <FindingsOverTimeCard timeseries={data.timeseries ?? []} ips={ips} colors={colors} />
           <div className="grid lg:grid-cols-2 gap-4">
             <StackedDimensionCard
               title="Top platforms"
               subtitle="Findings per marketplace, colored by IP."
-              items={data.platforms.map((p) => ({ label: p.domain, counts: p.counts }))}
-              ips={data.ips}
+              items={(data.platforms ?? []).map((p) => ({ label: p.domain, counts: p.counts }))}
+              ips={ips}
               colors={colors}
             />
             <StackedDimensionCard
               title="Countries"
               subtitle="Where listings ship from, colored by IP."
-              items={data.countries.map((c) => ({ label: c.country || "Unknown", counts: c.counts }))}
-              ips={data.ips}
+              items={(data.countries ?? []).map((c) => ({ label: c.country || "Unknown", counts: c.counts }))}
+              ips={ips}
               colors={colors}
             />
           </div>
           <div className="grid lg:grid-cols-3 gap-4">
             <div className="lg:col-span-1">
-              <IpSharePie ips={data.ips} colors={colors} />
+              <IpSharePie ips={ips} colors={colors} />
             </div>
             <div className="lg:col-span-2">
-              <SellersCard sellers={data.sellers} colors={colors} />
+              <SellersCard sellers={data.sellers ?? []} colors={colors} />
             </div>
           </div>
         </>
