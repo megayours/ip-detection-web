@@ -133,7 +133,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-stone-500">
-            Last {days} day{days === 1 ? "" : "s"} of monitoring activity
+            Last {days} days of monitoring activity
             {groupMode ? " · grouped by IP" : ipId ? " · filtered to one IP" : ""}.
           </p>
         </div>
