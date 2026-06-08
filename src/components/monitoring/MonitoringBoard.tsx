@@ -988,7 +988,7 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         target="_blank"
         rel="noreferrer"
         title="Open full size"
-        className="block w-full aspect-square max-h-[280px] bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
+        className="block w-full aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
       >
         <img
           src={active}
@@ -1330,7 +1330,7 @@ function FindingComparison({
 
       {/* Two-column body: bounded image left, enrichment data right. Collapses
           to a single column below lg. */}
-      <div className="grid lg:grid-cols-[minmax(240px,32%)_1fr] gap-x-4 gap-y-3 items-start">
+      <div className="grid lg:grid-cols-[2fr_1fr] gap-x-4 gap-y-3 items-start">
         {/* LEFT — single image carousel. Page screenshot is the first slide
             when captured; product photos follow (best-matched marked). */}
         <div className="lg:sticky lg:top-4">
