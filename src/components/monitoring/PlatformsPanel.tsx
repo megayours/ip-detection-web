@@ -177,10 +177,10 @@ export function PlatformsPanel({
               <select
                 value={p.country ?? ""}
                 onChange={(e) => void changeCountry(p, e.target.value)}
-                title="Scrape-from country (residential proxy egress)"
+                title="See the platform as a shopper in this country would"
                 className="shrink-0 px-1.5 py-0.5 rounded-md border border-stone-200 bg-white text-[11px] text-stone-600 max-w-[9rem]"
               >
-                <option value="">🌐 Default</option>
+                <option value="">🌐 Anywhere</option>
                 {COUNTRIES.map((cn) => (
                   <option key={cn.code} value={cn.code}>
                     {countryLabel(cn.code)}
@@ -225,14 +225,14 @@ export function PlatformsPanel({
           </datalist>
         </div>
         <div className="flex flex-col">
-          <span className="text-[10px] text-stone-400 uppercase tracking-wide">Scrape from (optional)</span>
+          <span className="text-[10px] text-stone-400 uppercase tracking-wide">Target country (optional)</span>
           <select
             value={newCountry}
             onChange={(e) => setNewCountry(e.target.value)}
-            title="Route this platform's scrapes through a residential proxy in this country"
+            title="See the platform as a shopper in this country would"
             className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs bg-white text-stone-700 min-w-[10rem]"
           >
-            <option value="">🌐 Default (no proxy)</option>
+            <option value="">🌐 Anywhere</option>
             {COUNTRIES.map((cn) => (
               <option key={cn.code} value={cn.code}>
                 {countryLabel(cn.code)}

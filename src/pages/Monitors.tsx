@@ -262,10 +262,10 @@ function AddMonitoredIp({
           <select
             value={pickedCountry}
             onChange={(e) => setPickedCountry(e.target.value)}
-            title="Scrape-from country (residential proxy egress) — optional"
+            title="See the platform as a shopper in this country would — optional"
             className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs bg-white text-stone-700 min-w-[10rem]"
           >
-            <option value="">🌐 Default (no proxy)</option>
+            <option value="">🌐 Anywhere</option>
             {COUNTRIES.map((cn) => (
               <option key={cn.code} value={cn.code}>
                 {countryLabel(cn.code)}
