@@ -178,17 +178,17 @@ const fmtUsdCompact = new Intl.NumberFormat("en-US", {
 
 function UnlicensedMarketHero({ totalUsd }: { totalUsd: number }) {
   return (
-    <div className="rounded-2xl bg-stone-900 text-white px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+    <div className="rounded-2xl bg-white border border-stone-200 px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
       <div>
-        <div className="text-[11px] uppercase tracking-[0.14em] font-semibold text-stone-300">
-          Estimated unlicensed market
+        <div className="text-[11px] uppercase tracking-[0.14em] font-semibold text-stone-500">
+          Active Monitored Infringements
         </div>
         <p className="text-xs text-stone-400 mt-0.5 max-w-md">
           Sum of price × quantity across open infringement findings.
           Excludes dismissed and already-enforced cases.
         </p>
       </div>
-      <div className="text-4xl sm:text-5xl font-black tabular-nums leading-none">
+      <div className="text-4xl sm:text-5xl font-black tabular-nums leading-none text-stone-900">
         {fmtUsdCompact.format(totalUsd || 0)}
       </div>
     </div>
