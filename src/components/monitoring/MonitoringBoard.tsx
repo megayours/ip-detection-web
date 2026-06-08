@@ -1760,7 +1760,7 @@ function FindingActions({
   }
 
   return (
-    <div className="flex items-center gap-2.5 flex-wrap">
+    <div className="flex items-center gap-2.5 flex-wrap justify-end">
       {buttons}
       {refreshBtn}
       {confirming && f.case_id && (
