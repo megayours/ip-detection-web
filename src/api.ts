@@ -1543,27 +1543,37 @@ export function getDashboardSummary(days?: number, ipId?: string | null) {
   );
 }
 
-/** One monitored IP's full dashboard breakdown, for the "group by IP" view.
- *  Mirrors the summary cards but scoped to a single IP. */
-export interface DashboardIpGroup {
-  ip_id: string;
-  ip_name: string | null;
-  findings: number;
-  unlicensed_market_usd: number;
+/** Dashboard grouped by IP. Breakdowns are pivoted so IP is the colour
+ *  dimension: `counts` maps ip_id → finding count for stacked charts. `ips`
+ *  is finding-sorted and fixes the colour order. */
+export interface DashboardGroups {
+  days: number;
   kpis: DashboardSummary["kpis"];
-  platforms: DashboardSummary["platforms"];
-  sellers: DashboardSummary["sellers"];
-  countries: DashboardSummary["countries"];
-  timeseries: DashboardSummary["timeseries"];
+  ips: Array<{
+    ip_id: string;
+    ip_name: string | null;
+    findings: number;
+    unlicensed_market_usd: number;
+  }>;
+  timeseries: Array<{ day: string; counts: Record<string, number> }>;
+  platforms: Array<{ domain: string; counts: Record<string, number> }>;
+  countries: Array<{ country: string; counts: Record<string, number> }>;
+  sellers: Array<{
+    ip_id: string;
+    ip_name: string | null;
+    seller_name: string;
+    domain: string;
+    findings: number;
+    rating: number | null;
+    sales: number | null;
+  }>;
 }
 
-/** Group-by-IP dashboard: every monitored IP with its own KPIs + breakdowns,
- *  sorted by finding count desc. */
 export function getDashboardGroups(days?: number) {
   const params = new URLSearchParams();
   if (days) params.set("days", String(days));
   const qs = params.toString();
-  return request<{ days: number; groups: DashboardIpGroup[] }>(
+  return request<DashboardGroups>(
     `/api/monitoring/dashboard/groups${qs ? `?${qs}` : ""}`,
   );
 }
