@@ -7,6 +7,7 @@ import {
   type Trademark,
 } from "../api";
 import { COUNTRIES, countryLabel } from "../lib/countries";
+import { KNOWN_PLATFORMS } from "../lib/platforms";
 
 /**
  * Start monitoring a registered IP. Picks an IP not already watched and seeds
@@ -18,6 +19,7 @@ export default function MonitoringNew() {
   const [all, setAll] = useState<Trademark[] | null>(null);
   const [monitoredIds, setMonitoredIds] = useState<string[]>([]);
   const [picked, setPicked] = useState("");
+  const [platform, setPlatform] = useState("");
   const [pickedCountry, setPickedCountry] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -40,13 +42,12 @@ export default function MonitoringNew() {
   );
 
   async function add() {
-    if (!picked || busy) return;
-    const url = prompt("First platform to monitor (URL or domain), e.g. etsy.com:");
-    if (!url || !url.trim()) return;
+    const domain = platform.trim();
+    if (!picked || !domain || busy) return;
     setBusy(true);
     setErr("");
     try {
-      await addIpMonitoringPlatform(picked, url.trim(), pickedCountry || null);
+      await addIpMonitoringPlatform(picked, domain, pickedCountry || null);
       navigate("/monitoring/settings");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -65,7 +66,7 @@ export default function MonitoringNew() {
 
       {err && <div className="text-sm text-red-600">{err}</div>}
 
-      <div className="rounded-2xl border border-stone-200 bg-white px-5 py-5 space-y-3">
+      <div className="rounded-2xl border border-stone-200 bg-white px-5 py-5 space-y-4">
         {all === null ? (
           <div className="text-sm text-stone-400 italic">Loading IPs…</div>
         ) : available.length === 0 ? (
@@ -76,43 +77,99 @@ export default function MonitoringNew() {
             </Link>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={picked}
-              onChange={(e) => setPicked(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-sm bg-white text-stone-700 flex-1 min-w-[14rem]"
-            >
-              <option value="">Select an IP…</option>
-              {available.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={pickedCountry}
-              onChange={(e) => setPickedCountry(e.target.value)}
-              title="See the platform as a shopper in this country would — optional"
-              className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-sm bg-white text-stone-700 min-w-[11rem]"
-            >
-              <option value="">🌐 Anywhere</option>
-              {COUNTRIES.map((cn) => (
-                <option key={cn.code} value={cn.code}>
-                  {countryLabel(cn.code)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={add}
-              disabled={!picked || busy}
-              className="px-3 py-1.5 rounded-lg bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800 disabled:opacity-50"
-            >
-              {busy ? "Adding…" : "Add"}
-            </button>
-          </div>
+          <>
+            <Field label="IP">
+              <select
+                value={picked}
+                onChange={(e) => setPicked(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-sm bg-white text-stone-700 w-full"
+              >
+                <option value="">Select an IP…</option>
+                {available.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="First platform">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {KNOWN_PLATFORMS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPlatform(p)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        platform === p
+                          ? "bg-stone-900 text-white border-stone-900"
+                          : "bg-white text-stone-600 border-stone-200 hover:border-stone-300"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  list="known-platforms"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void add();
+                    }
+                  }}
+                  placeholder="etsy.com or https://www.etsy.com/search?q=…"
+                  className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-sm w-full"
+                />
+                <datalist id="known-platforms">
+                  {KNOWN_PLATFORMS.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </div>
+            </Field>
+
+            <Field label="Target country (optional)">
+              <select
+                value={pickedCountry}
+                onChange={(e) => setPickedCountry(e.target.value)}
+                title="See the platform as a shopper in this country would — optional"
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-sm bg-white text-stone-700 w-full"
+              >
+                <option value="">🌐 Anywhere</option>
+                {COUNTRIES.map((cn) => (
+                  <option key={cn.code} value={cn.code}>
+                    {countryLabel(cn.code)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={add}
+                disabled={!picked || !platform.trim() || busy}
+                className="px-4 py-2 rounded-lg bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800 disabled:opacity-50"
+              >
+                {busy ? "Adding…" : "Start monitoring"}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-[10px] text-stone-400 uppercase tracking-wide">{label}</span>
+      {children}
+    </label>
   );
 }

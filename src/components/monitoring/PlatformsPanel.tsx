@@ -10,9 +10,7 @@ import {
   type MonitoredDomain,
 } from "../../api";
 import { COUNTRIES, countryLabel } from "../../lib/countries";
-
-/** Platforms we know scrape cleanly — surfaced as input suggestions. */
-const KNOWN_PLATFORMS = ["etsy.com", "amazon.com", "ebay.com"];
+import { KNOWN_PLATFORMS } from "../../lib/platforms";
 
 /**
  * The watched-platforms panel for a single IP: list domains (with
