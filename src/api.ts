@@ -1542,3 +1542,28 @@ export function getDashboardSummary(days?: number, ipId?: string | null) {
     `/api/monitoring/dashboard/summary${qs ? `?${qs}` : ""}`,
   );
 }
+
+/** One monitored IP's full dashboard breakdown, for the "group by IP" view.
+ *  Mirrors the summary cards but scoped to a single IP. */
+export interface DashboardIpGroup {
+  ip_id: string;
+  ip_name: string | null;
+  findings: number;
+  unlicensed_market_usd: number;
+  kpis: DashboardSummary["kpis"];
+  platforms: DashboardSummary["platforms"];
+  sellers: DashboardSummary["sellers"];
+  countries: DashboardSummary["countries"];
+  timeseries: DashboardSummary["timeseries"];
+}
+
+/** Group-by-IP dashboard: every monitored IP with its own KPIs + breakdowns,
+ *  sorted by finding count desc. */
+export function getDashboardGroups(days?: number) {
+  const params = new URLSearchParams();
+  if (days) params.set("days", String(days));
+  const qs = params.toString();
+  return request<{ days: number; groups: DashboardIpGroup[] }>(
+    `/api/monitoring/dashboard/groups${qs ? `?${qs}` : ""}`,
+  );
+}

@@ -4,17 +4,22 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import {
+  getDashboardGroups,
   getDashboardSummary,
   listMonitoredIps,
+  type DashboardIpGroup,
   type DashboardSummary,
   type MonitoredIpSummary,
 } from "../api";
@@ -31,7 +36,9 @@ export default function Dashboard() {
   const [days, setDays] = useState<Days>(30);
   const [params, setParams] = useSearchParams();
   const ipId = params.get("ip");
+  const groupMode = params.get("group") === "ip";
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [groups, setGroups] = useState<DashboardIpGroup[] | null>(null);
   const [ips, setIps] = useState<MonitoredIpSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -47,10 +54,10 @@ export default function Dashboard() {
     return () => { alive = false; };
   }, []);
 
+  // Flat summary — only when not grouping. Group view uses its own fetch.
   useEffect(() => {
+    if (groupMode) return;
     let alive = true;
-    // Kick the fetch; don't reset state synchronously here — the next
-    // resolved value replaces it. (Avoids cascading renders.)
     getDashboardSummary(days, ipId)
       .then((d) => {
         if (!alive) return;
@@ -64,10 +71,25 @@ export default function Dashboard() {
       .finally(() => {
         if (alive) setLoading(false);
       });
-    return () => {
-      alive = false;
-    };
-  }, [days, ipId]);
+    return () => { alive = false; };
+  }, [days, ipId, groupMode]);
+
+  // Per-IP groups — only when grouping. The IP filter doesn't apply here.
+  useEffect(() => {
+    if (!groupMode) return;
+    let alive = true;
+    getDashboardGroups(days)
+      .then((r) => {
+        if (!alive) return;
+        setGroups(r.groups);
+        setErr("");
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setErr(e instanceof Error ? e.message : String(e));
+      });
+    return () => { alive = false; };
+  }, [days, groupMode]);
 
   function setIpFilter(next: string | null) {
     const p = new URLSearchParams(params);
@@ -76,12 +98,15 @@ export default function Dashboard() {
     setParams(p, { replace: true });
   }
 
-  if (loading && !data) {
-    return (
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <DashboardSkeleton />
-      </div>
-    );
+  function setGroupMode(on: boolean) {
+    const p = new URLSearchParams(params);
+    if (on) {
+      p.set("group", "ip");
+      p.delete("ip"); // grouping shows every IP — the single-IP filter is moot
+    } else {
+      p.delete("group");
+    }
+    setParams(p, { replace: true });
   }
 
   if (err) {
@@ -94,9 +119,13 @@ export default function Dashboard() {
     );
   }
 
-  if (!data) return null;
-
-  const empty = data.kpis.ips_monitored === 0;
+  if (groupMode ? groups === null : loading && !data) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <DashboardSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
@@ -104,49 +133,112 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-stone-500">
-            Last {data.days} day{data.days === 1 ? "" : "s"} of monitoring activity
-            {ipId ? " · filtered to one IP" : ""}.
+            Last {days} day{days === 1 ? "" : "s"} of monitoring activity
+            {groupMode ? " · grouped by IP" : ipId ? " · filtered to one IP" : ""}.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <IpFilter ips={ips} value={ipId} onChange={setIpFilter} />
+          {!groupMode && <IpFilter ips={ips} value={ipId} onChange={setIpFilter} />}
+          <GroupToggle on={groupMode} onChange={setGroupMode} />
           <RangeToggle days={days} onChange={setDays} />
         </div>
       </div>
 
-      {empty ? (
-        <div className="rounded-2xl border border-stone-200 bg-white px-6 py-16 text-center">
-          <p className="text-base font-semibold text-stone-700">
-            No IPs are being monitored yet
-          </p>
-          <p className="mt-1 text-sm text-stone-500">
-            Watch your first intellectual property to start gathering findings.
-          </p>
-          <Link
-            to="/monitoring/settings"
-            className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-full bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800 transition-colors"
-          >
-            Start monitoring an IP →
-          </Link>
-        </div>
-      ) : (
-        <>
-          <UnlicensedMarketHero
-            totalUsd={data.kpis.total_unlicensed_market_usd ?? 0}
-          />
-          <KpiRow kpis={data.kpis} ipId={ipId} />
-          <TimeSeriesCard timeseries={data.timeseries} />
-          <div className="grid lg:grid-cols-2 gap-4">
-            <PlatformsCard platforms={data.platforms} />
-            <SellersCard sellers={data.sellers} ipId={ipId} />
-          </div>
-          <div className="grid lg:grid-cols-2 gap-4">
-            <IpsCard ips={data.ips} activeIpId={ipId} onSelectIp={setIpFilter} />
-            <CountriesCard countries={data.countries} />
-          </div>
-        </>
-      )}
+      {groupMode
+        ? <GroupView groups={groups ?? []} />
+        : data && <SummaryView data={data} ipId={ipId} onSelectIp={setIpFilter} />}
     </div>
+  );
+}
+
+/** Toggle between the flat summary and the per-IP grouped view (`?group=ip`). */
+function GroupToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      title={on ? "Show the combined summary" : "Break the dashboard down per IP"}
+      className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+        on
+          ? "bg-stone-900 text-white border-stone-900"
+          : "bg-white text-stone-600 border-stone-200 hover:text-stone-900 hover:border-stone-300"
+      }`}
+    >
+      Group by IP
+    </button>
+  );
+}
+
+/** The original flat dashboard body — KPIs + breakdown cards for the whole
+ *  tenant (optionally narrowed to one IP via the filter). */
+function SummaryView({
+  data,
+  ipId,
+  onSelectIp,
+}: {
+  data: DashboardSummary;
+  ipId: string | null;
+  onSelectIp: (next: string | null) => void;
+}) {
+  if (data.kpis.ips_monitored === 0) {
+    return (
+      <div className="rounded-2xl border border-stone-200 bg-white px-6 py-16 text-center">
+        <p className="text-base font-semibold text-stone-700">
+          No IPs are being monitored yet
+        </p>
+        <p className="mt-1 text-sm text-stone-500">
+          Watch your first intellectual property to start gathering findings.
+        </p>
+        <Link
+          to="/monitoring/settings"
+          className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-full bg-stone-900 text-white text-sm font-semibold hover:bg-stone-800 transition-colors"
+        >
+          Start monitoring an IP →
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <>
+      <UnlicensedMarketHero totalUsd={data.kpis.total_unlicensed_market_usd ?? 0} />
+      <KpiRow kpis={data.kpis} ipId={ipId} />
+      <TimeSeriesCard timeseries={data.timeseries} />
+      <div className="grid lg:grid-cols-2 gap-4">
+        <PlatformsCard platforms={data.platforms} />
+        <SellersCard sellers={data.sellers} ipId={ipId} />
+      </div>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <IpsCard ips={data.ips} activeIpId={ipId} onSelectIp={onSelectIp} />
+        <CountriesCard countries={data.countries} />
+      </div>
+    </>
+  );
+}
+
+/** Per-IP grouped view: total hero + a findings-share pie, then one
+ *  collapsible card per IP (sorted by finding count). */
+function GroupView({ groups }: { groups: DashboardIpGroup[] }) {
+  if (groups.length === 0) {
+    return (
+      <div className="rounded-2xl border border-stone-200 bg-white px-6 py-16 text-center">
+        <p className="text-base font-semibold text-stone-700">No findings yet</p>
+        <p className="mt-1 text-sm text-stone-500">
+          Nothing to group — once monitoring surfaces matches they'll appear here per IP.
+        </p>
+      </div>
+    );
+  }
+  const totalUsd = groups.reduce((s, g) => s + (g.unlicensed_market_usd ?? 0), 0);
+  return (
+    <>
+      <UnlicensedMarketHero totalUsd={totalUsd} />
+      <IpSharePie groups={groups} />
+      <div className="space-y-3">
+        {groups.map((g) => (
+          <IpGroupCard key={g.ip_id} group={g} />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -573,6 +665,129 @@ function CountriesCard({
         </ul>
       )}
     </CardShell>
+  );
+}
+
+// On-brand, visually-distinct slice colors for the IP-share pie. Cycles if
+// there are more slices than colors.
+const PIE_COLORS = [
+  "#b91c1c", "#ea580c", "#d97706", "#65a30d", "#0891b2",
+  "#4f46e5", "#7c3aed", "#db2777", "#a8a29e",
+];
+
+/** Donut of each IP's share of open findings. Top 8 IPs + an "Other" bucket. */
+function IpSharePie({ groups }: { groups: DashboardIpGroup[] }) {
+  const data = useMemo(() => {
+    const top = groups.slice(0, 8).map((g) => ({
+      name: g.ip_name ?? "Unnamed IP",
+      findings: g.findings,
+    }));
+    const rest = groups.slice(8);
+    const other = rest.reduce((s, g) => s + g.findings, 0);
+    if (other > 0) top.push({ name: `Other (${rest.length})`, findings: other });
+    return top.filter((d) => d.findings > 0);
+  }, [groups]);
+
+  if (data.length === 0) return null;
+  return (
+    <CardShell title="Findings by IP" subtitle="Share of open findings across monitored IPs.">
+      <div style={{ width: "100%", height: 280 }}>
+        <ResponsiveContainer>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="findings"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={100}
+              paddingAngle={1}
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ fontSize: 12, border: "1px solid #e7e5e4", borderRadius: 8 }}
+              formatter={(v: number, n: string) => [`${v} findings`, n]}
+            />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </CardShell>
+  );
+}
+
+/** One collapsible IP section. Collapsed: name + risk badges + market + count.
+ *  Expanded: that IP's full breakdown, reusing the summary cards. */
+function IpGroupCard({ group }: { group: DashboardIpGroup }) {
+  const [open, setOpen] = useState(false);
+  const usd = group.unlicensed_market_usd ?? 0;
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-stone-50 rounded-2xl transition-colors"
+      >
+        <span className={`text-stone-400 text-[10px] transition-transform ${open ? "rotate-90" : ""}`}>
+          ▶
+        </span>
+        <span className="font-bold text-stone-900 truncate flex-1 min-w-0">
+          {group.ip_name ?? "Unnamed IP"}
+        </span>
+        {group.kpis.to_triage > 0 && (
+          <span className="hidden sm:inline px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 text-[11px] font-semibold">
+            {group.kpis.to_triage} to triage
+          </span>
+        )}
+        {group.kpis.high_risk > 0 && (
+          <span className="hidden sm:inline px-2 py-0.5 rounded-full bg-red-50 text-red-700 text-[11px] font-semibold">
+            {group.kpis.high_risk} high risk
+          </span>
+        )}
+        <span className="text-sm tabular-nums font-semibold text-stone-900 w-20 text-right">
+          {usd > 0 ? fmtUsdCompact.format(usd) : <span className="text-stone-300">—</span>}
+        </span>
+        <span className="text-xs tabular-nums text-stone-500 w-20 text-right">
+          {group.findings} finding{group.findings === 1 ? "" : "s"}
+        </span>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 pt-4 space-y-4 border-t border-stone-100">
+          <IpKpiStrip kpis={group.kpis} ipId={group.ip_id} />
+          <div className="grid lg:grid-cols-2 gap-4">
+            <TimeSeriesCard timeseries={group.timeseries} />
+            <PlatformsCard platforms={group.platforms} />
+          </div>
+          <div className="grid lg:grid-cols-2 gap-4">
+            <SellersCard sellers={group.sellers} ipId={group.ip_id} />
+            <CountriesCard countries={group.countries} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Compact KPI strip for an expanded IP card — the four actionable status
+ *  tiles (deep-linked, IP pre-filtered) plus a platform count. */
+function IpKpiStrip({ kpis, ipId }: { kpis: DashboardIpGroup["kpis"]; ipId: string }) {
+  const tiles: Array<{ label: string; value: number; to: string | null; accent?: string }> = [
+    { label: "To triage", value: kpis.to_triage, to: withIp("/monitoring/tasks?status=pending", ipId), accent: "text-stone-900" },
+    { label: "In progress", value: kpis.in_progress, to: withIp("/monitoring/tasks?status=takedown_sent", ipId), accent: "text-amber-700" },
+    { label: "Enforced (30d)", value: kpis.enforced_30d, to: withIp("/monitoring/tasks?status=enforced", ipId), accent: "text-emerald-700" },
+    { label: "High risk", value: kpis.high_risk, to: withIp("/monitoring/tasks", ipId), accent: "text-red-700" },
+    { label: "Platforms", value: kpis.platforms_monitored, to: null },
+  ];
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      {tiles.map((t) => (
+        <KpiTile key={t.label} {...t} />
+      ))}
+    </div>
   );
 }
 
