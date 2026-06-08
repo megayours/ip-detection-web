@@ -186,6 +186,12 @@ export default function AppShell() {
             badge={monitoringCount}
           />
           <NavItem
+            to="/monitoring/new"
+            icon={<Plus size={18} />}
+            label="New"
+            active={isActive("/monitoring/new")}
+          />
+          <NavItem
             to="/monitoring/settings"
             icon={<SettingsIcon size={18} />}
             label="Settings"

@@ -13,6 +13,7 @@ import ClearanceTasks from "./pages/ClearanceTasks";
 import IpReviewDetail from "./pages/IpReviewDetail";
 import Findings from "./pages/Findings";
 import MonitoringTasks from "./pages/MonitoringTasks";
+import MonitoringNew from "./pages/MonitoringNew";
 import Monitors from "./pages/Monitors";
 import Dashboard from "./pages/Dashboard";
 import BrandsCatalog from "./pages/BrandsCatalog";
@@ -130,6 +131,7 @@ export default function App() {
         <Route path="/ips/:id/audit" element={<RegistryAudit />} />
         {/* Canonical task/admin entrypoints for each pipeline. */}
         <Route path="/monitoring/tasks" element={<MonitoringTasks />} />
+        <Route path="/monitoring/new" element={<MonitoringNew />} />
         <Route path="/monitoring/settings" element={<Monitors />} />
         <Route path="/clearance/tasks" element={<ClearanceTasks />} />
         <Route path="/clearance/new" element={<ClearanceReviewNew />} />
