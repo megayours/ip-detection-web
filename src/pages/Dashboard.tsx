@@ -139,7 +139,7 @@ export default function Dashboard() {
               <IpSharePie ips={ips} colors={colors} />
             </div>
             <div className="lg:col-span-2">
-              <SellersCard sellers={data.sellers ?? []} colors={colors} />
+              <SellersCard sellers={data.sellers ?? []} ips={ips} colors={colors} />
             </div>
           </div>
         </>
@@ -400,17 +400,51 @@ function IpSharePie({ ips, colors }: { ips: Ip[]; colors: Map<string, string> })
 }
 
 /** Top sellers as a table — keeps rating/sales, with a colored IP chip so the
- *  grouping reads at a glance. Each row links to that seller filtered to its IP. */
+ *  grouping reads at a glance. Each row links to that seller filtered to its IP.
+ *  An IP chip-filter scopes the table so a smaller IP isn't buried by the
+ *  dominant one. */
 function SellersCard({
   sellers,
+  ips,
   colors,
 }: {
   sellers: DashboardGroups["sellers"];
+  ips: Ip[];
   colors: Map<string, string>;
 }) {
+  const [ipFilter, setIpFilter] = useState<string | null>(null);
+
+  // IPs that actually have sellers, kept in the roster's finding-sorted order.
+  const filterableIps = useMemo(
+    () => ips.filter((ip) => sellers.some((s) => s.ip_id === ip.ip_id)),
+    [ips, sellers],
+  );
+
+  // If the active filter's IP drops out of the data, fall back to "All".
+  const activeFilter = ipFilter && filterableIps.some((ip) => ip.ip_id === ipFilter) ? ipFilter : null;
+
+  const rows = useMemo(() => {
+    const sorted = [...sellers].sort((a, b) => b.findings - a.findings);
+    return (activeFilter ? sorted.filter((s) => s.ip_id === activeFilter) : sorted).slice(0, 12);
+  }, [sellers, activeFilter]);
+
   return (
-    <CardShell title="Top sellers" subtitle="Most-flagged sellers; the chip shows which IP they're hitting.">
-      {sellers.length === 0 ? (
+    <CardShell title="Top sellers" subtitle="Most-flagged sellers; filter by IP to surface a smaller one.">
+      {filterableIps.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <SellerFilterChip active={activeFilter === null} onClick={() => setIpFilter(null)} label="All IPs" />
+          {filterableIps.map((ip) => (
+            <SellerFilterChip
+              key={ip.ip_id}
+              active={activeFilter === ip.ip_id}
+              onClick={() => setIpFilter(ip.ip_id)}
+              label={ip.ip_name ?? "Unnamed IP"}
+              color={colors.get(ip.ip_id)}
+            />
+          ))}
+        </div>
+      )}
+      {rows.length === 0 ? (
         <p className="text-xs text-stone-400 py-8 text-center">No seller data yet.</p>
       ) : (
         <div className="overflow-x-auto">
@@ -426,7 +460,7 @@ function SellersCard({
               </tr>
             </thead>
             <tbody>
-              {sellers.map((s, i) => {
+              {rows.map((s, i) => {
                 const target = sellerLink(s.seller_name, s.domain, s.ip_id);
                 return (
                   <tr key={`${s.seller_name}-${s.domain}-${s.ip_id}-${i}`} className="border-b border-stone-50 last:border-0 hover:bg-stone-50 transition-colors">
@@ -466,6 +500,40 @@ function SellersCard({
         </div>
       )}
     </CardShell>
+  );
+}
+
+/** A pill toggle for the sellers IP filter — optional color dot mirrors the
+ *  chart colors. */
+function SellerFilterChip({
+  active,
+  onClick,
+  label,
+  color,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  color?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+        active
+          ? "bg-stone-900 text-white border-stone-900"
+          : "bg-white text-stone-600 border-stone-200 hover:border-stone-300"
+      }`}
+    >
+      {color && (
+        <span
+          className="w-2 h-2 rounded-sm shrink-0"
+          style={{ background: active ? "#fff" : color }}
+        />
+      )}
+      <span className="truncate max-w-[9rem]">{label}</span>
+    </button>
   );
 }
 
