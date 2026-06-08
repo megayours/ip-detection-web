@@ -988,7 +988,7 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         target="_blank"
         rel="noreferrer"
         title="Open full size"
-        className="block w-full aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
+        className="block w-full aspect-square max-h-[480px] bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
       >
         <img
           src={active}
