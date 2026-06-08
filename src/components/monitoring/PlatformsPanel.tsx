@@ -11,6 +11,9 @@ import {
 } from "../../api";
 import { COUNTRIES, countryLabel } from "../../lib/countries";
 
+/** Platforms we know scrape cleanly — surfaced as input suggestions. */
+const KNOWN_PLATFORMS = ["etsy.com", "amazon.com", "ebay.com"];
+
 /**
  * The watched-platforms panel for a single IP: list domains (with
  * enable/disable + remove), an add-platform input, and "Refresh now".
@@ -203,6 +206,7 @@ export function PlatformsPanel({
         <div className="flex flex-col flex-1 min-w-[12rem]">
           <span className="text-[10px] text-stone-400 uppercase tracking-wide">Platform URL or domain</span>
           <input
+            list="known-platforms"
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
             onKeyDown={(e) => {
@@ -214,6 +218,11 @@ export function PlatformsPanel({
             placeholder="etsy.com or https://www.etsy.com/search?q=…"
             className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs w-full"
           />
+          <datalist id="known-platforms">
+            {KNOWN_PLATFORMS.map((p) => (
+              <option key={p} value={p} />
+            ))}
+          </datalist>
         </div>
         <div className="flex flex-col">
           <span className="text-[10px] text-stone-400 uppercase tracking-wide">Scrape from (optional)</span>
