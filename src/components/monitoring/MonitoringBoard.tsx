@@ -1321,7 +1321,7 @@ function FindingComparison({
 
       {/* Two-column body: bounded image left, enrichment data right. Collapses
           to a single column below lg. */}
-      <div className="grid lg:grid-cols-[2fr_1fr] gap-x-4 gap-y-3 items-start">
+      <div className="grid lg:grid-cols-[2fr_1fr] gap-x-4 gap-y-3 lg:items-stretch">
         {/* LEFT — single image carousel. Page screenshot is the first slide
             when captured; product photos follow (best-matched marked). */}
         <div className="lg:sticky lg:top-4">
@@ -1329,7 +1329,7 @@ function FindingComparison({
         </div>
 
         {/* RIGHT — enrichment data. */}
-        <div className="space-y-2 min-w-0">
+        <div className="flex flex-col space-y-2 min-w-0">
 
       {/* Listing context (from VLM enrichment) — what's on sale, type, where */}
       {f.listing_title && (
@@ -1505,6 +1505,10 @@ function FindingComparison({
           {f.published_at && <span className="text-stone-400">· {f.published_at}</span>}
         </div>
       </details>
+
+      {/* Spacer — pushes the action bar to the foot of the column so it aligns
+          with the bottom of the image instead of floating under short copy. */}
+      <div className="hidden lg:block grow" />
 
       {/* Primary triage actions — sit at the foot of the enrichment column
           (right of the image, under the description) and enlarged so a reviewer
