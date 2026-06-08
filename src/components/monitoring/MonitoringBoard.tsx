@@ -1317,15 +1317,6 @@ function FindingComparison({
             )
           )}
         </div>
-        <FindingActions
-          f={f}
-          ipId={ipId}
-          canLicense={canLicense}
-          isDismissed={isDismissed}
-          isDismissing={isDismissing}
-          onDismiss={onDismiss}
-          onUpdated={onUpdated}
-        />
       </div>
 
       {/* Two-column body: bounded image left, enrichment data right. Collapses
@@ -1517,6 +1508,21 @@ function FindingComparison({
         </div>
       </div>
 
+      {/* Primary triage actions — moved below the body and enlarged so a
+          reviewer can decide (takedown / license / dismiss) without hunting a
+          small header control. */}
+      <div className="border-t border-stone-200 pt-3">
+        <FindingActions
+          f={f}
+          ipId={ipId}
+          canLicense={canLicense}
+          isDismissed={isDismissed}
+          isDismissing={isDismissing}
+          onDismiss={onDismiss}
+          onUpdated={onUpdated}
+        />
+      </div>
+
       {/* Takedown thread + discussion — inlined here so the email flow, reply
           thread, and case comments live with the finding instead of on a separate
           case page. Triage sends the first takedown straight from the row header
@@ -1632,7 +1638,7 @@ function FindingActions({
     : (f.review_status ?? "pending");
 
   const primaryCls =
-    "px-2.5 py-1 rounded-md text-[11px] font-semibold disabled:opacity-50";
+    "px-4 py-2 rounded-md text-sm font-semibold disabled:opacity-50";
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
   const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
@@ -1754,7 +1760,7 @@ function FindingActions({
   }
 
   return (
-    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+    <div className="flex items-center gap-2.5 flex-wrap">
       {buttons}
       {refreshBtn}
       {confirming && f.case_id && (
