@@ -6,6 +6,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -283,7 +285,9 @@ function ipBars(ips: Ip[], colors: Map<string, string>) {
   ));
 }
 
-/** Findings per day, stacked by IP. */
+/** Active links over time, one line per IP. Each line is the count of links
+ *  still live as of that day, so it rises as findings arrive and falls as
+ *  takedowns get enforced. */
 function FindingsOverTimeCard({
   timeseries,
   ips,
@@ -299,25 +303,42 @@ function FindingsOverTimeCard({
   );
   const empty = data.length === 0;
   return (
-    <CardShell title="Findings over time" subtitle="New findings per day, colored by IP.">
+    <CardShell title="Active links over time" subtitle="Live links per IP — grows with new findings, falls as takedowns are enforced.">
       {empty ? (
         <p className="text-xs text-stone-400 py-12 text-center">No findings yet in this window.</p>
       ) : (
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 6, right: 12, bottom: 4, left: -10 }}>
+            <LineChart data={data} margin={{ top: 6, right: 12, bottom: 4, left: -10 }}>
               <CartesianGrid stroke="#f4f4f4" />
               <XAxis dataKey="label" stroke="#a8a29e" tick={{ fontSize: 11 }} />
               <YAxis stroke="#a8a29e" tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {ipBars(ips, colors)}
-            </BarChart>
+              {ipLines(ips, colors)}
+            </LineChart>
           </ResponsiveContainer>
         </div>
       )}
     </CardShell>
   );
+}
+
+/** Render one <Line> per IP for the active-links chart. Missing ip keys in a
+ *  row render as a gap; the dense per-day series from the API avoids those. */
+function ipLines(ips: Ip[], colors: Map<string, string>) {
+  return ips.map((ip) => (
+    <Line
+      key={ip.ip_id}
+      type="monotone"
+      dataKey={ip.ip_id}
+      name={ip.ip_name ?? "Unnamed IP"}
+      stroke={colors.get(ip.ip_id) ?? "#a8a29e"}
+      strokeWidth={2}
+      dot={false}
+      isAnimationActive={false}
+    />
+  ));
 }
 
 /** A horizontal stacked-bar card for a category dimension (platforms /
