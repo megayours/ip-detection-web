@@ -725,10 +725,10 @@ function StatusTabs({
         type="button"
         onClick={() => onSelect(key)}
         aria-pressed={isActive}
-        className={`relative px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap rounded-t-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-inset ${
+        className={`relative -mb-px rounded-t-lg border border-stone-200 text-[13px] font-semibold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-inset ${
           isActive
-            ? "bg-white text-stone-900 border-x border-t border-stone-200 -mb-px"
-            : "bg-stone-100 text-stone-500 border border-transparent hover:bg-stone-200/70 hover:text-stone-800"
+            ? "z-10 bg-white text-stone-900 border-b-white px-4 py-2.5"
+            : "bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-800 px-4 py-2"
         }`}
       >
         {label}
@@ -743,7 +743,7 @@ function StatusTabs({
     );
   };
   return (
-    <div className="flex items-end gap-1 px-3 pt-2 border-b border-stone-200 bg-stone-50 overflow-x-auto">
+    <div className="flex items-end gap-1.5 px-3 pt-2 border-b border-stone-200 bg-stone-50">
       {tab(null, "All", total)}
       {STATUS_FILTERS.map((s) => tab(s.key, s.label, counts[s.key] ?? 0))}
     </div>
