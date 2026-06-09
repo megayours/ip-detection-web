@@ -120,6 +120,7 @@ export default function Dashboard() {
           <UnlicensedMarketHero totalUsd={kpis.total_unlicensed_market_usd ?? 0} />
           <KpiRow kpis={kpis} />
           <FindingsOverTimeCard timeseries={data.timeseries ?? []} ips={ips} colors={colors} />
+          <MarketCard marketByCountry={data.marketByCountry ?? []} ips={ips} colors={colors} />
           <div className="grid lg:grid-cols-2 gap-4">
             <StackedDimensionCard
               title="Top platforms"
@@ -378,6 +379,82 @@ function StackedDimensionCard({
         </div>
       )}
     </CardShell>
+  );
+}
+
+/** Unlicensed $ market as horizontal bars, with a Country/IP toggle. The IP
+ *  view reads each IP's own `unlicensed_market_usd` (one bar per IP, its own
+ *  color); the country view stacks the per-country money by IP. Same shape and
+ *  colors as the findings breakdowns, but valued in USD. */
+function MarketCard({
+  marketByCountry,
+  ips,
+  colors,
+}: {
+  marketByCountry: DashboardGroups["marketByCountry"];
+  ips: Ip[];
+  colors: Map<string, string>;
+}) {
+  const [view, setView] = useState<"ip" | "country">("ip");
+
+  const data = useMemo(() => {
+    if (view === "country") {
+      return marketByCountry.map((c) => ({ label: c.country || "Unknown", ...c.counts }));
+    }
+    // By IP: one bar per IP, keyed by its own id so ipBars colors it correctly.
+    return ips
+      .filter((ip) => (ip.unlicensed_market_usd ?? 0) > 0)
+      .map((ip) => ({ label: ip.ip_name ?? "Unnamed IP", [ip.ip_id]: ip.unlicensed_market_usd }));
+  }, [view, marketByCountry, ips]);
+
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-bold text-stone-900">Unlicensed market</h2>
+          <p className="text-xs text-stone-400 mt-0.5">
+            Estimated open-infringement value, by {view === "ip" ? "IP" : "shipping country"}.
+          </p>
+        </div>
+        <div className="inline-flex rounded-lg border border-stone-200 bg-white p-0.5 shrink-0">
+          {(["ip", "country"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                view === v ? "bg-stone-900 text-white" : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              {v === "ip" ? "By IP" : "By country"}
+            </button>
+          ))}
+        </div>
+      </div>
+      {data.length === 0 ? (
+        <p className="text-xs text-stone-400 py-8 text-center">No market value yet.</p>
+      ) : (
+        <div style={{ width: "100%", height: 300 }}>
+          <ResponsiveContainer>
+            <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 10 }}>
+              <CartesianGrid stroke="#f4f4f4" />
+              <XAxis
+                type="number"
+                stroke="#a8a29e"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v) => fmtUsdCompact.format(Number(v))}
+              />
+              <YAxis type="category" dataKey="label" stroke="#a8a29e" tick={{ fontSize: 11 }} width={110} />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                formatter={(v: number, n: string) => [fmtUsdCompact.format(Number(v)), n]}
+              />
+              {ipBars(ips, colors)}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
   );
 }
 
