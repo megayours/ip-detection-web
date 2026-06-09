@@ -702,8 +702,9 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
   }
 }
 
-// Status pipeline as underline tabs flush on the top edge of the results card.
-// The active tab is the primary level of hierarchy; the count rides each tab.
+// Status pipeline as a segmented pill control along the top of the results
+// card. Every tab is a visible, bordered pill so the affordance reads as
+// clickable at a glance; the active tab is filled dark and carries a count.
 function StatusTabs({
   counts,
   active,
@@ -722,16 +723,16 @@ function StatusTabs({
         type="button"
         onClick={() => onSelect(key)}
         aria-pressed={isActive}
-        className={`relative px-3.5 py-2.5 text-[13px] font-semibold whitespace-nowrap transition-colors border-b-2 -mb-px ${
+        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
           isActive
-            ? "border-stone-900 text-stone-900"
-            : "border-transparent text-stone-500 hover:text-stone-800"
+            ? "bg-stone-900 text-white border-stone-900"
+            : "bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:text-stone-900"
         }`}
       >
         {label}
         <span
-          className={`ml-1.5 text-[11px] font-bold tabular-nums ${
-            isActive ? "text-stone-500" : "text-stone-400"
+          className={`text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${
+            isActive ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"
           }`}
         >
           {n}
@@ -740,7 +741,7 @@ function StatusTabs({
     );
   };
   return (
-    <div className="flex items-center gap-1 px-3 border-b border-stone-200 overflow-x-auto">
+    <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-stone-200 overflow-x-auto">
       {tab(null, "All", total)}
       {STATUS_FILTERS.map((s) => tab(s.key, s.label, counts[s.key] ?? 0))}
     </div>
