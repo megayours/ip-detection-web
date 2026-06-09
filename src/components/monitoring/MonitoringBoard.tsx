@@ -1330,14 +1330,14 @@ function FindingComparison({
         </div>
 
         {/* RIGHT — enrichment data. */}
-        <div className="flex flex-col space-y-2 min-w-0">
+        <div className="flex flex-col space-y-2.5 min-w-0">
 
       {/* Listing context (from VLM enrichment) — what's on sale, type, where */}
       {f.listing_title && (
-        <h3 className="text-sm font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
+        <h3 className="text-base font-bold text-stone-900 leading-snug">{f.listing_title}</h3>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+      <div className="flex items-center gap-2 flex-wrap text-sm">
         {(f.price_value_usd != null || f.price) && (
           <span className="px-1.5 py-0.5 rounded bg-stone-900 text-white font-semibold">
             {f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : f.price}
@@ -1394,7 +1394,7 @@ function FindingComparison({
       </div>
 
       {(f.seller_name || f.seller_url) && (
-        <div className="text-[11px] text-stone-500 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
+        <div className="text-sm text-stone-500 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
           <span>
             <span className="text-stone-400">Seller: </span>
             {f.seller_url ? (
@@ -1423,18 +1423,18 @@ function FindingComparison({
       )}
 
       {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
-        <div className="text-xs text-stone-600 leading-relaxed border-l-2 border-amber-300 pl-2">
+        <div className="text-sm text-stone-600 leading-relaxed border-l-2 border-amber-300 pl-2">
           <span className="font-semibold text-stone-500">Why flagged: </span>
           {f.match_explanation || f.infringement_reasoning || f.vlm_reasoning}
         </div>
       )}
 
       {f.description_summary && (
-        <p className="text-[11px] text-stone-500 leading-relaxed">{f.description_summary}</p>
+        <p className="text-sm text-stone-500 leading-relaxed">{f.description_summary}</p>
       )}
 
       {f.description_full && f.description_full !== f.description_summary && (
-        <details className="text-[11px] text-stone-500">
+        <details className="text-sm text-stone-500">
           <summary className="cursor-pointer text-stone-400 hover:text-stone-600 select-none">
             Full description
           </summary>
@@ -1443,7 +1443,7 @@ function FindingComparison({
       )}
 
       {f.item_details && Object.keys(f.item_details).length > 0 && (
-        <details className="text-[11px] text-stone-500">
+        <details className="text-sm text-stone-500">
           <summary className="cursor-pointer text-stone-400 hover:text-stone-600 select-none">
             Item details ({Object.keys(f.item_details).length})
           </summary>
@@ -1459,11 +1459,11 @@ function FindingComparison({
       )}
 
       {!f.listing_title && !f.seller_name && !f.match_explanation && !f.description_summary && (
-        <p className="text-[11px] text-stone-400 italic">Listing details still being analysed…</p>
+        <p className="text-sm text-stone-400 italic">Listing details still being analysed…</p>
       )}
 
       {/* Footer meta — reviewer-relevant timestamps + the listing link. */}
-      <div className="flex items-center gap-2 flex-wrap text-[11px] text-stone-400">
+      <div className="flex items-center gap-2 flex-wrap text-xs text-stone-400">
         <span>found {new Date(f.found_at).toLocaleDateString()}</span>
         {f.last_checked_at && (
           <span title={new Date(f.last_checked_at).toLocaleString()}>
@@ -1477,7 +1477,7 @@ function FindingComparison({
 
       {/* Signals — developer-facing match diagnostics, collapsed by default so
           they don't crowd the reviewer's primary scan. */}
-      <details className="text-[11px] text-stone-400">
+      <details className="text-xs text-stone-400">
         <summary className="cursor-pointer hover:text-stone-600 select-none">Signals</summary>
         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
           <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600">sim {Math.round((f.similarity_score ?? 0) * 100)}%</span>
@@ -1485,20 +1485,20 @@ function FindingComparison({
             <span className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-600">inliers {f.inliers}</span>
           )}
           {f.source_method && (
-            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
+            <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold uppercase ${methodChip(f.source_method).cls}`} title={`Found via ${f.source_method}`}>
               {methodChip(f.source_method).label}
             </span>
           )}
           {f.match_method && (
             <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${matchMethodChip(f.match_method).cls}`}
+              className={`px-1.5 py-0.5 rounded text-[11px] font-bold uppercase ${matchMethodChip(f.match_method).cls}`}
               title={matchMethodChip(f.match_method).title}
             >
               {matchMethodChip(f.match_method).label}
             </span>
           )}
           {f.vlm_verdict && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600">
+            <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-stone-100 text-stone-600">
               vlm: {f.vlm_verdict}
               {f.vlm_confidence != null && `@${Math.round(f.vlm_confidence * 100)}%`}
             </span>
