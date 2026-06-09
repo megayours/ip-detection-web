@@ -702,9 +702,11 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
   }
 }
 
-// Status pipeline as a segmented pill control along the top of the results
-// card. Every tab is a visible, bordered pill so the affordance reads as
-// clickable at a glance; the active tab is filled dark and carries a count.
+// Status pipeline as connected folder tabs along the top of the results card.
+// Tabs sit on a tinted strip; the active tab is "raised" — white with rounded
+// top corners and an open bottom edge (-mb-px erases the baseline under it) so
+// it reads as physically continuous with the white panel below. Inactive tabs
+// stay recessed on the strip, so the row clearly looks like clickable tabs.
 function StatusTabs({
   counts,
   active,
@@ -723,16 +725,16 @@ function StatusTabs({
         type="button"
         onClick={() => onSelect(key)}
         aria-pressed={isActive}
-        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
+        className={`relative px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap rounded-t-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-inset ${
           isActive
-            ? "bg-stone-900 text-white border-stone-900"
-            : "bg-white text-stone-600 border-stone-200 hover:border-stone-300 hover:text-stone-900"
+            ? "bg-white text-stone-900 border-x border-t border-stone-200 -mb-px"
+            : "bg-stone-100 text-stone-500 border border-transparent hover:bg-stone-200/70 hover:text-stone-800"
         }`}
       >
         {label}
         <span
-          className={`text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-full ${
-            isActive ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"
+          className={`ml-1.5 text-[11px] font-bold tabular-nums ${
+            isActive ? "text-stone-500" : "text-stone-400"
           }`}
         >
           {n}
@@ -741,7 +743,7 @@ function StatusTabs({
     );
   };
   return (
-    <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-stone-200 overflow-x-auto">
+    <div className="flex items-end gap-1 px-3 pt-2 border-b border-stone-200 bg-stone-50 overflow-x-auto">
       {tab(null, "All", total)}
       {STATUS_FILTERS.map((s) => tab(s.key, s.label, counts[s.key] ?? 0))}
     </div>
