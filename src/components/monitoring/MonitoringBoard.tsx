@@ -1321,10 +1321,11 @@ function FindingComparison({
 
       {/* Two-column body: bounded image left, enrichment data right. Collapses
           to a single column below lg. */}
-      <div className="grid lg:grid-cols-[2fr_1fr] gap-x-4 gap-y-3 lg:items-stretch">
+      <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-x-4 gap-y-3 lg:items-stretch">
         {/* LEFT — single image carousel. Page screenshot is the first slide
-            when captured; product photos follow (best-matched marked). */}
-        <div className="lg:sticky lg:top-4">
+            when captured; product photos follow (best-matched marked).
+            min-w-0 so the thumb strip scrolls instead of widening the track. */}
+        <div className="lg:sticky lg:top-4 min-w-0">
           <ListingCarousel f={f} />
         </div>
 
