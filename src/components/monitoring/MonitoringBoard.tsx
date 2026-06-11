@@ -5,6 +5,7 @@ import {
   addIpLicense,
   dismissIpFinding,
   markIpFindingEnforced,
+  markTakedownSentWithoutEmail,
   reenrichIpFinding,
   reopenIpFinding,
   autoSendTakedown,
@@ -15,6 +16,7 @@ import {
   type MonitoringSortMode,
   type MonitoringStatusFilter,
 } from "../../api";
+import { useAuth } from "../../context/AuthContext";
 
 /** Shape pushed up to the parent — must match Findings.tsx::InboxFilters. */
 export interface BoardFilters {
@@ -143,6 +145,8 @@ export function MonitoringBoard({
   showIpColumn?: boolean;
 }) {
   const ipAware = showIpColumn ?? findings.some((f) => !!f.ip_id);
+  const { user } = useAuth();
+  const canMarkSentWithoutEmail = user?.role === "admin";
   // Optimistically-dismissed result_ids — the next refetch replaces these
   // once `dismissed_at` lands in the payload.
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
@@ -233,7 +237,7 @@ export function MonitoringBoard({
       if (action === "send") {
         if (state !== "pending") skip("already sent or closed");
         else if (!f.case_id) skip("still preparing");
-        else if (f.signer_ready === false) skip("missing signer information");
+        else if (f.signer_ready === false && !canMarkSentWithoutEmail) skip("missing signer information");
         else eligible.push(f);
       } else if (action === "dismiss") {
         if (f.dismissed_at) skip("already dismissed");
@@ -268,7 +272,10 @@ export function MonitoringBoard({
           if (action === "send") {
             const r = await autoSendTakedown(f.case_id as string);
             if (r.status === "sent") ok++;
-            else if (r.status === "needs_compose") bump("needs manual compose");
+            else if (canMarkSentWithoutEmail) {
+              await markTakedownSentWithoutEmail(f.case_id as string);
+              ok++;
+            } else if (r.status === "needs_compose") bump("needs manual compose");
             else bump("email not configured");
           } else if (action === "dismiss") {
             await dismissIpFinding((f.ip_id ?? ipId) as string, f.result_id);
@@ -1583,6 +1590,8 @@ function FindingActions({
   const [confirming, setConfirming] = useState(false);
   const [directSending, setDirectSending] = useState(false);
   const [sendErr, setSendErr] = useState("");
+  const { user } = useAuth();
+  const canMarkSentWithoutEmail = user?.role === "admin";
 
   // Quick path from the confirm dialog: send the pre-filled draft for the
   // suggested route without opening the editor. Falls back to the editor when
@@ -1594,10 +1603,22 @@ function FindingActions({
     try {
       const r = await autoSendTakedown(f.case_id);
       if (r.status === "unconfigured") {
+        if (canMarkSentWithoutEmail) {
+          await markTakedownSentWithoutEmail(f.case_id);
+          setConfirming(false);
+          onUpdated();
+          return;
+        }
         setSendErr("Email isn't configured yet — contact your administrator.");
         return;
       }
       if (r.status === "needs_compose") {
+        if (canMarkSentWithoutEmail) {
+          await markTakedownSentWithoutEmail(f.case_id);
+          setConfirming(false);
+          onUpdated();
+          return;
+        }
         setConfirming(false);
         setComposing(true);
         return;
@@ -1718,18 +1739,21 @@ function FindingActions({
     // Triage decision: send the first takedown (auto-advances to takedown_sent)
     // or dismiss — no separate "confirm" step. License is the fast-path for a
     // recognised seller. The send is blocked (with a tooltip) until the IP has
-    // a takedown signer (signer_ready) — set it on the IP's page.
+    // a takedown signer (signer_ready) — set it on the IP's page. Admins can
+    // still move the state forward without sending email.
     const signerReady = f.signer_ready ?? true;
     buttons = (
       <>
         <button
           type="button"
-          disabled={!f.case_id || !signerReady}
+          disabled={!f.case_id || (!signerReady && !canMarkSentWithoutEmail)}
           title={
             !f.case_id
               ? "Still preparing this case…"
-              : !signerReady
+              : !signerReady && !canMarkSentWithoutEmail
                 ? "Add this IP's takedown signer (on the IP's page) before sending"
+                : !signerReady
+                  ? "Admin override: mark sent without sending email"
                 : undefined
           }
           onClick={() => {
@@ -1777,6 +1801,7 @@ function FindingActions({
           platform={f.domain}
           sending={directSending}
           error={sendErr}
+          noEmailMode={canMarkSentWithoutEmail && f.signer_ready === false}
           onSend={sendDirect}
           onEdit={() => {
             setConfirming(false);

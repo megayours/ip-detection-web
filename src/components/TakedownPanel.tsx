@@ -4,6 +4,7 @@ import {
   getTakedownThread,
   getTakedownDraft,
   sendTakedown,
+  markTakedownSentWithoutEmail,
   autoSendTakedown,
   replyTakedown,
   type TakedownDraftResponse,
@@ -11,6 +12,7 @@ import {
   type TakedownRequestStatus,
   type TakedownThread,
 } from "../api";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_META: Record<TakedownRequestStatus, { label: string; cls: string }> = {
   queued: { label: "Queued", cls: "bg-stone-100 text-stone-600" },
@@ -52,6 +54,8 @@ export default function TakedownPanel({
   const [replyDraft, setReplyDraft] = useState("");
   const [replying, setReplying] = useState(false);
   const [error, setError] = useState("");
+  const { user } = useAuth();
+  const canMarkSentWithoutEmail = user?.role === "admin";
 
   useEffect(() => {
     let alive = true;
@@ -103,10 +107,22 @@ export default function TakedownPanel({
     try {
       const r = await autoSendTakedown(caseId);
       if (r.status === "unconfigured") {
+        if (canMarkSentWithoutEmail) {
+          await markTakedownSentWithoutEmail(caseId);
+          setConfirming(false);
+          await reload();
+          return;
+        }
         setError("Email isn't configured yet — contact your administrator.");
         return;
       }
       if (r.status === "needs_compose") {
+        if (canMarkSentWithoutEmail) {
+          await markTakedownSentWithoutEmail(caseId);
+          setConfirming(false);
+          await reload();
+          return;
+        }
         setConfirming(false);
         setComposing(true);
         return;
@@ -289,6 +305,7 @@ export function ConfirmSendModal({
   platform,
   sending,
   error,
+  noEmailMode = false,
   onSend,
   onEdit,
   onCancel,
@@ -296,6 +313,7 @@ export function ConfirmSendModal({
   platform?: string;
   sending: boolean;
   error: string;
+  noEmailMode?: boolean;
   onSend: () => void;
   onEdit: () => void;
   onCancel: () => void;
@@ -310,13 +328,24 @@ export function ConfirmSendModal({
         className="bg-white rounded-2xl border border-stone-200 max-w-md w-full overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-stone-100">
-          <h3 className="font-bold text-stone-900">Send takedown notice</h3>
+          <h3 className="font-bold text-stone-900">
+            {noEmailMode ? "Mark takedown as sent" : "Send takedown notice"}
+          </h3>
         </div>
         <div className="px-5 py-4 space-y-3">
           <p className="text-sm text-stone-600">
-            You're about to email{" "}
-            <span className="font-semibold text-stone-900">{prettyPlatform(platform)}</span>{" "}
-            a takedown notice for this listing. Their reply will be tracked here.
+            {noEmailMode ? (
+              <>
+                No email route or sender is available, so this admin action will
+                only move the finding to <span className="font-semibold text-stone-900">Sent</span>.
+              </>
+            ) : (
+              <>
+                You're about to email{" "}
+                <span className="font-semibold text-stone-900">{prettyPlatform(platform)}</span>{" "}
+                a takedown notice for this listing. Their reply will be tracked here.
+              </>
+            )}
           </p>
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-xs rounded-xl px-3 py-2">
@@ -334,7 +363,7 @@ export function ConfirmSendModal({
           </button>
           <button
             onClick={onEdit}
-            disabled={sending}
+            disabled={sending || noEmailMode}
             className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-xs font-semibold text-stone-700 disabled:opacity-50"
           >
             Edit before sending
@@ -344,7 +373,7 @@ export function ConfirmSendModal({
             disabled={sending}
             className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {sending ? "Sending…" : "Send"}
+            {sending ? (noEmailMode ? "Marking…" : "Sending…") : noEmailMode ? "Mark sent" : "Send"}
           </button>
         </div>
       </div>
@@ -395,6 +424,8 @@ export function ComposeModal({
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const { user } = useAuth();
+  const canMarkSentWithoutEmail = user?.role === "admin";
 
   useEffect(() => {
     let alive = true;
@@ -421,10 +452,23 @@ export function ComposeModal({
 
   const routes = resp?.routes ?? [];
   const missing = resp?.draft?.missing_fields ?? [];
+  const canMarkSent = !!resp && canMarkSentWithoutEmail && routes.length === 0 && !sending;
   const canSend =
     !!resp?.configured && !!targetId && !!subject.trim() && !!body.trim() && !sending;
 
   async function submit() {
+    if (canMarkSent) {
+      setSending(true);
+      setError("");
+      try {
+        await markTakedownSentWithoutEmail(caseId);
+        await onSent();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        setSending(false);
+      }
+      return;
+    }
     if (!targetId || !subject.trim() || !body.trim()) return;
     setSending(true);
     setError("");
@@ -483,6 +527,11 @@ export function ComposeModal({
               {routes.length === 0 ? (
                 <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-xs text-stone-600">
                   No takedown intake route is configured for this platform yet.
+                  {canMarkSentWithoutEmail && (
+                    <span className="block mt-1 text-stone-500">
+                      As an admin, you can still mark this finding as sent without sending email.
+                    </span>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -570,10 +619,10 @@ export function ComposeModal({
             </button>
             <button
               onClick={submit}
-              disabled={!canSend}
+              disabled={!(canSend || canMarkSent)}
               className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-xs font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {sending ? "Sending…" : "Send takedown"}
+              {sending ? (canMarkSent ? "Marking…" : "Sending…") : canMarkSent ? "Mark sent" : "Send takedown"}
             </button>
           </div>
         </div>

@@ -482,6 +482,13 @@ export function sendTakedown(
   );
 }
 
+export function markTakedownSentWithoutEmail(caseId: string) {
+  return request<{ ok: boolean; emailed: false }>(
+    `/api/cases/${caseId}/takedown/mark-sent`,
+    { method: "POST" },
+  );
+}
+
 /** Send the suggested-route takedown draft for a case without opening the
  *  editor — the quick path shared by the single-row "Send takedown" and the
  *  board's batch send. Returns a discriminated status so callers can fall back
