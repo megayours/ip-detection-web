@@ -8,10 +8,12 @@ import {
   markTakedownSentWithoutEmail,
   reenrichIpFinding,
   reopenIpFinding,
+  undismissIpFinding,
   autoSendTakedown,
   type CaseReviewStatus,
   type IpReviewFinding,
   type MonitoringFacets,
+  type MonitoringDismissalReasonFilter,
   type MonitoringPriorityBand,
   type MonitoringReviewOutcome,
   type MonitoringSortMode,
@@ -26,6 +28,7 @@ export interface BoardFilters {
   ip_id: string | null;
   platform: string | null;
   seller: string | null;
+  dismissal_reason: MonitoringDismissalReasonFilter | null;
   show_dismissed: boolean;
   sort: MonitoringSortMode;
 }
@@ -34,6 +37,19 @@ export interface BoardFilters {
 const FILTER_SELECT =
   "px-2.5 py-1.5 rounded-lg border border-stone-200 text-[11px] bg-white text-stone-700 " +
   "max-w-[14rem] focus:outline-none focus:ring-1 focus:ring-stone-300";
+
+const DISMISSAL_REASON_LABELS: Record<MonitoringDismissalReasonFilter, string> = {
+  false_positive: "False positive",
+  do_not_pursue: "Don't pursue",
+  second_hand: "Second hand",
+  licensed: "Licensed",
+  dead: "Dead link",
+  manual_cleared: "Manual clear",
+};
+
+type LastReviewAction =
+  | { kind: "dismiss"; ipId: string; resultId: string; label: string }
+  | { kind: "takedown"; ipId: string; resultId: string; label: string };
 
 /** Compact relative-time formatter for "last checked"/"found" meta lines.
  *  Falls back to null when the input is missing/invalid. */
@@ -156,6 +172,8 @@ export function MonitoringBoard({
   // Inline-expanded finding (Gmail-row accordion). null = all collapsed.
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [lastAction, setLastAction] = useState<LastReviewAction | null>(null);
+  const [undoing, setUndoing] = useState(false);
 
   // Collapse the expanded row when filters drop it from the visible set —
   // derived during render rather than synced via effect so we don't trigger
@@ -200,6 +218,12 @@ export function MonitoringBoard({
     try {
       await dismissIpFinding(fipId, f.result_id, { reason });
       onDismiss?.(f.result_id);
+      setLastAction({
+        kind: "dismiss",
+        ipId: fipId,
+        resultId: f.result_id,
+        label: DISMISSAL_REASON_LABELS[(reason === "resale" ? "second_hand" : reason === "manual_cleared" || reason === "licensed" ? reason : reason) as MonitoringDismissalReasonFilter] ?? "Review action",
+      });
       advanceAfterAction(f.result_id);
       onRefresh();
     } catch (e) {
@@ -211,6 +235,35 @@ export function MonitoringBoard({
       alert(e instanceof Error ? e.message : "Failed to update finding");
     }
   }, [advanceAfterAction, dismissing, ipId, onDismiss, onRefresh]);
+
+  const rememberTakedownAction = useCallback((f: IpReviewFinding) => {
+    const fipId = f.ip_id ?? ipId;
+    if (!fipId) return;
+    setLastAction({
+      kind: "takedown",
+      ipId: fipId,
+      resultId: f.result_id,
+      label: "Takedown",
+    });
+  }, [ipId]);
+
+  async function undoLastAction() {
+    if (!lastAction || undoing) return;
+    setUndoing(true);
+    try {
+      if (lastAction.kind === "dismiss") {
+        await undismissIpFinding(lastAction.ipId, lastAction.resultId);
+      } else {
+        await reopenIpFinding(lastAction.ipId, lastAction.resultId);
+      }
+      setLastAction(null);
+      onRefresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to undo action");
+    } finally {
+      setUndoing(false);
+    }
+  }
 
   // --- Multi-select + batch operations -------------------------------------
   // Selection is keyed by result_id and page-local (covers loaded rows only).
@@ -344,12 +397,14 @@ export function MonitoringBoard({
         if (!activeFinding.case_id) throw new Error("Finding is still preparing.");
         const r = await autoSendTakedown(activeFinding.case_id);
         if (r.status === "sent") {
+          rememberTakedownAction(activeFinding);
           advanceAfterAction(activeFinding.result_id);
           onRefresh();
           return;
         }
         if (canMarkSentWithoutEmail) {
           await markTakedownSentWithoutEmail(activeFinding.case_id);
+          rememberTakedownAction(activeFinding);
           advanceAfterAction(activeFinding.result_id);
           onRefresh();
           return;
@@ -373,6 +428,7 @@ export function MonitoringBoard({
     findings,
     handleDismiss,
     onRefresh,
+    rememberTakedownAction,
     selected,
     shortcutBusy,
     visibleActionableFindings,
@@ -520,6 +576,30 @@ export function MonitoringBoard({
               ))}
             </select>
           )}
+          {(filters.status === "dismissed" || filters.dismissal_reason) && (
+            <select
+              value={filters.dismissal_reason ?? "all"}
+              onChange={(e) =>
+                onFiltersChange({
+                  status: "dismissed",
+                  dismissal_reason:
+                    e.target.value === "all"
+                      ? null
+                      : (e.target.value as MonitoringDismissalReasonFilter),
+                  show_dismissed: true,
+                })
+              }
+              title="Filter dismissed findings by outcome"
+              className={FILTER_SELECT}
+            >
+              <option value="all">All dismissed ({facets.statuses.dismissed ?? 0})</option>
+              {Object.entries(DISMISSAL_REASON_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label} ({facets.dismissal_reasons?.[key] ?? 0})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -528,9 +608,28 @@ export function MonitoringBoard({
           counts={facets.statuses}
           active={filters.status}
           onSelect={(s) =>
-            onFiltersChange({ status: s as MonitoringStatusFilter | null })
+            onFiltersChange({
+              status: s as MonitoringStatusFilter | null,
+              dismissal_reason: s === "dismissed" ? filters.dismissal_reason : null,
+              show_dismissed: s === "dismissed" ? true : filters.show_dismissed,
+            })
           }
         />
+        {lastAction && (
+          <div className="px-4 py-2 border-b border-stone-100 bg-blue-50 text-xs text-blue-900 flex items-center justify-between gap-3">
+            <span>
+              {lastAction.label} applied.
+            </span>
+            <button
+              type="button"
+              disabled={undoing}
+              onClick={undoLastAction}
+              className="px-2.5 py-1 rounded-md bg-white border border-blue-200 text-blue-700 font-semibold hover:bg-blue-100 disabled:opacity-50"
+            >
+              {undoing ? "Undoing…" : "Undo"}
+            </button>
+          </div>
+        )}
         {selected.size > 0 && (
           <div className="px-4 py-2 border-b border-stone-100 bg-stone-50 flex items-center justify-between gap-2 flex-wrap">
             <span className="text-xs font-semibold text-stone-600">
@@ -632,6 +731,7 @@ export function MonitoringBoard({
                   }}
                   onDismiss={(reason) => handleDismiss(f, reason)}
                   onActionComplete={() => advanceAfterAction(f.result_id)}
+                  onTakedownSent={() => rememberTakedownAction(f)}
                   onUpdated={onRefresh}
                 />
               );
@@ -714,6 +814,7 @@ export function MonitoringBoard({
                               isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
                               onDismiss={(reason) => handleDismiss(f, reason)}
                               onActionComplete={() => advanceAfterAction(f.result_id)}
+                              onTakedownSent={() => rememberTakedownAction(f)}
                               onUpdated={onRefresh}
                             />
                           </td>
@@ -1316,6 +1417,8 @@ function detailValue(details: Record<string, unknown> | null, names: string[]) {
 }
 
 function inferCondition(f: IpReviewFinding): "new" | "second hand" | null {
+  if (f.marketplace_condition === "new") return "new";
+  if (f.marketplace_condition === "second_hand") return "second hand";
   if (f.dismissal_reason === "second_hand" || f.dismissal_reason === "resale") return "second hand";
   const detail = detailValue(f.item_details, ["condition", "item condition"]);
   const haystack = [
@@ -1330,6 +1433,21 @@ function inferCondition(f: IpReviewFinding): "new" | "second hand" | null {
   }
   if (/\b(new|brand new|unused|made to order)\b/.test(haystack)) return "new";
   return null;
+}
+
+function suggestionMeta(outcome: IpReviewFinding["suggested_review_outcome"]) {
+  switch (outcome) {
+    case "false_positive":
+      return { label: "Suggest 0", cls: "bg-stone-800 text-white" };
+    case "do_not_pursue":
+      return { label: "Suggest 1", cls: "bg-sky-700 text-white" };
+    case "takedown":
+      return { label: "Suggest 2", cls: "bg-blue-700 text-white" };
+    case "second_hand":
+      return { label: "Suggest 3", cls: "bg-purple-700 text-white" };
+    default:
+      return null;
+  }
 }
 
 function compactListingTitle(f: IpReviewFinding) {
@@ -1370,6 +1488,7 @@ function GridFindingCard({
   onOpen,
   onDismiss,
   onActionComplete,
+  onTakedownSent,
   onUpdated,
 }: {
   f: IpReviewFinding;
@@ -1382,10 +1501,12 @@ function GridFindingCard({
   onOpen: () => void;
   onDismiss: (reason: MonitoringReviewOutcome) => void;
   onActionComplete: () => void;
+  onTakedownSent: () => void;
   onUpdated: () => void;
 }) {
   const thumb = topImageUrl(f);
   const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
+  const suggestion = suggestionMeta(f.suggested_review_outcome);
   const chips = findingChips(f, showIp);
   const title = compactListingTitle(f);
   return (
@@ -1419,6 +1540,14 @@ function GridFindingCard({
           {title}
         </button>
         <div className="flex items-center gap-1 flex-wrap min-h-6">
+          {suggestion && (
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${suggestion.cls}`}
+              title={f.suggested_review_reason ?? undefined}
+            >
+              {suggestion.label}
+            </span>
+          )}
           {chips.slice(0, 5).map((chip) => (
             <span
               key={chip}
@@ -1443,6 +1572,7 @@ function GridFindingCard({
           isDismissing={isDismissing}
           onDismiss={onDismiss}
           onActionComplete={onActionComplete}
+          onTakedownSent={onTakedownSent}
           onUpdated={onUpdated}
         />
       </div>
@@ -1484,6 +1614,7 @@ function FindingRow({
     f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : null;
   const priceText = priceUsd ?? f.price ?? null;
   const chips = findingChips(f, showIp);
+  const suggestion = suggestionMeta(f.suggested_review_outcome);
 
   return (
     <>
@@ -1527,6 +1658,14 @@ function FindingRow({
         </div>
         {chips.length > 0 && (
           <div className="mt-1 flex items-center gap-1 flex-wrap">
+            {suggestion && (
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${suggestion.cls}`}
+                title={f.suggested_review_reason ?? undefined}
+              >
+                {suggestion.label}
+              </span>
+            )}
             {chips.slice(0, 5).map((chip) => (
               <span
                 key={chip}
@@ -1603,6 +1742,7 @@ function FindingComparison({
   isDismissing,
   onDismiss,
   onActionComplete,
+  onTakedownSent,
   onUpdated,
 }: {
   f: IpReviewFinding;
@@ -1614,6 +1754,7 @@ function FindingComparison({
   isDismissing: boolean;
   onDismiss: (reason: MonitoringReviewOutcome) => void;
   onActionComplete: () => void;
+  onTakedownSent: () => void;
   onUpdated: () => void;
 }) {
   const priorityCls =
@@ -1628,6 +1769,7 @@ function FindingComparison({
   const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
 
   const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
+  const suggestion = suggestionMeta(f.suggested_review_outcome);
 
   return (
     // Cap + center the content so the panel doesn't sprawl edge-to-edge on wide
@@ -1643,6 +1785,14 @@ function FindingComparison({
           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${sb.cls}`}>
             {sb.label}
           </span>
+          {suggestion && (
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${suggestion.cls}`}
+              title={f.suggested_review_reason ?? undefined}
+            >
+              {suggestion.label}
+            </span>
+          )}
           {showIp && f.ip_name && (
             <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold">
               {f.ip_name}
@@ -1873,6 +2023,7 @@ function FindingComparison({
           isDismissing={isDismissing}
           onDismiss={onDismiss}
           onActionComplete={onActionComplete}
+          onTakedownSent={onTakedownSent}
           onUpdated={onUpdated}
         />
       </div>
@@ -1915,6 +2066,7 @@ function FindingActions({
   isDismissing,
   onDismiss,
   onActionComplete,
+  onTakedownSent,
   onUpdated,
 }: {
   f: IpReviewFinding;
@@ -1924,6 +2076,7 @@ function FindingActions({
   isDismissing: boolean;
   onDismiss: (reason: MonitoringReviewOutcome) => void;
   onActionComplete: () => void;
+  onTakedownSent: () => void;
   onUpdated: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -1948,6 +2101,7 @@ function FindingActions({
         if (canMarkSentWithoutEmail) {
           await markTakedownSentWithoutEmail(f.case_id);
           setConfirming(false);
+          onTakedownSent();
           onActionComplete();
           onUpdated();
           return;
@@ -1959,6 +2113,7 @@ function FindingActions({
         if (canMarkSentWithoutEmail) {
           await markTakedownSentWithoutEmail(f.case_id);
           setConfirming(false);
+          onTakedownSent();
           onActionComplete();
           onUpdated();
           return;
@@ -1968,6 +2123,7 @@ function FindingActions({
         return;
       }
       setConfirming(false);
+      onTakedownSent();
       onActionComplete();
       onUpdated();
     } catch (e) {
@@ -2194,6 +2350,7 @@ function FindingActions({
           onClose={() => setComposing(false)}
           onSent={() => {
             setComposing(false);
+            onTakedownSent();
             onActionComplete();
             onUpdated(); // case flips to takedown_sent; board refresh re-renders the row
           }}

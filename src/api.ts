@@ -1088,6 +1088,14 @@ export interface IpReviewFinding {
    *  per-row figures so the UI shows one unified currency. */
   price_value_usd: number | null;
   description_risk_breakdown: Record<string, unknown> | null;
+  marketplace_condition: "new" | "second_hand" | "unknown";
+  suggested_review_outcome:
+    | "false_positive"
+    | "do_not_pursue"
+    | "takedown"
+    | "second_hand"
+    | "none";
+  suggested_review_reason: string | null;
   // Present on tenant-wide findings (GET /api/monitoring/findings) so a
   // multi-IP board can key per-finding actions off the finding's own IP and
   // render an IP chip. Absent on per-IP findings (the IP is implied).
@@ -1381,6 +1389,13 @@ export function dismissIpFinding(
   );
 }
 
+export function undismissIpFinding(ipId: string, resultId: string) {
+  return request<{ ok: boolean; restored: number }>(
+    `/api/ip/${ipId}/monitoring/findings/${resultId}/undismiss`,
+    { method: "POST" },
+  );
+}
+
 /** Enforcement-pipeline transitions for a finding (all require the finding to
  *  have a linked case). Triage goes pending → takedown_sent (on send) → enforced;
  *  reopen jumps any state back to pending. */
@@ -1449,6 +1464,13 @@ export type MonitoringSortMode =
 export type MonitoringPriorityBand = "high" | "med" | "low";
 export type MonitoringStatusFilter =
   | "pending" | "takedown_sent" | "enforced" | "dismissed";
+export type MonitoringDismissalReasonFilter =
+  | "false_positive"
+  | "do_not_pursue"
+  | "second_hand"
+  | "licensed"
+  | "dead"
+  | "manual_cleared";
 
 /** Full-tenant facet counts returned alongside every findings page. */
 export interface MonitoringFacets {
@@ -1458,6 +1480,7 @@ export interface MonitoringFacets {
   ips: Array<{ ip_id: string; name: string | null; n: number }>;
   /** Top-50 sellers (by finding count). Server-capped. */
   sellers: Array<{ seller_name: string; n: number }>;
+  dismissal_reasons: Record<string, number>;
   total: number;
 }
 
@@ -1474,6 +1497,7 @@ export interface MonitoringFindingsQuery {
   ip_id?: string | null;
   platform?: string | null;
   seller?: string | null;
+  dismissal_reason?: MonitoringDismissalReasonFilter | null;
   show_dismissed?: boolean;
   sort?: MonitoringSortMode;
   cursor?: string | null;
@@ -1495,6 +1519,7 @@ export function listMonitoringFindingsGlobal(
   if (opts.ip_id)        params.set("ip_id", opts.ip_id);
   if (opts.platform)     params.set("platform", opts.platform);
   if (opts.seller)       params.set("seller", opts.seller);
+  if (opts.dismissal_reason) params.set("dismissal_reason", opts.dismissal_reason);
   if (opts.show_dismissed) params.set("show_dismissed", "true");
   if (opts.sort)         params.set("sort", opts.sort);
   if (opts.cursor)       params.set("cursor", opts.cursor);
