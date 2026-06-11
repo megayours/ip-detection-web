@@ -516,7 +516,7 @@ export function MonitoringBoard({
               viewMode === "grid" ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
             }`}
           >
-            Grid
+            Card
           </button>
         </div>
         <div className="relative">
@@ -1266,7 +1266,7 @@ function BboxOverlay({
  *  best-matched image is the default hero, marked MATCHED, and each thumb
  *  shows its similarity %. Falls back to discovery `image_url` only when the
  *  gallery is empty. The page screenshot is rendered separately below. */
-function ListingCarousel({ f }: { f: IpReviewFinding }) {
+function ListingCarousel({ f, compact = false }: { f: IpReviewFinding; compact?: boolean }) {
   const scored = useMemo(() => f.gallery_scores ?? [], [f.gallery_scores]);
   const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
   // Per-URL bbox in gallery-image pixel coords from the worker's keypoint
@@ -1327,7 +1327,9 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
         target="_blank"
         rel="noreferrer"
         title="Open full size"
-        className="block w-full aspect-square max-h-[480px] bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative"
+        className={`block w-full aspect-square bg-stone-50 border border-stone-200 rounded-lg overflow-hidden relative ${
+          compact ? "max-h-[300px]" : "max-h-[480px]"
+        }`}
       >
         <img
           src={active}
@@ -1384,7 +1386,7 @@ function ListingCarousel({ f }: { f: IpReviewFinding }) {
                   e.preventDefault();
                   setIdx(i);
                 }}
-                className={`relative shrink-0 w-14 h-14 rounded overflow-hidden border-2 transition-colors ${
+                className={`relative shrink-0 ${compact ? "w-11 h-11" : "w-14 h-14"} rounded overflow-hidden border-2 transition-colors ${
                   isActive
                     ? "border-stone-900"
                     : isBest
@@ -1553,20 +1555,24 @@ function GridFindingCard({
   onTakedownSent: () => void;
   onUpdated: () => void;
 }) {
-  const thumb = topImageUrl(f);
   const sb = findingStatusBadge(f);
   const suggestion = suggestionMeta(f.suggested_review_outcome);
   const chips = findingChips(f, showIp);
   const title = compactListingTitle(f);
+  const detailCount = [
+    f.listing_title,
+    f.description_summary,
+    f.description_full,
+    f.match_explanation,
+    f.infringement_reasoning,
+    f.seller_name,
+    f.price,
+  ].filter(Boolean).length;
   return (
-    <div className={`rounded-lg border border-stone-200 bg-white overflow-hidden ${isDismissed ? "opacity-60" : ""}`}>
-      <div className="relative aspect-square bg-stone-100">
-        {thumb ? (
-          <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="absolute inset-0" />
-        )}
-        <label className="absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
+    <div className={`rounded-lg border border-stone-200 bg-white overflow-hidden flex flex-col ${isDismissed ? "opacity-60" : ""}`}>
+      <div className="relative p-3 pb-0">
+        <ListingCarousel f={f} compact />
+        <label className="absolute left-5 top-5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
           <input
             type="checkbox"
             aria-label="Select finding"
@@ -1575,11 +1581,11 @@ function GridFindingCard({
             className="h-4 w-4"
           />
         </label>
-        <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-stone-800 shadow-sm">
+        <span className="absolute right-5 top-5 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-stone-800 shadow-sm">
           {f.enforcement_priority.toFixed(2)}
         </span>
       </div>
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-2 flex flex-col grow">
         <button
           type="button"
           onClick={onOpen}
@@ -1613,6 +1619,57 @@ function GridFindingCard({
         <div className="text-[11px] text-stone-500 truncate">
           {f.seller_name || "Unknown seller"} · found {formatAgo(f.found_at) ?? "—"}
         </div>
+        <details className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">
+          <summary className="cursor-pointer select-none font-semibold text-stone-700">
+            Details{detailCount > 0 ? ` (${detailCount})` : ""}
+          </summary>
+          <div className="mt-2 space-y-2">
+            {f.listing_title && (
+              <p>
+                <span className="font-semibold text-stone-500">Title: </span>
+                <span className="text-stone-800">{f.listing_title}</span>
+              </p>
+            )}
+            {f.description_summary && (
+              <p>
+                <span className="font-semibold text-stone-500">Summary: </span>
+                {f.description_summary}
+              </p>
+            )}
+            {f.description_full && f.description_full !== f.description_summary && (
+              <p className="whitespace-pre-wrap">
+                <span className="font-semibold text-stone-500">Description: </span>
+                {f.description_full}
+              </p>
+            )}
+            {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
+              <p>
+                <span className="font-semibold text-stone-500">Why flagged: </span>
+                {f.match_explanation || f.infringement_reasoning || f.vlm_reasoning}
+              </p>
+            )}
+            {(f.seller_name || f.seller_url || f.price || f.location) && (
+              <p className="text-stone-500">
+                {[f.seller_name, f.price, f.location].filter(Boolean).join(" · ")}
+                {f.seller_url && (
+                  <>
+                    {" · "}
+                    <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+                      seller
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
+            <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
+              Open listing
+            </a>
+            {detailCount === 0 && (
+              <p className="italic text-stone-400">Listing details still being analysed.</p>
+            )}
+          </div>
+        </details>
+        <div className="grow" />
         <FindingActions
           f={f}
           ipId={ipId}
