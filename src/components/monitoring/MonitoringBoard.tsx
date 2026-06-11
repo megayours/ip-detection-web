@@ -57,7 +57,8 @@ function hasReviewAnalysis(f: IpReviewFinding) {
     f.seller_name?.trim() ||
     f.match_explanation?.trim() ||
     f.description_summary?.trim() ||
-    f.enrichment_error?.trim(),
+    f.license_status?.trim() ||
+    f.infringement_type?.trim(),
   );
 }
 
