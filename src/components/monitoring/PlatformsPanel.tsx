@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
 import {
   listIpMonitoringPlatforms,
   addIpMonitoringPlatform,
@@ -7,6 +8,7 @@ import {
   setIpMonitoringPlatformCountry,
   removeIpMonitoringPlatform,
   triggerIpMonitoringRun,
+  triggerIpMonitoringPlatformRun,
   type MonitoredDomain,
 } from "../../api";
 import { COUNTRIES, countryLabel } from "../../lib/countries";
@@ -43,6 +45,7 @@ export function PlatformsPanel({
   const [newCountry, setNewCountry] = useState("");
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingPlatformId, setRefreshingPlatformId] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
   const loadPlatforms = useCallback(async () => {
@@ -122,6 +125,21 @@ export function PlatformsPanel({
     }
   }
 
+  async function refreshPlatform(p: MonitoredDomain) {
+    if (refreshingPlatformId || refreshing || !p.enabled || !hasKeywords) return;
+    setRefreshingPlatformId(p.id);
+    setErr("");
+    try {
+      await triggerIpMonitoringPlatformRun(ipId, p.id);
+      await loadPlatforms();
+      onRunTriggered?.();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshingPlatformId(null);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-stone-200 bg-white px-5 py-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -188,6 +206,24 @@ export function PlatformsPanel({
               <span className="text-stone-400 shrink-0">
                 {p.last_run_at ? `last run ${new Date(p.last_run_at).toLocaleDateString()}` : "never run"}
               </span>
+              <button
+                onClick={() => void refreshPlatform(p)}
+                disabled={refreshing || refreshingPlatformId !== null || !p.enabled || !hasKeywords}
+                className="grid size-7 place-items-center rounded-md border border-stone-200 text-stone-500 hover:text-stone-900 hover:border-stone-300 disabled:opacity-40 disabled:hover:text-stone-500 disabled:hover:border-stone-200 shrink-0"
+                title={
+                  !hasKeywords
+                    ? "Add monitoring keywords before refreshing"
+                    : p.enabled
+                      ? "Refresh this platform"
+                      : "Enable this platform before refreshing"
+                }
+              >
+                <RefreshCw
+                  className={`size-3.5 ${refreshingPlatformId === p.id ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                <span className="sr-only">Refresh {p.domain}</span>
+              </button>
               <button
                 onClick={() => remove(p)}
                 className="text-stone-400 hover:text-red-600 font-bold shrink-0"

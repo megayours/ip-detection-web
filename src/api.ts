@@ -1333,6 +1333,14 @@ export function triggerIpMonitoringRun(ipId: string) {
   });
 }
 
+/** Refresh one monitored platform for this IP. */
+export function triggerIpMonitoringPlatformRun(_ipId: string, domainId: string) {
+  return request<{ jobs: unknown[] }>("/api/monitoring/runs", {
+    method: "POST",
+    body: JSON.stringify({ domain_id: domainId }),
+  });
+}
+
 export function listIpMonitoringFindings(
   ipId: string,
   opts: { include_dismissed?: boolean } = {},
