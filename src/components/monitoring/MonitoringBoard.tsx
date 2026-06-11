@@ -51,6 +51,16 @@ type LastReviewAction =
   | { kind: "dismiss"; ipId: string; resultId: string; label: string }
   | { kind: "takedown"; ipId: string; resultId: string; label: string };
 
+function hasReviewAnalysis(f: IpReviewFinding) {
+  return Boolean(
+    f.listing_title?.trim() ||
+    f.seller_name?.trim() ||
+    f.match_explanation?.trim() ||
+    f.description_summary?.trim() ||
+    f.enrichment_error?.trim(),
+  );
+}
+
 /** Compact relative-time formatter for "last checked"/"found" meta lines.
  *  Falls back to null when the input is missing/invalid. */
 function formatAgo(iso: string | null): string | null {
@@ -187,6 +197,7 @@ export function MonitoringBoard({
         ? findings.filter(
             (f) =>
               f.ready_for_review &&
+              hasReviewAnalysis(f) &&
               !f.dismissed_at &&
               (f.review_status ?? "pending") === "pending",
           )
@@ -206,7 +217,7 @@ export function MonitoringBoard({
         const state: CaseReviewStatus = f.dismissed_at
           ? "dismissed"
           : (f.review_status ?? "pending");
-        return state === "pending" && f.ready_for_review && !dismissing.has(f.result_id);
+        return state === "pending" && f.ready_for_review && hasReviewAnalysis(f) && !dismissing.has(f.result_id);
       }),
     [displayFindings, dismissing],
   );
@@ -1002,7 +1013,7 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
 
 function findingStatusBadge(f: IpReviewFinding) {
   if (f.dismissed_at) return dismissalBadge(f.dismissal_reason);
-  if (!f.ready_for_review && (f.review_status ?? "pending") === "pending") {
+  if ((!f.ready_for_review || !hasReviewAnalysis(f)) && (f.review_status ?? "pending") === "pending") {
     return { label: "Preparing", cls: "bg-stone-100 text-stone-500" };
   }
   return statusBadge(f.review_status);
