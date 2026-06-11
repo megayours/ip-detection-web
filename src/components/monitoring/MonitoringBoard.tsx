@@ -175,28 +175,40 @@ export function MonitoringBoard({
   const [lastAction, setLastAction] = useState<LastReviewAction | null>(null);
   const [undoing, setUndoing] = useState(false);
 
-  // Collapse the expanded row when filters drop it from the visible set —
-  // derived during render rather than synced via effect so we don't trigger
-  // a cascading re-render.
-  const effectiveActiveId =
-    activeId && findings.some((f) => f.result_id === activeId) ? activeId : null;
-
   // Stale entries in `dismissing` for findings that have since been removed
   // from the page are harmless — they're never queried after the row goes
   // away — so we don't bother clearing them on each refetch.
 
   const counts = facets.priorities;
   const total = facets.total;
+  const displayFindings = useMemo(
+    () =>
+      filters.status === "pending"
+        ? findings.filter(
+            (f) =>
+              f.ready_for_review &&
+              !f.dismissed_at &&
+              (f.review_status ?? "pending") === "pending",
+          )
+        : findings,
+    [filters.status, findings],
+  );
+
+  // Collapse the expanded row when filters drop it from the visible set —
+  // derived during render rather than synced via effect so we don't trigger
+  // a cascading re-render.
+  const effectiveActiveId =
+    activeId && displayFindings.some((f) => f.result_id === activeId) ? activeId : null;
 
   const visibleActionableFindings = useMemo(
     () =>
-      findings.filter((f) => {
+      displayFindings.filter((f) => {
         const state: CaseReviewStatus = f.dismissed_at
           ? "dismissed"
           : (f.review_status ?? "pending");
         return state === "pending" && f.ready_for_review && !dismissing.has(f.result_id);
       }),
-    [findings, dismissing],
+    [displayFindings, dismissing],
   );
 
   const advanceAfterAction = useCallback((resultId: string) => {
@@ -302,9 +314,9 @@ export function MonitoringBoard({
   function toggleSelectAll() {
     setBatchResult(null);
     setSelected((prev) =>
-      prev.size === findings.length
+      prev.size === displayFindings.length
         ? new Set()
-        : new Set(findings.map((f) => f.result_id)),
+        : new Set(displayFindings.map((f) => f.result_id)),
     );
   }
 
@@ -316,7 +328,7 @@ export function MonitoringBoard({
     const skip = (r: string) => {
       skipped[r] = (skipped[r] ?? 0) + 1;
     };
-    for (const f of findings) {
+    for (const f of displayFindings) {
       if (!selected.has(f.result_id)) continue;
       const state: CaseReviewStatus = f.dismissed_at
         ? "dismissed"
@@ -389,9 +401,9 @@ export function MonitoringBoard({
 
   const runShortcutAction = useCallback(async (action: "false_positive" | "do_not_pursue" | "send" | "second_hand") => {
     if (shortcutBusy) return;
-    const selectedFinding = findings.find((f) => selected.has(f.result_id));
+    const selectedFinding = displayFindings.find((f) => selected.has(f.result_id));
     const activeFinding =
-      (effectiveActiveId && findings.find((f) => f.result_id === effectiveActiveId)) ||
+      (effectiveActiveId && displayFindings.find((f) => f.result_id === effectiveActiveId)) ||
       selectedFinding ||
       visibleActionableFindings[0];
     if (!activeFinding) return;
@@ -435,7 +447,7 @@ export function MonitoringBoard({
     advanceAfterAction,
     canMarkSentWithoutEmail,
     effectiveActiveId,
-    findings,
+    displayFindings,
     handleDismiss,
     onRefresh,
     rememberTakedownAction,
@@ -467,7 +479,7 @@ export function MonitoringBoard({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [runShortcutAction]);
 
-  const allSelected = findings.length > 0 && selected.size === findings.length;
+  const allSelected = displayFindings.length > 0 && selected.size === displayFindings.length;
   const someSelected = selected.size > 0 && !allSelected;
 
   return (
@@ -711,7 +723,7 @@ export function MonitoringBoard({
             </button>
           </div>
         )}
-        {findings.length === 0 ? (
+        {displayFindings.length === 0 ? (
           <div className="px-5 py-8 text-sm text-stone-400 text-center">
             {runInProgress
               ? "Waiting for the first findings to arrive…"
@@ -723,7 +735,7 @@ export function MonitoringBoard({
           </div>
         ) : viewMode === "grid" ? (
           <div className="p-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {findings.map((f) => {
+            {displayFindings.map((f) => {
               const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
               return (
                 <GridFindingCard
@@ -780,7 +792,7 @@ export function MonitoringBoard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
-                {findings.map((f) => {
+                {displayFindings.map((f) => {
                   const expanded = f.result_id === effectiveActiveId;
                   const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
                   return (
@@ -839,7 +851,7 @@ export function MonitoringBoard({
         )}
         {/* Pagination footer: Load more when the server says there's another
             page, end-of-list marker otherwise. Hidden when there are no rows. */}
-        {findings.length > 0 && (
+        {displayFindings.length > 0 && (
           <div className="border-t border-stone-100 px-5 py-3 text-center">
             {nextCursor ? (
               <button
@@ -984,7 +996,7 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
       return { label: "Dismissed", cls: "bg-stone-200 text-stone-600" };
     case "pending":
     default:
-      return { label: "Pending", cls: "bg-stone-100 text-stone-700" };
+      return { label: "To triage", cls: "bg-stone-100 text-stone-700" };
   }
 }
 
