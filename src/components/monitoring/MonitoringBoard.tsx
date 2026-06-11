@@ -1558,7 +1558,6 @@ function GridFindingCard({
   const sb = findingStatusBadge(f);
   const suggestion = suggestionMeta(f.suggested_review_outcome);
   const chips = findingChips(f, showIp);
-  const title = compactListingTitle(f);
   const detailCount = [
     f.listing_title,
     f.description_summary,
@@ -1586,14 +1585,6 @@ function GridFindingCard({
         </span>
       </div>
       <div className="p-3 space-y-2 flex flex-col grow">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="block w-full text-left text-sm font-semibold text-stone-900 truncate hover:text-blue-700"
-          title={title}
-        >
-          {title}
-        </button>
         <div className="flex items-center gap-1 flex-wrap min-h-6">
           {suggestion && (
             <span
@@ -1680,7 +1671,15 @@ function GridFindingCard({
           onActionComplete={onActionComplete}
           onTakedownSent={onTakedownSent}
           onUpdated={onUpdated}
+          compact
         />
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-[11px] font-semibold text-stone-400 hover:text-blue-700 self-start"
+        >
+          Open full review
+        </button>
       </div>
     </div>
   );
@@ -2174,6 +2173,7 @@ function FindingActions({
   onActionComplete,
   onTakedownSent,
   onUpdated,
+  compact = false,
 }: {
   f: IpReviewFinding;
   ipId?: string;
@@ -2184,6 +2184,7 @@ function FindingActions({
   onActionComplete: () => void;
   onTakedownSent: () => void;
   onUpdated: () => void;
+  compact?: boolean;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [licensing, setLicensing] = useState(false);
@@ -2275,7 +2276,9 @@ function FindingActions({
     : (f.review_status ?? "pending");
 
   const primaryCls =
-    "px-4 py-2 rounded-md text-sm font-semibold disabled:opacity-50";
+    compact
+      ? "px-2.5 py-1.5 rounded-md text-[11px] font-semibold disabled:opacity-50"
+      : "px-4 py-2 rounded-md text-sm font-semibold disabled:opacity-50";
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
   const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
@@ -2341,9 +2344,9 @@ function FindingActions({
       onClick={handleLicense}
       disabled={licensing}
       title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
-      className={ghostEmerald}
+      className={`${ghostEmerald} ${compact ? "col-span-2" : ""}`}
     >
-      {licensing ? "Licensing…" : "License this seller"}
+      {licensing ? "Licensing…" : compact ? "License seller" : "License this seller"}
     </button>
   ) : null;
 
@@ -2391,7 +2394,7 @@ function FindingActions({
             setSendErr("");
             setConfirming(true);
           }}
-          className={blue}
+          className={`${blue} ${compact ? "col-span-2" : ""}`}
         >
           Send takedown
         </button>
@@ -2428,9 +2431,31 @@ function FindingActions({
   }
 
   return (
-    <div className="flex items-center gap-2.5 flex-wrap justify-end">
-      {buttons}
-      {refreshBtn}
+    <div
+      className={
+        compact
+          ? "rounded-md border border-stone-200 bg-stone-50 p-2 space-y-2"
+          : "flex items-center gap-2.5 flex-wrap justify-end"
+      }
+    >
+      {compact && (
+        <div className="text-[10px] uppercase tracking-wide font-semibold text-stone-400">
+          Review action
+        </div>
+      )}
+      <div className={compact ? "grid grid-cols-2 gap-1.5" : "contents"}>
+        {buttons}
+      </div>
+      {compact ? (
+        refreshBtn && (
+          <details className="border-t border-stone-200 pt-1 text-[11px] text-stone-400">
+            <summary className="cursor-pointer select-none hover:text-stone-600">Advanced</summary>
+            <div className="mt-2 flex justify-start">{refreshBtn}</div>
+          </details>
+        )
+      ) : (
+        refreshBtn
+      )}
       {confirming && f.case_id && (
         <ConfirmSendModal
           platform={f.domain}
