@@ -200,7 +200,17 @@ export function MonitoringBoard({
   );
 
   const advanceAfterAction = useCallback((resultId: string) => {
-    const next = visibleActionableFindings.find((f) => f.result_id !== resultId);
+    const currentIndex = visibleActionableFindings.findIndex((f) => f.result_id === resultId);
+    const next =
+      currentIndex >= 0
+        ? visibleActionableFindings
+            .slice(currentIndex + 1)
+            .find((f) => f.result_id !== resultId) ??
+          visibleActionableFindings
+            .slice(0, currentIndex)
+            .find((f) => f.result_id !== resultId)
+        : visibleActionableFindings.find((f) => f.result_id !== resultId);
+    setViewMode("table");
     setActiveId(next?.result_id ?? null);
   }, [visibleActionableFindings]);
 
