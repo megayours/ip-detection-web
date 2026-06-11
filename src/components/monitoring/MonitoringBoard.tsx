@@ -413,10 +413,12 @@ export function MonitoringBoard({
 
   const runShortcutAction = useCallback(async (action: "false_positive" | "do_not_pursue" | "send" | "second_hand") => {
     if (shortcutBusy) return;
-    const selectedFinding = displayFindings.find((f) => selected.has(f.result_id));
+    if (selected.size > 0) {
+      setConfirmAction(action);
+      return;
+    }
     const activeFinding =
       (effectiveActiveId && displayFindings.find((f) => f.result_id === effectiveActiveId)) ||
-      selectedFinding ||
       visibleActionableFindings[0];
     if (!activeFinding) return;
 
@@ -2277,7 +2279,7 @@ function FindingActions({
 
   const primaryCls =
     compact
-      ? "px-2.5 py-1.5 rounded-md text-[11px] font-semibold disabled:opacity-50"
+      ? "h-8 px-2 rounded-md text-[11px] font-semibold leading-none disabled:opacity-50"
       : "px-4 py-2 rounded-md text-sm font-semibold disabled:opacity-50";
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
@@ -2344,7 +2346,11 @@ function FindingActions({
       onClick={handleLicense}
       disabled={licensing}
       title="Mark this seller as licensed on this domain — dismisses this and future findings from them"
-      className={`${ghostEmerald} ${compact ? "col-span-2" : ""}`}
+      className={
+        compact
+          ? "px-1.5 py-1 rounded text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+          : ghostEmerald
+      }
     >
       {licensing ? "Licensing…" : compact ? "License seller" : "License this seller"}
     </button>
@@ -2368,6 +2374,7 @@ function FindingActions({
   }
 
   let buttons: React.ReactNode = null;
+  let utilityButtons: React.ReactNode = null;
 
   if (state === "pending") {
     // Triage decision: send the first takedown (auto-advances to takedown_sent)
@@ -2394,16 +2401,17 @@ function FindingActions({
             setSendErr("");
             setConfirming(true);
           }}
-          className={`${blue} ${compact ? "col-span-2" : ""}`}
+          className={blue}
         >
           Send takedown
         </button>
-        {licenseBtn}
+        {!compact && licenseBtn}
         {falsePositiveBtn}
         {dontPursueBtn}
         {secondHandBtn}
       </>
     );
+    utilityButtons = compact ? licenseBtn : null;
   } else if (state === "takedown_sent") {
     buttons = (
       <>
@@ -2434,24 +2442,26 @@ function FindingActions({
     <div
       className={
         compact
-          ? "rounded-md border border-stone-200 bg-stone-50 p-2 space-y-2"
+          ? "rounded-md border border-stone-200 bg-stone-50 p-2 space-y-1.5"
           : "flex items-center gap-2.5 flex-wrap justify-end"
       }
     >
-      {compact && (
-        <div className="text-[10px] uppercase tracking-wide font-semibold text-stone-400">
-          Review action
-        </div>
-      )}
       <div className={compact ? "grid grid-cols-2 gap-1.5" : "contents"}>
         {buttons}
       </div>
       {compact ? (
-        refreshBtn && (
-          <details className="border-t border-stone-200 pt-1 text-[11px] text-stone-400">
-            <summary className="cursor-pointer select-none hover:text-stone-600">Advanced</summary>
-            <div className="mt-2 flex justify-start">{refreshBtn}</div>
-          </details>
+        (utilityButtons || refreshBtn) && (
+          <div className="relative border-t border-stone-200 pt-1 flex items-center justify-between gap-2 text-[11px] text-stone-400">
+            <div>{utilityButtons}</div>
+            {refreshBtn && (
+              <details className="ml-auto">
+                <summary className="cursor-pointer select-none hover:text-stone-600">Advanced</summary>
+                <div className="absolute z-10 mt-1 right-0 rounded-md border border-stone-200 bg-white p-1 shadow-sm">
+                  {refreshBtn}
+                </div>
+              </details>
+            )}
+          </div>
         )
       ) : (
         refreshBtn
