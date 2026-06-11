@@ -1087,6 +1087,7 @@ export interface IpReviewFinding {
   /** `price_value` converted to USD server-side (fx_rates). Use this for all
    *  per-row figures so the UI shows one unified currency. */
   price_value_usd: number | null;
+  description_risk_breakdown: Record<string, unknown> | null;
   // Present on tenant-wide findings (GET /api/monitoring/findings) so a
   // multi-IP board can key per-finding actions off the finding's own IP and
   // render an IP chip. Absent on per-IP findings (the IP is implied).
@@ -1361,10 +1362,22 @@ export function listIpMonitoringFindings(
   }>(`/api/ip/${ipId}/monitoring/findings${qs ? `?${qs}` : ""}`);
 }
 
-export function dismissIpFinding(ipId: string, resultId: string) {
+export type MonitoringReviewOutcome =
+  | "false_positive"
+  | "do_not_pursue"
+  | "second_hand"
+  | "manual_cleared"
+  | "licensed"
+  | "resale";
+
+export function dismissIpFinding(
+  ipId: string,
+  resultId: string,
+  opts: { reason?: MonitoringReviewOutcome; reason_notes?: string | null } = {},
+) {
   return request<{ ok: boolean }>(
     `/api/ip/${ipId}/monitoring/findings/${resultId}/dismiss`,
-    { method: "POST" },
+    { method: "POST", body: JSON.stringify(opts) },
   );
 }
 

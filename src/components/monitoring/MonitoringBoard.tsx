@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import TakedownPanel, { ComposeModal, ConfirmSendModal } from "../TakedownPanel";
 import CaseComments from "../CaseComments";
 import {
@@ -13,6 +13,7 @@ import {
   type IpReviewFinding,
   type MonitoringFacets,
   type MonitoringPriorityBand,
+  type MonitoringReviewOutcome,
   type MonitoringSortMode,
   type MonitoringStatusFilter,
 } from "../../api";
@@ -54,14 +55,16 @@ function formatAgo(iso: string | null): string | null {
 
 // --- Batch operations (multi-select) ---------------------------------------
 
-type BatchAction = "send" | "dismiss" | "enforce";
+type BatchAction = "send" | "false_positive" | "do_not_pursue" | "second_hand" | "enforce";
 
 const BATCH_META: Record<
   BatchAction,
   { label: string; verb: string; gerund: string }
 > = {
   send: { label: "Send takedowns", verb: "Sent", gerund: "Send takedowns for" },
-  dismiss: { label: "Dismiss", verb: "Dismissed", gerund: "Dismiss" },
+  false_positive: { label: "False positive", verb: "Cleared", gerund: "Mark false positive for" },
+  do_not_pursue: { label: "Don't pursue", verb: "Cleared", gerund: "Don't pursue" },
+  second_hand: { label: "Second hand", verb: "Marked second hand", gerund: "Mark second hand for" },
   enforce: { label: "Mark enforced", verb: "Marked enforced", gerund: "Mark enforced" },
 };
 
@@ -152,6 +155,7 @@ export function MonitoringBoard({
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   // Inline-expanded finding (Gmail-row accordion). null = all collapsed.
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
   // Collapse the expanded row when filters drop it from the visible set —
   // derived during render rather than synced via effect so we don't trigger
@@ -166,17 +170,37 @@ export function MonitoringBoard({
   const counts = facets.priorities;
   const total = facets.total;
 
-  async function handleDismiss(f: IpReviewFinding) {
+  const visibleActionableFindings = useMemo(
+    () =>
+      findings.filter((f) => {
+        const state: CaseReviewStatus = f.dismissed_at
+          ? "dismissed"
+          : (f.review_status ?? "pending");
+        return state === "pending" && !dismissing.has(f.result_id);
+      }),
+    [findings, dismissing],
+  );
+
+  const advanceAfterAction = useCallback((resultId: string) => {
+    const next = visibleActionableFindings.find((f) => f.result_id !== resultId);
+    setActiveId(next?.result_id ?? null);
+  }, [visibleActionableFindings]);
+
+  const handleDismiss = useCallback(async (
+    f: IpReviewFinding,
+    reason: MonitoringReviewOutcome = "false_positive",
+  ) => {
     if (dismissing.has(f.result_id)) return;
     const fipId = f.ip_id ?? ipId;
     if (!fipId) {
-      alert("Cannot dismiss: finding has no associated IP.");
+      alert("Cannot update finding: finding has no associated IP.");
       return;
     }
     setDismissing((prev) => new Set(prev).add(f.result_id));
     try {
-      await dismissIpFinding(fipId, f.result_id);
+      await dismissIpFinding(fipId, f.result_id, { reason });
       onDismiss?.(f.result_id);
+      advanceAfterAction(f.result_id);
       onRefresh();
     } catch (e) {
       setDismissing((prev) => {
@@ -184,9 +208,9 @@ export function MonitoringBoard({
         next.delete(f.result_id);
         return next;
       });
-      alert(e instanceof Error ? e.message : "Failed to dismiss finding");
+      alert(e instanceof Error ? e.message : "Failed to update finding");
     }
-  }
+  }, [advanceAfterAction, dismissing, ipId, onDismiss, onRefresh]);
 
   // --- Multi-select + batch operations -------------------------------------
   // Selection is keyed by result_id and page-local (covers loaded rows only).
@@ -239,7 +263,7 @@ export function MonitoringBoard({
         else if (!f.case_id) skip("still preparing");
         else if (f.signer_ready === false && !canMarkSentWithoutEmail) skip("missing signer information");
         else eligible.push(f);
-      } else if (action === "dismiss") {
+      } else if (action === "false_positive" || action === "do_not_pursue" || action === "second_hand") {
         if (f.dismissed_at) skip("already dismissed");
         else if (!(f.ip_id ?? ipId)) skip("no associated IP");
         else eligible.push(f);
@@ -277,8 +301,8 @@ export function MonitoringBoard({
               ok++;
             } else if (r.status === "needs_compose") bump("needs manual compose");
             else bump("email not configured");
-          } else if (action === "dismiss") {
-            await dismissIpFinding((f.ip_id ?? ipId) as string, f.result_id);
+          } else if (action === "false_positive" || action === "do_not_pursue" || action === "second_hand") {
+            await dismissIpFinding((f.ip_id ?? ipId) as string, f.result_id, { reason: action });
             ok++;
           } else {
             await markIpFindingEnforced((f.ip_id ?? ipId) as string, f.result_id);
@@ -298,6 +322,85 @@ export function MonitoringBoard({
     onRefresh();
   }
 
+  const [shortcutBusy, setShortcutBusy] = useState(false);
+
+  const runShortcutAction = useCallback(async (action: "false_positive" | "do_not_pursue" | "send" | "second_hand") => {
+    if (shortcutBusy) return;
+    const selectedFinding = findings.find((f) => selected.has(f.result_id));
+    const activeFinding =
+      (effectiveActiveId && findings.find((f) => f.result_id === effectiveActiveId)) ||
+      selectedFinding ||
+      visibleActionableFindings[0];
+    if (!activeFinding) return;
+
+    const state: CaseReviewStatus = activeFinding.dismissed_at
+      ? "dismissed"
+      : (activeFinding.review_status ?? "pending");
+    if (state !== "pending") return;
+
+    setShortcutBusy(true);
+    try {
+      if (action === "send") {
+        if (!activeFinding.case_id) throw new Error("Finding is still preparing.");
+        const r = await autoSendTakedown(activeFinding.case_id);
+        if (r.status === "sent") {
+          advanceAfterAction(activeFinding.result_id);
+          onRefresh();
+          return;
+        }
+        if (canMarkSentWithoutEmail) {
+          await markTakedownSentWithoutEmail(activeFinding.case_id);
+          advanceAfterAction(activeFinding.result_id);
+          onRefresh();
+          return;
+        }
+        throw new Error(
+          r.status === "needs_compose"
+            ? "This takedown needs manual compose."
+            : "Email is not configured.",
+        );
+      }
+      await handleDismiss(activeFinding, action);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update finding");
+    } finally {
+      setShortcutBusy(false);
+    }
+  }, [
+    advanceAfterAction,
+    canMarkSentWithoutEmail,
+    effectiveActiveId,
+    findings,
+    handleDismiss,
+    onRefresh,
+    selected,
+    shortcutBusy,
+    visibleActionableFindings,
+  ]);
+
+  useEffect(() => {
+    function editableTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select";
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (editableTarget(e.target)) return;
+      const action =
+        e.key === "0" ? "false_positive" :
+        e.key === "1" ? "do_not_pursue" :
+        e.key === "2" ? "send" :
+        e.key === "3" ? "second_hand" :
+        null;
+      if (!action) return;
+      e.preventDefault();
+      void runShortcutAction(action);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [runShortcutAction]);
+
   const allSelected = findings.length > 0 && selected.size === findings.length;
   const someSelected = selected.size > 0 && !allSelected;
 
@@ -306,6 +409,26 @@ export function MonitoringBoard({
       {/* Secondary toolbar — priority + facet filters. Status lives in the
           tabs on the table; sorting lives in the sortable column headers. */}
       <div className="flex items-center justify-end gap-2 flex-wrap mb-3">
+        <div className="inline-flex rounded-lg border border-stone-200 bg-white p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("table")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
+              viewMode === "table" ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            Table
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
+              viewMode === "grid" ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            Grid
+          </button>
+        </div>
         <div className="relative">
           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-stone-400">
             <svg viewBox="0 0 12 12" width="12" height="12" fill="currentColor" aria-hidden>
@@ -436,10 +559,24 @@ export function MonitoringBoard({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirmAction("dismiss")}
+                    onClick={() => setConfirmAction("false_positive")}
                     className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
                   >
-                    Dismiss
+                    False positive
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction("do_not_pursue")}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
+                  >
+                    Don't pursue
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction("second_hand")}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
+                  >
+                    Second hand
                   </button>
                   <button
                     type="button"
@@ -475,6 +612,31 @@ export function MonitoringBoard({
                 </>
               )}
           </div>
+        ) : viewMode === "grid" ? (
+          <div className="p-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {findings.map((f) => {
+              const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
+              return (
+                <GridFindingCard
+                  key={f.result_id}
+                  f={f}
+                  ipId={f.ip_id ?? ipId}
+                  showIp={ipAware}
+                  selected={selected.has(f.result_id)}
+                  isDismissed={rowDismissed}
+                  isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
+                  onSelect={() => toggleSelect(f.result_id)}
+                  onOpen={() => {
+                    setActiveId(f.result_id);
+                    setViewMode("table");
+                  }}
+                  onDismiss={(reason) => handleDismiss(f, reason)}
+                  onActionComplete={() => advanceAfterAction(f.result_id)}
+                  onUpdated={onRefresh}
+                />
+              );
+            })}
+          </div>
         ) : (
           /* Columnar findings table. Sortable headers drive the server sort;
              clicking a row still expands the inline comparison panel (only one
@@ -483,17 +645,19 @@ export function MonitoringBoard({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-wide text-stone-400">
-                  <th className="w-8 pl-3 pr-1 py-2 align-middle">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all loaded findings"
-                      checked={allSelected}
-                      ref={(el) => {
-                        if (el) el.indeterminate = someSelected;
-                      }}
-                      onChange={toggleSelectAll}
-                      className="align-middle"
-                    />
+                  <th className="w-11 pl-3 pr-1 py-2 align-middle">
+                    <label className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all loaded findings"
+                        checked={allSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someSelected;
+                        }}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 align-middle"
+                      />
+                    </label>
                   </th>
                   <SortHeader label="Rate" col="rate" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="w-14" />
                   <th className="py-2 px-2 font-semibold">Image</th>
@@ -520,15 +684,18 @@ export function MonitoringBoard({
                         } ${rowDismissed ? "opacity-50" : ""}`}
                       >
                         <td
-                          className="w-8 pl-3 pr-1 align-middle"
+                          className="w-11 pl-3 pr-1 align-middle"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <input
-                            type="checkbox"
-                            aria-label="Select finding"
-                            checked={selected.has(f.result_id)}
-                            onChange={() => toggleSelect(f.result_id)}
-                          />
+                          <label className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              aria-label="Select finding"
+                              checked={selected.has(f.result_id)}
+                              onChange={() => toggleSelect(f.result_id)}
+                              className="h-4 w-4"
+                            />
+                          </label>
                         </td>
                         <FindingRow f={f} expanded={expanded} showIp={ipAware} />
                       </tr>
@@ -545,7 +712,8 @@ export function MonitoringBoard({
                               showIp={ipAware}
                               isDismissed={rowDismissed}
                               isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
-                              onDismiss={() => handleDismiss(f)}
+                              onDismiss={(reason) => handleDismiss(f, reason)}
+                              onActionComplete={() => advanceAfterAction(f.result_id)}
                               onUpdated={onRefresh}
                             />
                           </td>
@@ -706,6 +874,24 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
     case "pending":
     default:
       return { label: "Pending", cls: "bg-stone-100 text-stone-700" };
+  }
+}
+
+function dismissalBadge(reason: string | null) {
+  switch (reason) {
+    case "false_positive":
+      return { label: "false positive", cls: "bg-stone-200 text-stone-600" };
+    case "do_not_pursue":
+      return { label: "don't pursue", cls: "bg-sky-100 text-sky-700" };
+    case "second_hand":
+    case "resale":
+      return { label: "second hand", cls: "bg-purple-100 text-purple-700" };
+    case "licensed":
+      return { label: "licensed", cls: "bg-emerald-100 text-emerald-700" };
+    default:
+      return reason?.startsWith("dead_link")
+        ? { label: "dead link", cls: "bg-orange-100 text-orange-700" }
+        : { label: "dismissed", cls: "bg-stone-200 text-stone-600" };
   }
 }
 
@@ -1118,6 +1304,152 @@ function formatMoney(amount: number, currency: string): string {
   }
 }
 
+function detailValue(details: Record<string, unknown> | null, names: string[]) {
+  if (!details) return null;
+  const wanted = new Set(names.map((n) => n.toLowerCase()));
+  for (const [key, value] of Object.entries(details)) {
+    if (wanted.has(key.toLowerCase()) && value != null && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return null;
+}
+
+function inferCondition(f: IpReviewFinding): "new" | "second hand" | null {
+  if (f.dismissal_reason === "second_hand" || f.dismissal_reason === "resale") return "second hand";
+  const detail = detailValue(f.item_details, ["condition", "item condition"]);
+  const haystack = [
+    detail,
+    f.license_status,
+    f.description_risk_breakdown ? JSON.stringify(f.description_risk_breakdown) : null,
+    f.description_summary,
+    f.description_full,
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/\b(pre[-\s]?owned|pre[-\s]?loved|used|second[-\s]?hand|vintage|resale)\b/.test(haystack)) {
+    return "second hand";
+  }
+  if (/\b(new|brand new|unused|made to order)\b/.test(haystack)) return "new";
+  return null;
+}
+
+function compactListingTitle(f: IpReviewFinding) {
+  if (f.listing_title?.trim()) return f.listing_title.trim();
+  try {
+    const u = new URL(f.page_url);
+    return `${u.hostname.replace(/^www\./, "")} listing`;
+  } catch {
+    return "Marketplace listing";
+  }
+}
+
+function findingChips(f: IpReviewFinding, showIp?: boolean) {
+  const priceUsd =
+    f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : null;
+  const priceText = priceUsd ?? f.price ?? null;
+  const category =
+    detailValue(f.item_details, ["category", "type", "department"]) ||
+    f.infringement_type ||
+    null;
+  return [
+    showIp && f.ip_name ? f.ip_name : null,
+    category,
+    inferCondition(f),
+    priceText,
+    f.domain,
+  ].filter(Boolean) as string[];
+}
+
+function GridFindingCard({
+  f,
+  ipId,
+  showIp,
+  selected,
+  isDismissed,
+  isDismissing,
+  onSelect,
+  onOpen,
+  onDismiss,
+  onActionComplete,
+  onUpdated,
+}: {
+  f: IpReviewFinding;
+  ipId?: string;
+  showIp?: boolean;
+  selected: boolean;
+  isDismissed: boolean;
+  isDismissing: boolean;
+  onSelect: () => void;
+  onOpen: () => void;
+  onDismiss: (reason: MonitoringReviewOutcome) => void;
+  onActionComplete: () => void;
+  onUpdated: () => void;
+}) {
+  const thumb = topImageUrl(f);
+  const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
+  const chips = findingChips(f, showIp);
+  const title = compactListingTitle(f);
+  return (
+    <div className={`rounded-lg border border-stone-200 bg-white overflow-hidden ${isDismissed ? "opacity-60" : ""}`}>
+      <div className="relative aspect-square bg-stone-100">
+        {thumb ? (
+          <img src={thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0" />
+        )}
+        <label className="absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
+          <input
+            type="checkbox"
+            aria-label="Select finding"
+            checked={selected}
+            onChange={onSelect}
+            className="h-4 w-4"
+          />
+        </label>
+        <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-stone-800 shadow-sm">
+          {f.enforcement_priority.toFixed(2)}
+        </span>
+      </div>
+      <div className="p-3 space-y-2">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="block w-full text-left text-sm font-semibold text-stone-900 truncate hover:text-blue-700"
+          title={title}
+        >
+          {title}
+        </button>
+        <div className="flex items-center gap-1 flex-wrap min-h-6">
+          {chips.slice(0, 5).map((chip) => (
+            <span
+              key={chip}
+              className="max-w-[9rem] truncate px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px] font-semibold"
+              title={chip}
+            >
+              {chip}
+            </span>
+          ))}
+          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${sb.cls}`}>
+            {sb.label}
+          </span>
+        </div>
+        <div className="text-[11px] text-stone-500 truncate">
+          {f.seller_name || "Unknown seller"} · found {formatAgo(f.found_at) ?? "—"}
+        </div>
+        <FindingActions
+          f={f}
+          ipId={ipId}
+          canLicense={!!ipId && !!(f.seller_name || f.seller_url)}
+          isDismissed={isDismissed}
+          isDismissing={isDismissing}
+          onDismiss={onDismiss}
+          onActionComplete={onActionComplete}
+          onUpdated={onUpdated}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Table cells (columns 2-9) for one finding. The enclosing <tr> owns the
  *  click-to-expand + selection styling. Columns:
  *  rate · image · description · seller · platform · status · price · days.
@@ -1140,10 +1472,10 @@ function FindingRow({
         : "bg-stone-100 text-stone-600";
   const thumb = topImageUrl(f);
   const market = estimatedMarket(f);
-  const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
+  const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
   const foundAgo = formatAgo(f.found_at) ?? "—";
   const updatedAgo = formatAgo(f.last_checked_at);
-  const title = f.listing_title ?? f.page_url;
+  const title = compactListingTitle(f);
   const sellerLine = f.seller_name || "—";
   // Show the USD-normalized price so the Price column reads monotonically when
   // sorted (the sort key is USD across mixed currencies). Native price + est.
@@ -1151,6 +1483,7 @@ function FindingRow({
   const priceUsd =
     f.price_value_usd != null ? formatMoney(Number(f.price_value_usd), "USD") : null;
   const priceText = priceUsd ?? f.price ?? null;
+  const chips = findingChips(f, showIp);
 
   return (
     <>
@@ -1178,25 +1511,33 @@ function FindingRow({
           <img
             src={thumb}
             alt=""
-            className="w-9 h-9 rounded object-cover border border-stone-200"
+            className="w-14 h-14 rounded-md object-cover border border-stone-200"
           />
         ) : (
-          <div className="w-9 h-9 rounded bg-stone-100" />
+          <div className="w-14 h-14 rounded-md bg-stone-100" />
         )}
       </td>
 
       {/* Description — title + IP chip; folds seller·platform in on small screens. */}
       <td className="py-2 px-2 align-middle max-w-0 w-full">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {showIp && f.ip_name && (
-            <span className="shrink-0 inline-block px-1 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-bold uppercase tracking-wide">
-              {f.ip_name}
-            </span>
-          )}
-          <span className="text-[13px] font-semibold text-stone-900 truncate">
+        <div className="min-w-0">
+          <span className="block text-[13px] font-semibold text-stone-900 truncate">
             {title}
           </span>
         </div>
+        {chips.length > 0 && (
+          <div className="mt-1 flex items-center gap-1 flex-wrap">
+            {chips.slice(0, 5).map((chip) => (
+              <span
+                key={chip}
+                className="max-w-[10rem] truncate px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px] font-semibold"
+                title={chip}
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="md:hidden text-[11px] text-stone-500 truncate">
           <span className="font-medium">{sellerLine}</span>
           <span className="mx-1.5 text-stone-300">·</span>
@@ -1261,6 +1602,7 @@ function FindingComparison({
   isDismissed,
   isDismissing,
   onDismiss,
+  onActionComplete,
   onUpdated,
 }: {
   f: IpReviewFinding;
@@ -1270,7 +1612,8 @@ function FindingComparison({
   showIp?: boolean;
   isDismissed: boolean;
   isDismissing: boolean;
-  onDismiss: () => void;
+  onDismiss: (reason: MonitoringReviewOutcome) => void;
+  onActionComplete: () => void;
   onUpdated: () => void;
 }) {
   const priorityCls =
@@ -1284,7 +1627,7 @@ function FindingComparison({
   // page, not the listing.
   const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
 
-  const sb = statusBadge(f.dismissed_at ? "dismissed" : f.review_status);
+  const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
 
   return (
     // Cap + center the content so the panel doesn't sprawl edge-to-edge on wide
@@ -1318,13 +1661,9 @@ function FindingComparison({
             </span>
           )}
           {isDismissed && (
-            f.dismissal_reason === "licensed" ? (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-700">licensed</span>
-            ) : f.dismissal_reason?.startsWith("dead_link") ? (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-orange-100 text-orange-700">dead link</span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-stone-200 text-stone-600">dismissed</span>
-            )
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${dismissalBadge(f.dismissal_reason).cls}`}>
+              {dismissalBadge(f.dismissal_reason).label}
+            </span>
           )}
         </div>
       </div>
@@ -1533,6 +1872,7 @@ function FindingComparison({
           isDismissed={isDismissed}
           isDismissing={isDismissing}
           onDismiss={onDismiss}
+          onActionComplete={onActionComplete}
           onUpdated={onUpdated}
         />
       </div>
@@ -1574,6 +1914,7 @@ function FindingActions({
   isDismissed,
   isDismissing,
   onDismiss,
+  onActionComplete,
   onUpdated,
 }: {
   f: IpReviewFinding;
@@ -1581,7 +1922,8 @@ function FindingActions({
   canLicense: boolean;
   isDismissed: boolean;
   isDismissing: boolean;
-  onDismiss: () => void;
+  onDismiss: (reason: MonitoringReviewOutcome) => void;
+  onActionComplete: () => void;
   onUpdated: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -1606,6 +1948,7 @@ function FindingActions({
         if (canMarkSentWithoutEmail) {
           await markTakedownSentWithoutEmail(f.case_id);
           setConfirming(false);
+          onActionComplete();
           onUpdated();
           return;
         }
@@ -1616,6 +1959,7 @@ function FindingActions({
         if (canMarkSentWithoutEmail) {
           await markTakedownSentWithoutEmail(f.case_id);
           setConfirming(false);
+          onActionComplete();
           onUpdated();
           return;
         }
@@ -1624,6 +1968,7 @@ function FindingActions({
         return;
       }
       setConfirming(false);
+      onActionComplete();
       onUpdated();
     } catch (e) {
       setSendErr(e instanceof Error ? e.message : String(e));
@@ -1674,16 +2019,40 @@ function FindingActions({
   const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
   const ghostEmerald = `${primaryCls} border border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white`;
 
-  const dismissBtn = (
+  const outcomeButton = (
+    key: string,
+    label: string,
+    reason: MonitoringReviewOutcome,
+    title: string,
+  ) => (
     <button
-      key="dismiss"
+      key={key}
       type="button"
-      onClick={onDismiss}
+      onClick={() => onDismiss(reason)}
       disabled={isDismissing}
+      title={title}
       className={ghostStone}
     >
-      {isDismissing ? "Dismissing…" : "Dismiss"}
+      {isDismissing ? "Working…" : label}
     </button>
+  );
+  const falsePositiveBtn = outcomeButton(
+    "false-positive",
+    "False positive",
+    "false_positive",
+    "Shortcut 0: the detection is wrong or irrelevant",
+  );
+  const dontPursueBtn = outcomeButton(
+    "do-not-pursue",
+    "Don't pursue",
+    "do_not_pursue",
+    "Shortcut 1: valid detection, intentionally tolerated or not worth enforcement",
+  );
+  const secondHandBtn = outcomeButton(
+    "second-hand",
+    "Second hand",
+    "second_hand",
+    "Shortcut 3: used or resale item",
   );
 
   // Always-available — re-scrapes the listing + re-extracts + re-scores
@@ -1737,7 +2106,7 @@ function FindingActions({
 
   if (state === "pending") {
     // Triage decision: send the first takedown (auto-advances to takedown_sent)
-    // or dismiss — no separate "confirm" step. License is the fast-path for a
+    // or choose a non-enforcement outcome. License is the fast-path for a
     // recognised seller. The send is blocked (with a tooltip) until the IP has
     // a takedown signer (signer_ready) — set it on the IP's page. Admins can
     // still move the state forward without sending email.
@@ -1765,7 +2134,9 @@ function FindingActions({
           Send takedown
         </button>
         {licenseBtn}
-        {dismissBtn}
+        {falsePositiveBtn}
+        {dontPursueBtn}
+        {secondHandBtn}
       </>
     );
   } else if (state === "takedown_sent") {
@@ -1782,7 +2153,9 @@ function FindingActions({
         >
           {busy === "enforce" ? "Working…" : "Mark enforced"}
         </button>
-        {dismissBtn}
+        {falsePositiveBtn}
+        {dontPursueBtn}
+        {secondHandBtn}
       </>
     );
   } else if (state === "enforced") {
@@ -1821,6 +2194,7 @@ function FindingActions({
           onClose={() => setComposing(false)}
           onSent={() => {
             setComposing(false);
+            onActionComplete();
             onUpdated(); // case flips to takedown_sent; board refresh re-renders the row
           }}
         />
