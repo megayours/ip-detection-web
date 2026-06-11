@@ -194,7 +194,7 @@ export function MonitoringBoard({
         const state: CaseReviewStatus = f.dismissed_at
           ? "dismissed"
           : (f.review_status ?? "pending");
-        return state === "pending" && !dismissing.has(f.result_id);
+        return state === "pending" && f.ready_for_review && !dismissing.has(f.result_id);
       }),
     [findings, dismissing],
   );
@@ -988,6 +988,14 @@ function statusBadge(s: CaseReviewStatus | null | undefined) {
   }
 }
 
+function findingStatusBadge(f: IpReviewFinding) {
+  if (f.dismissed_at) return dismissalBadge(f.dismissal_reason);
+  if (!f.ready_for_review && (f.review_status ?? "pending") === "pending") {
+    return { label: "Preparing", cls: "bg-stone-100 text-stone-500" };
+  }
+  return statusBadge(f.review_status);
+}
+
 function dismissalBadge(reason: string | null) {
   switch (reason) {
     case "false_positive":
@@ -1522,7 +1530,7 @@ function GridFindingCard({
   onUpdated: () => void;
 }) {
   const thumb = topImageUrl(f);
-  const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
+  const sb = findingStatusBadge(f);
   const suggestion = suggestionMeta(f.suggested_review_outcome);
   const chips = findingChips(f, showIp);
   const title = compactListingTitle(f);
@@ -1619,7 +1627,7 @@ function FindingRow({
         : "bg-stone-100 text-stone-600";
   const thumb = topImageUrl(f);
   const market = estimatedMarket(f);
-  const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
+  const sb = findingStatusBadge(f);
   const foundAgo = formatAgo(f.found_at) ?? "—";
   const updatedAgo = formatAgo(f.last_checked_at);
   const title = compactListingTitle(f);
@@ -1785,7 +1793,7 @@ function FindingComparison({
   // page, not the listing.
   const isChallenge = /recaptcha|bot-wall/i.test(f.enrichment_error || "");
 
-  const sb = f.dismissed_at ? dismissalBadge(f.dismissal_reason) : statusBadge(f.review_status);
+  const sb = findingStatusBadge(f);
   const suggestion = suggestionMeta(f.suggested_review_outcome);
 
   return (

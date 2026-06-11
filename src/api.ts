@@ -1046,6 +1046,7 @@ export interface IpReviewFinding {
   license_status: string | null;
   screenshot_url: string | null;
   enrichment_error: string | null;
+  ready_for_review: boolean;
   // Enforcement-pipeline status (from cases LEFT JOIN). null when the finding
   // hasn't graduated to a case yet — UI treats null as 'pending'.
   review_status: CaseReviewStatus | null;
