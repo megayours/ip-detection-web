@@ -1438,16 +1438,23 @@ function inferCondition(f: IpReviewFinding): "new" | "second hand" | null {
 function suggestionMeta(outcome: IpReviewFinding["suggested_review_outcome"]) {
   switch (outcome) {
     case "false_positive":
-      return { label: "Suggest 0", cls: "bg-stone-800 text-white" };
+      return { label: "False positive", shortcut: "0", cls: "bg-stone-800 text-white" };
     case "do_not_pursue":
-      return { label: "Suggest 1", cls: "bg-sky-700 text-white" };
+      return { label: "Don't pursue", shortcut: "1", cls: "bg-sky-700 text-white" };
     case "takedown":
-      return { label: "Suggest 2", cls: "bg-blue-700 text-white" };
+      return { label: "Takedown", shortcut: "2", cls: "bg-blue-700 text-white" };
     case "second_hand":
-      return { label: "Suggest 3", cls: "bg-purple-700 text-white" };
+      return { label: "Second hand", shortcut: "3", cls: "bg-purple-700 text-white" };
     default:
       return null;
   }
+}
+
+function suggestionTitle(f: IpReviewFinding, shortcut: string) {
+  return [
+    f.suggested_review_reason,
+    `Shortcut ${shortcut}`,
+  ].filter(Boolean).join(" · ");
 }
 
 function compactListingTitle(f: IpReviewFinding) {
@@ -1543,7 +1550,7 @@ function GridFindingCard({
           {suggestion && (
             <span
               className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${suggestion.cls}`}
-              title={f.suggested_review_reason ?? undefined}
+              title={suggestionTitle(f, suggestion.shortcut)}
             >
               {suggestion.label}
             </span>
@@ -1661,7 +1668,7 @@ function FindingRow({
             {suggestion && (
               <span
                 className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${suggestion.cls}`}
-                title={f.suggested_review_reason ?? undefined}
+                title={suggestionTitle(f, suggestion.shortcut)}
               >
                 {suggestion.label}
               </span>
@@ -1788,7 +1795,7 @@ function FindingComparison({
           {suggestion && (
             <span
               className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${suggestion.cls}`}
-              title={f.suggested_review_reason ?? undefined}
+              title={suggestionTitle(f, suggestion.shortcut)}
             >
               {suggestion.label}
             </span>
