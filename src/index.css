@@ -2,7 +2,7 @@
 @import "tailwindcss";
 
 html {
-  font-size: 137.5%;  /* 22px base — scales all rem-based sizing ~1.375x */
+  font-size: 125%;  /* 20px base — scales all rem-based sizing ~1.25x */
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
