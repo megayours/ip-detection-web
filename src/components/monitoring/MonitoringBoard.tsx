@@ -307,7 +307,6 @@ export function MonitoringBoard({
             .slice(0, currentIndex)
             .find((f) => f.result_id !== resultId)
         : visibleActionableFindings.find((f) => f.result_id !== resultId);
-    setViewMode("table");
     setActiveId(next?.result_id ?? null);
   }, [visibleActionableFindings]);
 
@@ -529,6 +528,7 @@ export function MonitoringBoard({
       setConfirmAction(action);
       return;
     }
+    if (viewMode === "grid" && !effectiveActiveId) return;
     const activeFinding =
       (effectiveActiveId && displayFindings.find((f) => f.result_id === effectiveActiveId)) ||
       visibleActionableFindings[0];
@@ -580,6 +580,7 @@ export function MonitoringBoard({
     selected,
     shortcutBusy,
     visibleActionableFindings,
+    viewMode,
   ]);
 
   useEffect(() => {
@@ -922,10 +923,12 @@ export function MonitoringBoard({
                   f={f}
                   ipId={f.ip_id ?? ipId}
                   showIp={ipAware}
+                  active={effectiveActiveId === f.result_id}
                   selected={selected.has(f.result_id)}
                   isDismissed={rowDismissed}
                   isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
                   onSelect={() => toggleSelect(f.result_id)}
+                  onActivate={() => setActiveId(f.result_id)}
                   onOpen={() => {
                     setActiveId(f.result_id);
                     setViewMode("table");
@@ -1699,10 +1702,12 @@ function GridFindingCard({
   f,
   ipId,
   showIp,
+  active,
   selected,
   isDismissed,
   isDismissing,
   onSelect,
+  onActivate,
   onOpen,
   onDismiss,
   onActionComplete,
@@ -1712,10 +1717,12 @@ function GridFindingCard({
   f: IpReviewFinding;
   ipId?: string;
   showIp?: boolean;
+  active: boolean;
   selected: boolean;
   isDismissed: boolean;
   isDismissing: boolean;
   onSelect: () => void;
+  onActivate: () => void;
   onOpen: () => void;
   onDismiss: (reason: MonitoringReviewOutcome) => void;
   onActionComplete: () => void;
@@ -1735,7 +1742,11 @@ function GridFindingCard({
     f.price,
   ].filter(Boolean).length;
   return (
-    <div className={`rounded-lg border border-stone-200 bg-white overflow-hidden flex flex-col ${isDismissed ? "opacity-60" : ""}`}>
+    <div
+      className={`rounded-lg border bg-white overflow-hidden flex flex-col transition-colors ${
+        active ? "border-blue-500 ring-2 ring-blue-100" : "border-stone-200"
+      } ${isDismissed ? "opacity-60" : ""}`}
+    >
       <div className="relative p-3 pb-0">
         <ListingCarousel f={f} compact />
         <label className="absolute left-5 top-5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
@@ -1750,6 +1761,11 @@ function GridFindingCard({
         <span className="absolute right-5 top-5 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-stone-800 shadow-sm">
           {f.enforcement_priority.toFixed(2)}
         </span>
+        {active && (
+          <span className="absolute left-16 top-5 rounded-md bg-blue-600 px-2 py-1 text-[10px] font-bold uppercase text-white shadow-sm">
+            Active
+          </span>
+        )}
       </div>
       <div className="p-3 space-y-2 flex flex-col grow">
         <div className="flex items-center gap-1 flex-wrap min-h-6">
@@ -1836,25 +1852,46 @@ function GridFindingCard({
           </div>
         </details>
         <div className="grow" />
-        <FindingActions
-          f={f}
-          ipId={ipId}
-          canLicense={!!ipId && !!(f.seller_name || f.seller_url)}
-          isDismissed={isDismissed}
-          isDismissing={isDismissing}
-          onDismiss={onDismiss}
-          onActionComplete={onActionComplete}
-          onTakedownSent={onTakedownSent}
-          onUpdated={onUpdated}
-          compact
-        />
-        <button
-          type="button"
-          onClick={onOpen}
-          className="text-[11px] font-semibold text-stone-400 hover:text-blue-700 self-start"
-        >
-          Open full review
-        </button>
+        {active ? (
+          <FindingActions
+            f={f}
+            ipId={ipId}
+            canLicense={!!ipId && !!(f.seller_name || f.seller_url)}
+            isDismissed={isDismissed}
+            isDismissing={isDismissing}
+            onDismiss={onDismiss}
+            onActionComplete={onActionComplete}
+            onTakedownSent={onTakedownSent}
+            onUpdated={onUpdated}
+            compact
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={onActivate}
+            className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-[12px] font-semibold text-stone-700 hover:bg-stone-50"
+          >
+            Review this card
+          </button>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          {active ? (
+            <span className="text-[11px] font-semibold text-blue-700">
+              Shortcuts apply to this card
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold text-stone-400">
+              Activate to use shortcuts
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onOpen}
+            className="text-[11px] font-semibold text-stone-400 hover:text-blue-700"
+          >
+            Open full review
+          </button>
+        </div>
       </div>
     </div>
   );
