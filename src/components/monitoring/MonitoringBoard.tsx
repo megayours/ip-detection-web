@@ -2473,7 +2473,6 @@ function FindingActions({
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
   const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
-  const ghostEmerald = `${primaryCls} border border-emerald-300 text-emerald-700 hover:bg-emerald-50 bg-white`;
 
   const outcomeButton = (
     key: string,
@@ -2543,7 +2542,7 @@ function FindingActions({
       className={
         compact
           ? "px-1.5 py-1 rounded text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-          : ghostEmerald
+          : "px-2 py-1 rounded-md text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
       }
     >
       {licensing ? "Licensing…" : compact ? "License seller" : "License this seller"}
@@ -2579,6 +2578,7 @@ function FindingActions({
     const signerReady = f.signer_ready ?? true;
     buttons = (
       <>
+        {dontPursueBtn}
         <button
           type="button"
           disabled={!f.case_id || (!signerReady && !canMarkSentWithoutEmail)}
@@ -2600,16 +2600,15 @@ function FindingActions({
         >
           <ButtonWithShortcut label="Send takedown" shortcut="2" dark />
         </button>
-        {!compact && licenseBtn}
-        {falsePositiveBtn}
-        {dontPursueBtn}
         {secondHandBtn}
+        {falsePositiveBtn}
       </>
     );
-    utilityButtons = compact ? licenseBtn : null;
+    utilityButtons = licenseBtn;
   } else if (state === "takedown_sent") {
     buttons = (
       <>
+        {dontPursueBtn}
         <button
           type="button"
           disabled={!ipId || busy === "enforce"}
@@ -2621,9 +2620,8 @@ function FindingActions({
         >
           {busy === "enforce" ? "Working…" : "Mark enforced"}
         </button>
-        {falsePositiveBtn}
-        {dontPursueBtn}
         {secondHandBtn}
+        {falsePositiveBtn}
       </>
     );
   } else if (state === "enforced") {
@@ -2638,28 +2636,30 @@ function FindingActions({
       className={
         compact
           ? "rounded-md border border-stone-200 bg-stone-50 p-2 space-y-1.5"
-          : "flex items-center gap-2.5 flex-wrap justify-end"
+          : "space-y-2"
       }
     >
-      <div className={compact ? "grid grid-cols-2 gap-1.5" : "contents"}>
+      <div className={compact ? "grid grid-cols-2 gap-1.5" : "grid grid-cols-2 gap-2"}>
         {buttons}
       </div>
-      {compact ? (
-        (utilityButtons || refreshBtn) && (
-          <div className="relative border-t border-stone-200 pt-1 flex items-center justify-between gap-2 text-[11px] text-stone-400">
-            <div>{utilityButtons}</div>
-            {refreshBtn && (
-              <details className="ml-auto">
-                <summary className="cursor-pointer select-none hover:text-stone-600">Advanced</summary>
-                <div className="absolute z-10 mt-1 right-0 rounded-md border border-stone-200 bg-white p-1 shadow-sm">
-                  {refreshBtn}
-                </div>
-              </details>
-            )}
-          </div>
-        )
-      ) : (
-        refreshBtn
+      {(utilityButtons || refreshBtn) && (
+        <div
+          className={
+            compact
+              ? "relative border-t border-stone-200 pt-1 flex items-center justify-between gap-2 text-[11px] text-stone-400"
+              : "relative border-t border-stone-200 pt-2 flex items-center justify-between gap-3 text-sm text-stone-400"
+          }
+        >
+          <div>{utilityButtons}</div>
+          {refreshBtn && (
+            <details className="ml-auto">
+              <summary className="cursor-pointer select-none hover:text-stone-600">Advanced</summary>
+              <div className="absolute z-10 mt-1 right-0 rounded-md border border-stone-200 bg-white p-1 shadow-sm">
+                {refreshBtn}
+              </div>
+            </details>
+          )}
+        </div>
       )}
       {confirming && f.case_id && (
         <ConfirmSendModal
