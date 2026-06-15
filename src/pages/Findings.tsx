@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import {
   listMonitoringFindingsGlobal,
   type IpReviewFinding,
+  type MonitoringCandidateOutcome,
   type MonitoringFacets,
   type MonitoringFindingsQuery,
   type MonitoringDismissalReasonFilter,
@@ -26,6 +27,7 @@ interface InboxFilters {
   platform: string | null;
   seller: string | null;
   dismissal_reason: MonitoringDismissalReasonFilter | null;
+  candidate_outcome: MonitoringCandidateOutcome | null;
   show_dismissed: boolean;
   sort: MonitoringSortMode;
 }
@@ -37,6 +39,7 @@ function parseFilters(params: URLSearchParams): InboxFilters {
   const priority = params.get("priority");
   const sort = params.get("sort");
   const dismissalReason = params.get("dismissal_reason");
+  const candidateOutcome = params.get("candidate_outcome");
   return {
     // Default to "To triage" (pending); an explicit `status=all` clears it.
     status:
@@ -60,6 +63,14 @@ function parseFilters(params: URLSearchParams): InboxFilters {
       dismissalReason === "dead" ||
       dismissalReason === "manual_cleared"
         ? dismissalReason
+        : null,
+    candidate_outcome:
+      candidateOutcome === "false_positive" ||
+      candidateOutcome === "do_not_pursue" ||
+      candidateOutcome === "takedown" ||
+      candidateOutcome === "second_hand" ||
+      candidateOutcome === "none"
+        ? candidateOutcome
         : null,
     show_dismissed: params.get("show_dismissed") === "true",
     sort:
@@ -90,6 +101,7 @@ function writeFilters(base: URLSearchParams, f: InboxFilters): URLSearchParams {
   setOrDel("platform", f.platform);
   setOrDel("seller", f.seller);
   setOrDel("dismissal_reason", f.dismissal_reason);
+  setOrDel("candidate_outcome", f.candidate_outcome);
   setOrDel("show_dismissed", f.show_dismissed ? "true" : null);
   setOrDel("sort", f.sort === DEFAULT_SORT ? null : f.sort);
   return next;

@@ -1090,6 +1090,7 @@ export interface IpReviewFinding {
   price_value_usd: number | null;
   description_risk_breakdown: Record<string, unknown> | null;
   marketplace_condition: "new" | "second_hand" | "unknown";
+  manual_candidate_outcome: MonitoringCandidateOutcome | null;
   suggested_review_outcome:
     | "false_positive"
     | "do_not_pursue"
@@ -1472,6 +1473,12 @@ export type MonitoringDismissalReasonFilter =
   | "licensed"
   | "dead"
   | "manual_cleared";
+export type MonitoringCandidateOutcome =
+  | "false_positive"
+  | "do_not_pursue"
+  | "takedown"
+  | "second_hand"
+  | "none";
 
 /** Full-tenant facet counts returned alongside every findings page. */
 export interface MonitoringFacets {
@@ -1482,6 +1489,7 @@ export interface MonitoringFacets {
   /** Top-50 sellers (by finding count). Server-capped. */
   sellers: Array<{ seller_name: string; n: number }>;
   dismissal_reasons: Record<string, number>;
+  candidate_outcomes: Record<MonitoringCandidateOutcome, number>;
   total: number;
 }
 
@@ -1499,6 +1507,7 @@ export interface MonitoringFindingsQuery {
   platform?: string | null;
   seller?: string | null;
   dismissal_reason?: MonitoringDismissalReasonFilter | null;
+  candidate_outcome?: MonitoringCandidateOutcome | null;
   show_dismissed?: boolean;
   sort?: MonitoringSortMode;
   cursor?: string | null;
@@ -1521,6 +1530,7 @@ export function listMonitoringFindingsGlobal(
   if (opts.platform)     params.set("platform", opts.platform);
   if (opts.seller)       params.set("seller", opts.seller);
   if (opts.dismissal_reason) params.set("dismissal_reason", opts.dismissal_reason);
+  if (opts.candidate_outcome) params.set("candidate_outcome", opts.candidate_outcome);
   if (opts.show_dismissed) params.set("show_dismissed", "true");
   if (opts.sort)         params.set("sort", opts.sort);
   if (opts.cursor)       params.set("cursor", opts.cursor);
@@ -1528,6 +1538,22 @@ export function listMonitoringFindingsGlobal(
   const qs = params.toString();
   return request<MonitoringFindingsPage>(
     `/api/monitoring/findings${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function resortMonitoringFindings(
+  resultIds: string[],
+  candidateOutcome: MonitoringCandidateOutcome | null,
+) {
+  return request<{ ok: boolean; updated: number }>(
+    "/api/monitoring/findings/resort",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        result_ids: resultIds,
+        candidate_outcome: candidateOutcome,
+      }),
+    },
   );
 }
 

@@ -7,11 +7,13 @@ import {
   markIpFindingEnforced,
   markTakedownSentWithoutEmail,
   reenrichIpFinding,
+  resortMonitoringFindings,
   reopenIpFinding,
   undismissIpFinding,
   autoSendTakedown,
   type CaseReviewStatus,
   type IpReviewFinding,
+  type MonitoringCandidateOutcome,
   type MonitoringFacets,
   type MonitoringDismissalReasonFilter,
   type MonitoringPriorityBand,
@@ -29,6 +31,7 @@ export interface BoardFilters {
   platform: string | null;
   seller: string | null;
   dismissal_reason: MonitoringDismissalReasonFilter | null;
+  candidate_outcome: MonitoringCandidateOutcome | null;
   show_dismissed: boolean;
   sort: MonitoringSortMode;
 }
@@ -46,6 +49,57 @@ const DISMISSAL_REASON_LABELS: Record<MonitoringDismissalReasonFilter, string> =
   dead: "Dead link",
   manual_cleared: "Manual clear",
 };
+
+const CANDIDATE_OUTCOME_LABELS: Record<MonitoringCandidateOutcome, string> = {
+  second_hand: "Second hand",
+  takedown: "Likely counterfeit",
+  do_not_pursue: "Don't pursue",
+  false_positive: "False positive",
+  none: "Unsorted",
+};
+
+const CANDIDATE_OUTCOME_ORDER: MonitoringCandidateOutcome[] = [
+  "second_hand",
+  "takedown",
+  "do_not_pursue",
+  "false_positive",
+  "none",
+];
+
+type ResortTarget = MonitoringCandidateOutcome | null;
+
+function ShortcutKey({ value, dark = false }: { value: string; dark?: boolean }) {
+  return (
+    <kbd
+      className={
+        `inline-flex h-4 min-w-4 items-center justify-center rounded border px-1 text-[10px] font-bold leading-none ${
+          dark
+            ? "border-white/40 bg-white/20 text-white"
+            : "border-stone-300 bg-stone-100 text-stone-600"
+        }`
+      }
+    >
+      {value}
+    </kbd>
+  );
+}
+
+function ButtonWithShortcut({
+  label,
+  shortcut,
+  dark = false,
+}: {
+  label: string;
+  shortcut: string;
+  dark?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+      <ShortcutKey value={shortcut} dark={dark} />
+      <span>{label}</span>
+    </span>
+  );
+}
 
 type LastReviewAction =
   | { kind: "dismiss"; ipId: string; resultId: string; label: string }
@@ -121,6 +175,25 @@ function summarizeBatch(
   failed: number,
 ): string {
   const parts = [`${BATCH_META[action].verb} ${ok}`];
+  const skipTotal = Object.values(skipped).reduce((a, b) => a + b, 0);
+  if (skipTotal > 0) {
+    const detail = Object.entries(skipped)
+      .map(([reason, n]) => `${n} ${reason}`)
+      .join(", ");
+    parts.push(`skipped ${skipTotal}: ${detail}`);
+  }
+  if (failed > 0) parts.push(`${failed} failed`);
+  return parts.join(" · ");
+}
+
+function summarizeResort(
+  target: ResortTarget,
+  ok: number,
+  skipped: Record<string, number>,
+  failed: number,
+): string {
+  const label = target ? CANDIDATE_OUTCOME_LABELS[target] : "Auto bucket";
+  const parts = [`Moved ${ok} to ${label}`];
   const skipTotal = Object.values(skipped).reduce((a, b) => a + b, 0);
   if (skipTotal > 0) {
     const detail = Object.entries(skipped)
@@ -363,6 +436,24 @@ export function MonitoringBoard({
     return { eligible, skipped };
   }
 
+  function partitionResort() {
+    const eligible: IpReviewFinding[] = [];
+    const skipped: Record<string, number> = {};
+    const skip = (r: string) => {
+      skipped[r] = (skipped[r] ?? 0) + 1;
+    };
+    for (const f of displayFindings) {
+      if (!selected.has(f.result_id)) continue;
+      const state: CaseReviewStatus = f.dismissed_at
+        ? "dismissed"
+        : (f.review_status ?? "pending");
+      if (state !== "pending") skip("already sent or closed");
+      else if (!f.ready_for_review || !hasReviewAnalysis(f)) skip("still preparing");
+      else eligible.push(f);
+    }
+    return { eligible, skipped };
+  }
+
   async function runBatch(action: BatchAction) {
     const { eligible, skipped } = partitionSelection(action);
     const skipCounts: Record<string, number> = { ...skipped };
@@ -406,6 +497,27 @@ export function MonitoringBoard({
     setBatchProgress(null);
     setSelected(new Set());
     setBatchResult(summarizeBatch(action, ok, skipCounts, failed));
+    onRefresh();
+  }
+
+  async function runResort(target: ResortTarget) {
+    const { eligible, skipped } = partitionResort();
+    if (eligible.length === 0) {
+      setBatchResult(summarizeResort(target, 0, skipped, 0));
+      return;
+    }
+    setBatchProgress({ done: 0, total: eligible.length });
+    let failed = 0;
+    try {
+      await resortMonitoringFindings(eligible.map((f) => f.result_id), target);
+    } catch {
+      failed = eligible.length;
+    } finally {
+      setBatchProgress((p) => (p ? { ...p, done: p.total } : p));
+    }
+    setBatchProgress(null);
+    setSelected(new Set());
+    setBatchResult(summarizeResort(target, failed > 0 ? 0 : eligible.length, skipped, failed));
     onRefresh();
   }
 
@@ -495,6 +607,9 @@ export function MonitoringBoard({
 
   const allSelected = displayFindings.length > 0 && selected.size === displayFindings.length;
   const someSelected = selected.size > 0 && !allSelected;
+  const activeCandidateLabel = filters.candidate_outcome
+    ? CANDIDATE_OUTCOME_LABELS[filters.candidate_outcome]
+    : "All candidates";
 
   return (
     <>
@@ -639,6 +754,38 @@ export function MonitoringBoard({
         </div>
       </div>
 
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div className="inline-flex rounded-lg border border-stone-200 bg-white p-0.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => onFiltersChange({ candidate_outcome: null })}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
+              !filters.candidate_outcome ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
+            }`}
+          >
+            All ({facets.statuses.pending ?? 0})
+          </button>
+          {CANDIDATE_OUTCOME_ORDER.map((outcome) => (
+            <button
+              key={outcome}
+              type="button"
+              onClick={() => onFiltersChange({ candidate_outcome: outcome, status: "pending" })}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
+                filters.candidate_outcome === outcome
+                  ? "bg-stone-900 text-white"
+                  : "text-stone-500 hover:text-stone-800"
+              }`}
+            >
+              {CANDIDATE_OUTCOME_LABELS[outcome]} ({facets.candidate_outcomes?.[outcome] ?? 0})
+            </button>
+          ))}
+        </div>
+        <div className="text-[11px] font-semibold text-stone-500">
+          {activeCandidateLabel}
+          {selected.size > 0 ? ` · ${selected.size} selected` : ""}
+        </div>
+      </div>
+
       <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
         <StatusTabs
           counts={facets.statuses}
@@ -683,7 +830,7 @@ export function MonitoringBoard({
                     onClick={() => setConfirmAction("send")}
                     className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-500"
                   >
-                    Send takedowns
+                    <ButtonWithShortcut label="Send takedowns" shortcut="2" dark />
                   </button>
                   <button
                     type="button"
@@ -697,22 +844,40 @@ export function MonitoringBoard({
                     onClick={() => setConfirmAction("false_positive")}
                     className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
                   >
-                    False positive
+                    <ButtonWithShortcut label="False positive" shortcut="0" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmAction("do_not_pursue")}
                     className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
                   >
-                    Don't pursue
+                    <ButtonWithShortcut label="Don't pursue" shortcut="1" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmAction("second_hand")}
                     className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
                   >
-                    Second hand
+                    <ButtonWithShortcut label="Second hand" shortcut="3" />
                   </button>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      e.currentTarget.value = "";
+                      if (!value) return;
+                      void runResort(value as MonitoringCandidateOutcome);
+                    }}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
+                    title="Move selected findings to a candidate bucket"
+                  >
+                    <option value="" disabled>Move to…</option>
+                    {CANDIDATE_OUTCOME_ORDER.filter((outcome) => outcome !== filters.candidate_outcome).map((outcome) => (
+                      <option key={outcome} value={outcome}>
+                        {CANDIDATE_OUTCOME_LABELS[outcome]}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     onClick={() => setSelected(new Set())}
@@ -1596,6 +1761,14 @@ function GridFindingCard({
               {suggestion.label}
             </span>
           )}
+          {f.manual_candidate_outcome && (
+            <span
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700"
+              title="Manually moved during grouped triage"
+            >
+              Moved
+            </span>
+          )}
           {chips.slice(0, 5).map((chip) => (
             <span
               key={chip}
@@ -1773,6 +1946,14 @@ function FindingRow({
                 {suggestion.label}
               </span>
             )}
+            {f.manual_candidate_outcome && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700"
+                title="Manually moved during grouped triage"
+              >
+                Moved
+              </span>
+            )}
             {chips.slice(0, 5).map((chip) => (
               <span
                 key={chip}
@@ -1898,6 +2079,14 @@ function FindingComparison({
               title={suggestionTitle(f, suggestion.shortcut)}
             >
               {suggestion.label}
+            </span>
+          )}
+          {f.manual_candidate_outcome && (
+            <span
+              className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700"
+              title="Manually moved during grouped triage"
+            >
+              Moved
             </span>
           )}
           {showIp && f.ip_name && (
@@ -2291,6 +2480,7 @@ function FindingActions({
     label: string,
     reason: MonitoringReviewOutcome,
     title: string,
+    shortcut: string,
   ) => (
     <button
       key={key}
@@ -2299,8 +2489,9 @@ function FindingActions({
       disabled={isDismissing}
       title={title}
       className={ghostStone}
+      aria-keyshortcuts={shortcut}
     >
-      {isDismissing ? "Working…" : label}
+      {isDismissing ? "Working…" : <ButtonWithShortcut label={label} shortcut={shortcut} />}
     </button>
   );
   const falsePositiveBtn = outcomeButton(
@@ -2308,18 +2499,21 @@ function FindingActions({
     "False positive",
     "false_positive",
     "Shortcut 0: the detection is wrong or irrelevant",
+    "0",
   );
   const dontPursueBtn = outcomeButton(
     "do-not-pursue",
     "Don't pursue",
     "do_not_pursue",
     "Shortcut 1: valid detection, intentionally tolerated or not worth enforcement",
+    "1",
   );
   const secondHandBtn = outcomeButton(
     "second-hand",
     "Second hand",
     "second_hand",
     "Shortcut 3: used or resale item",
+    "3",
   );
 
   // Always-available — re-scrapes the listing + re-extracts + re-scores
@@ -2402,8 +2596,9 @@ function FindingActions({
             setConfirming(true);
           }}
           className={blue}
+          aria-keyshortcuts="2"
         >
-          Send takedown
+          <ButtonWithShortcut label="Send takedown" shortcut="2" dark />
         </button>
         {!compact && licenseBtn}
         {falsePositiveBtn}
