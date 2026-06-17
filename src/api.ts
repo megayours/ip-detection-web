@@ -62,8 +62,9 @@ export interface AuthUser {
  *  Optional `returnTo` is a same-origin path the backend will echo back to
  *  the SPA as `?next=…` after the OAuth round-trip succeeds. */
 export function workosLoginUrl(returnTo?: string): string {
-  if (!returnTo) return `${API}/api/auth/workos/start`;
-  return `${API}/api/auth/workos/start?return_to=${encodeURIComponent(returnTo)}`;
+  const params = new URLSearchParams({ origin: window.location.origin });
+  if (returnTo) params.set("return_to", returnTo);
+  return `${API}/api/auth/workos/start?${params.toString()}`;
 }
 
 export function getMe() {
