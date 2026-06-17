@@ -954,7 +954,7 @@ export function MonitoringBoard({
                     </label>
                   </th>
                   <SortHeader label="Rate" col="rate" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="w-12" />
-                  <th className="py-1.5 px-2 font-semibold w-8"><span className="sr-only">Image</span></th>
+                  <th className="py-1.5 px-2 font-semibold w-16"><span className="sr-only">Image</span></th>
                   <th className="py-1.5 px-2 font-semibold">Listing</th>
                   <SortHeader label="Seller" col="seller" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="hidden md:table-cell" />
                   <SortHeader label="Platform" col="platform" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="hidden lg:table-cell" />
@@ -1585,11 +1585,23 @@ function ListingCarousel({ f, compact = false }: { f: IpReviewFinding; compact?:
   );
 }
 
-// Top matched gallery image (highest similarity). Falls back to the
-// discovery image when the gallery wasn't enriched.
-function topImageUrl(f: IpReviewFinding): string | null {
-  const top = f.gallery_scores?.[0]?.url;
-  return top ?? f.image_url ?? null;
+// The table should show the discovery `image_url` first. If that remote image
+// fails to load, fall back through scored/gallery images so the row still has a
+// useful visual cue.
+function tableImageUrls(f: IpReviewFinding): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (u: string | null | undefined) => {
+    if (u && !seen.has(u)) {
+      out.push(u);
+      seen.add(u);
+    }
+  };
+  add(f.image_url);
+  add(f.gallery_scores?.[0]?.url);
+  for (const s of f.gallery_scores ?? []) add(s.url);
+  for (const u of f.image_urls ?? []) add(u);
+  return out;
 }
 
 // Fallback quantity when the listing didn't expose stock — most marketplaces
@@ -1703,6 +1715,47 @@ function findingChips(f: IpReviewFinding, showIp?: boolean) {
   ].filter(Boolean) as string[];
 }
 
+function FindingTableThumbnail({
+  urls,
+  title,
+}: {
+  urls: string[];
+  title: string;
+}) {
+  const [idx, setIdx] = useState(0);
+  const src = urls[idx];
+
+  if (!src) {
+    return (
+      <div
+        className="h-12 w-12 min-w-12 rounded-md bg-stone-100 border border-stone-200"
+        aria-label="No listing image"
+      />
+    );
+  }
+
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="block h-12 w-12 min-w-12 rounded-md overflow-hidden border border-stone-200 bg-stone-100 hover:border-stone-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
+      title="Open listing image"
+    >
+      <img
+        src={src}
+        alt={title ? `${title} listing image` : "Listing image"}
+        className="block h-full w-full object-cover"
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setIdx((current) => current + 1)}
+      />
+    </a>
+  );
+}
+
 /** Table cells (columns 2-9) for one finding — a single dense line (Decisions
  *  2/4). The enclosing <tr> owns the click-to-expand + selection styling.
  *  Columns: rate · thumb · listing(title+suggestion+chips) · seller · platform ·
@@ -1733,7 +1786,7 @@ function FindingRow({
       : f.enforcement_priority >= 0.5
         ? "bg-amber-100 text-amber-700"
         : "bg-stone-100 text-stone-600";
-  const thumb = topImageUrl(f);
+  const thumbUrls = tableImageUrls(f);
   const market = estimatedMarket(f);
   const sb = findingStatusBadge(f);
   const foundAgo = formatAgo(f.found_at) ?? "—";
@@ -1769,17 +1822,9 @@ function FindingRow({
         </span>
       </td>
 
-      {/* Thumbnail — 24px inline (Decision 2); full image lives in the panel. */}
-      <td className="py-1 px-2 align-middle">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt=""
-            className="w-6 h-6 rounded object-cover border border-stone-200"
-          />
-        ) : (
-          <div className="w-6 h-6 rounded bg-stone-100 border border-stone-200" />
-        )}
+      {/* Thumbnail — fixed square so table layout cannot collapse the image. */}
+      <td className="py-1.5 px-2 align-middle w-16">
+        <FindingTableThumbnail urls={thumbUrls} title={title} />
       </td>
 
       {/* Listing — title + suggestion badge + chips on ONE non-wrapping line
@@ -1991,6 +2036,23 @@ function FindingComparison({
         </div>
       </div>
 
+      {/* Primary triage actions — keep them immediately below the opened table
+          row/meta strip so the decision controls appear before the image +
+          listing detail content. */}
+      <div className="border-y border-stone-200 py-2">
+        <FindingActions
+          f={f}
+          ipId={ipId}
+          canLicense={canLicense}
+          isDismissed={isDismissed}
+          isDismissing={isDismissing}
+          onDismiss={onDismiss}
+          onActionComplete={onActionComplete}
+          onTakedownSent={onTakedownSent}
+          onUpdated={onUpdated}
+        />
+      </div>
+
       {/* Two-column body: bounded image left, enrichment data right. Collapses
           to a single column below lg. */}
       <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-x-4 gap-y-3 lg:items-stretch">
@@ -2178,28 +2240,6 @@ function FindingComparison({
           {f.published_at && <span className="text-stone-400">· {f.published_at}</span>}
         </div>
       </details>
-
-      {/* Spacer — pushes the action bar to the foot of the column so it aligns
-          with the bottom of the image instead of floating under short copy. */}
-      <div className="hidden lg:block grow" />
-
-      {/* Primary triage actions — sit at the foot of the enrichment column
-          (right of the image, under the description) and enlarged so a reviewer
-          can decide (takedown / license / dismiss) without hunting a small
-          header control. */}
-      <div className="border-t border-stone-200 pt-3 mt-1">
-        <FindingActions
-          f={f}
-          ipId={ipId}
-          canLicense={canLicense}
-          isDismissed={isDismissed}
-          isDismissing={isDismissing}
-          onDismiss={onDismiss}
-          onActionComplete={onActionComplete}
-          onTakedownSent={onTakedownSent}
-          onUpdated={onUpdated}
-        />
-      </div>
         </div>
       </div>
 
@@ -2346,10 +2386,10 @@ function FindingActions({
   const primaryCls =
     compact
       ? "h-8 px-2 rounded-md text-[11px] font-semibold leading-none disabled:opacity-50"
-      : "px-4 py-2 rounded-md text-sm font-semibold disabled:opacity-50";
+      : "h-7 px-2.5 rounded-md text-xs font-medium leading-none whitespace-nowrap disabled:opacity-50";
   const blue = `${primaryCls} bg-blue-600 text-white hover:bg-blue-500`;
   const emerald = `${primaryCls} bg-emerald-600 text-white hover:bg-emerald-500`;
-  const ghostStone = `${primaryCls} border border-stone-300 text-stone-700 hover:bg-stone-50 bg-white`;
+  const ghostStone = `${primaryCls} border border-stone-200 text-stone-700 hover:bg-stone-50 bg-white`;
 
   const outcomeButton = (
     key: string,
@@ -2419,7 +2459,7 @@ function FindingActions({
       className={
         compact
           ? "px-1.5 py-1 rounded text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-          : "px-2 py-1 rounded-md text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+          : "h-7 px-2 rounded-md text-xs font-medium leading-none whitespace-nowrap text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
       }
     >
       {licensing ? "Licensing…" : compact ? "License seller" : "License this seller"}
@@ -2513,19 +2553,30 @@ function FindingActions({
       className={
         compact
           ? "rounded-md border border-stone-200 bg-stone-50 p-2 space-y-1.5"
-          : "space-y-2"
+          : "min-w-0"
       }
     >
-      <div className={compact ? "grid grid-cols-2 gap-1.5" : "grid grid-cols-2 gap-2"}>
+      <div className={compact ? "grid grid-cols-2 gap-1.5" : "flex items-center gap-1.5 flex-nowrap whitespace-nowrap"}>
         {buttons}
+        {!compact && utilityButtons && (
+          <div className="ml-1 pl-2 border-l border-stone-200 flex items-center">
+            {utilityButtons}
+          </div>
+        )}
+        {!compact && refreshBtn && (
+          <details className="relative shrink-0 ml-auto">
+            <summary className="h-7 px-2 rounded-md text-xs font-medium leading-none text-stone-500 hover:bg-stone-50 hover:text-stone-700 cursor-pointer select-none list-none flex items-center">
+              Advanced
+            </summary>
+            <div className="absolute z-10 mt-1 right-0 rounded-md border border-stone-200 bg-white p-1 shadow-sm">
+              {refreshBtn}
+            </div>
+          </details>
+        )}
       </div>
-      {(utilityButtons || refreshBtn) && (
+      {compact && (utilityButtons || refreshBtn) && (
         <div
-          className={
-            compact
-              ? "relative border-t border-stone-200 pt-1 flex items-center justify-between gap-2 text-[11px] text-stone-400"
-              : "relative border-t border-stone-200 pt-2 flex items-center justify-between gap-3 text-sm text-stone-400"
-          }
+          className="relative border-t border-stone-200 pt-1 flex items-center justify-between gap-2 text-[11px] text-stone-400"
         >
           <div>{utilityButtons}</div>
           {refreshBtn && (

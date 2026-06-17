@@ -31,7 +31,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 // Where to send the user after a successful sign-in.
 //
 // Two transports because frontend and API live on different origins
-// (megayours.com vs ip-detection.yours.fun) and Safari/ITP can drop
+// (unvelar.com vs ip-detection.yours.fun) and Safari/ITP can drop
 // sessionStorage during cross-origin navigation:
 //
 //   1. sessionStorage["auth_return_to"] — set by ProtectedRoute / AdminRoute

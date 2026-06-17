@@ -159,7 +159,7 @@ export default function AppShell() {
             <rect x="30" y="8" width="8" height="20" rx="2" fill="currentColor" />
             <rect x="41" y="8" width="8" height="20" rx="2" fill="#b91c1c" />
           </svg>
-          <span className="text-sm font-bold tracking-tight text-stone-900">MegaYours</span>
+          <span className="text-sm font-bold tracking-tight text-stone-900">Unvelar</span>
         </Link>
       </div>
 
@@ -269,7 +269,7 @@ export default function AppShell() {
             <rect x="19" y="8" width="8" height="20" rx="2" fill="currentColor" />
             <rect x="30" y="8" width="8" height="20" rx="2" fill="#b91c1c" />
           </svg>
-          <span className="text-sm font-bold tracking-tight">MegaYours</span>
+          <span className="text-sm font-bold tracking-tight">Unvelar</span>
         </Link>
         <div className="ml-auto">
           <TopbarIpsLink active={isActive("/ips")} />

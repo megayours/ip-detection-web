@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import Nav from "../components/Nav";
 
 const DEMO_MAILTO =
-  "mailto:antonio.palma@megayours.com?subject=MegaYours%20Demo%20Request";
+  "mailto:antonio.palma@unvelar.com?subject=Unvelar%20Demo%20Request";
 
 export default function Landing() {
   return (
@@ -32,7 +32,7 @@ export default function Landing() {
               across the web.
             </h1>
             <p className="mt-7 text-lg text-stone-500 max-w-2xl mx-auto leading-relaxed text-balance">
-              MegaYours continuously monitors marketplaces, social platforms, and
+              Unvelar continuously monitors marketplaces, social platforms, and
               the open web for infringements of your characters, brands, and
               artwork — and clears new work before it ships. Purpose-built for
               legal and IP teams in film and gaming.
@@ -140,7 +140,7 @@ export default function Landing() {
               icon="radar"
               title="Monitoring"
               tagline="Continuous web surveillance & takedowns"
-              description="Register the IP you own and the places you want watched. MegaYours scans marketplaces, social platforms, and the open web around the clock, surfaces likely infringements as review-ready cases, and lets your team issue takedowns in a click."
+              description="Register the IP you own and the places you want watched. Unvelar scans marketplaces, social platforms, and the open web around the clock, surfaces likely infringements as review-ready cases, and lets your team issue takedowns in a click."
               points={[
                 "Always-on scanning across domains and platforms",
                 "Infringements arrive as enriched, review-ready cases",
@@ -196,7 +196,7 @@ export default function Landing() {
               <h3 className="text-2xl font-black tracking-tight mb-3">Watch</h3>
               <p className="text-sm text-white/50 mb-7 leading-relaxed">
                 Register the IP you own and the domains and platforms to keep an
-                eye on. MegaYours scans them on a schedule — no manual searching.
+                eye on. Unvelar scans them on a schedule — no manual searching.
               </p>
               <div className="space-y-3.5">
                 <FlowRow
@@ -305,7 +305,7 @@ export default function Landing() {
               </h2>
               <p className="mt-5 text-stone-500 leading-relaxed text-balance">
                 The same detection engine runs in reverse. Submit a new
-                character, scene, or asset and MegaYours checks it against 200K+
+                character, scene, or asset and Unvelar checks it against 200K+
                 protected references — so legal and IP teams catch risk before
                 production, marketing, or release, not after.
               </p>
@@ -391,7 +391,7 @@ export default function Landing() {
           </div>
 
           <p className="mt-6 text-[11px] text-stone-400 text-center max-w-3xl mx-auto tracking-wide">
-            Based on MegaYours internal benchmark. Methodology available on request.
+            Based on Unvelar internal benchmark. Methodology available on request.
           </p>
         </div>
       </section>
@@ -410,7 +410,7 @@ export default function Landing() {
               <span className="text-gradient-red">film, gaming, and creative IP.</span>
             </h2>
             <p className="mt-4 text-stone-500 max-w-2xl mx-auto text-balance leading-relaxed">
-              Rightsholders use MegaYours to find and take down infringement
+              Rightsholders use Unvelar to find and take down infringement
               across the web — and to clear new visual work before it reaches
               production, marketing, or release.
             </p>
@@ -492,7 +492,7 @@ export default function Landing() {
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
             <Link to="/" className="font-semibold text-stone-600 hover:text-stone-900 transition-colors">
-              MegaYours
+              Unvelar
             </Link>
             <span>· Copyright Intelligence Layer</span>
           </div>
@@ -804,7 +804,7 @@ const BENCHMARK_ROWS: BenchmarkRowData[] = [
     accuracy: (0.872 + 0.04) / 2,
   },
   {
-    name: "MegaYours",
+    name: "Unvelar",
     description: "Catalog matching plus AI review layer — full coverage across famous and lesser-known IP",
     accuracy: (0.981 + 0.976) / 2,
     highlight: true,

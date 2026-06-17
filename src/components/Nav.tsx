@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const DEMO_MAILTO =
-  "mailto:antonio.palma@megayours.com?subject=MegaYours%20Demo%20Request";
+  "mailto:antonio.palma@unvelar.com?subject=Unvelar%20Demo%20Request";
 
 /**
  * Marketing-page navigation bar. Only rendered by `Landing.tsx` — the
@@ -24,7 +24,7 @@ export default function Nav() {
             <rect x="30" y="8" width="8" height="20" rx="2" fill="currentColor" />
             <rect x="41" y="8" width="8" height="20" rx="2" fill="#b91c1c" />
           </svg>
-          <span className="text-sm font-bold tracking-tight text-stone-900">MegaYours</span>
+          <span className="text-sm font-bold tracking-tight text-stone-900">Unvelar</span>
         </Link>
         <div className="flex items-center gap-4">
           {user ? (
