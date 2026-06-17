@@ -255,7 +255,6 @@ export function MonitoringBoard({
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   // Inline-expanded finding (Gmail-row accordion). null = all collapsed.
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [lastAction, setLastAction] = useState<LastReviewAction | null>(null);
   const [undoing, setUndoing] = useState(false);
 
@@ -528,7 +527,6 @@ export function MonitoringBoard({
       setConfirmAction(action);
       return;
     }
-    if (viewMode === "grid" && !effectiveActiveId) return;
     const activeFinding =
       (effectiveActiveId && displayFindings.find((f) => f.result_id === effectiveActiveId)) ||
       visibleActionableFindings[0];
@@ -580,8 +578,49 @@ export function MonitoringBoard({
     selected,
     shortcutBusy,
     visibleActionableFindings,
-    viewMode,
   ]);
+
+  // Hover/focus row quick-action: send the takedown for one specific finding
+  // (mirrors the "send" branch of runShortcutAction but targets the hovered
+  // row rather than the active/first one). The full action set still lives in
+  // the expanded FindingComparison panel.
+  const handleQuickSend = useCallback(async (f: IpReviewFinding) => {
+    if (shortcutBusy) return;
+    const state: CaseReviewStatus = f.dismissed_at
+      ? "dismissed"
+      : (f.review_status ?? "pending");
+    if (state !== "pending") return;
+    if (!f.case_id) {
+      alert("Finding is still preparing.");
+      return;
+    }
+    setShortcutBusy(true);
+    try {
+      const r = await autoSendTakedown(f.case_id);
+      if (r.status === "sent") {
+        rememberTakedownAction(f);
+        advanceAfterAction(f.result_id);
+        onRefresh();
+        return;
+      }
+      if (canMarkSentWithoutEmail) {
+        await markTakedownSentWithoutEmail(f.case_id);
+        rememberTakedownAction(f);
+        advanceAfterAction(f.result_id);
+        onRefresh();
+        return;
+      }
+      throw new Error(
+        r.status === "needs_compose"
+          ? "This takedown needs manual compose."
+          : "Email is not configured.",
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update finding");
+    } finally {
+      setShortcutBusy(false);
+    }
+  }, [advanceAfterAction, canMarkSentWithoutEmail, onRefresh, rememberTakedownAction, shortcutBusy]);
 
   useEffect(() => {
     function editableTarget(target: EventTarget | null) {
@@ -614,29 +653,21 @@ export function MonitoringBoard({
 
   return (
     <>
-      {/* Secondary toolbar — priority + facet filters. Status lives in the
-          tabs on the table; sorting lives in the sortable column headers. */}
-      <div className="flex items-center justify-end gap-2 flex-wrap mb-3">
-        <div className="inline-flex rounded-lg border border-stone-200 bg-white p-0.5">
-          <button
-            type="button"
-            onClick={() => setViewMode("table")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
-              viewMode === "table" ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
-            }`}
-          >
-            Table
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("grid")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
-              viewMode === "grid" ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
-            }`}
-          >
-            Card
-          </button>
-        </div>
+      {/* Compact triage toolbar (Decision 6) — status pills + facet filters in
+          one dense row. Sorting stays on the table's sortable column headers. */}
+      <div className="flex items-center gap-2 flex-wrap rounded-lg border border-stone-200 bg-white px-2 py-1.5 mb-2">
+        <StatusTabs
+          counts={facets.statuses}
+          active={filters.status}
+          onSelect={(s) =>
+            onFiltersChange({
+              status: s as MonitoringStatusFilter | null,
+              dismissal_reason: s === "dismissed" ? filters.dismissal_reason : null,
+              show_dismissed: s === "dismissed" ? true : filters.show_dismissed,
+            })
+          }
+        />
+        <span className="self-stretch w-px bg-stone-200 mx-0.5" aria-hidden />
         <div className="relative">
           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-stone-400">
             <svg viewBox="0 0 12 12" width="12" height="12" fill="currentColor" aria-hidden>
@@ -664,8 +695,7 @@ export function MonitoringBoard({
             <option value="low">Low ({counts.low})</option>
           </select>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {ipAware && facets.ips.length > 1 && (
+        {ipAware && facets.ips.length > 1 && (
             <select
               value={filters.ip_id ?? "all"}
               onChange={(e) =>
@@ -752,53 +782,41 @@ export function MonitoringBoard({
               ))}
             </select>
           )}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-        <div className="inline-flex rounded-lg border border-stone-200 bg-white p-0.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => onFiltersChange({ candidate_outcome: null })}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
-              !filters.candidate_outcome ? "bg-stone-900 text-white" : "text-stone-500 hover:text-stone-800"
-            }`}
-          >
-            All ({facets.statuses.pending ?? 0})
-          </button>
-          {CANDIDATE_OUTCOME_ORDER.map((outcome) => (
-            <button
-              key={outcome}
-              type="button"
-              onClick={() => onFiltersChange({ candidate_outcome: outcome, status: "pending" })}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${
-                filters.candidate_outcome === outcome
-                  ? "bg-stone-900 text-white"
-                  : "text-stone-500 hover:text-stone-800"
-              }`}
-            >
-              {CANDIDATE_OUTCOME_LABELS[outcome]} ({facets.candidate_outcomes?.[outcome] ?? 0})
-            </button>
-          ))}
-        </div>
-        <div className="text-[11px] font-semibold text-stone-500">
+        <span className="flex-1 min-w-[8px]" aria-hidden />
+        <span className="text-[11px] font-semibold text-stone-500 whitespace-nowrap">
           {activeCandidateLabel}
           {selected.size > 0 ? ` · ${selected.size} selected` : ""}
-        </div>
+        </span>
       </div>
 
-      <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
-        <StatusTabs
-          counts={facets.statuses}
-          active={filters.status}
-          onSelect={(s) =>
-            onFiltersChange({
-              status: s as MonitoringStatusFilter | null,
-              dismissal_reason: s === "dismissed" ? filters.dismissal_reason : null,
-              show_dismissed: s === "dismissed" ? true : filters.show_dismissed,
-            })
-          }
-        />
+      {/* Candidate buckets (Decision 6) — compact secondary filter line. */}
+      <div className="flex items-center gap-1 flex-wrap mb-2">
+        <button
+          type="button"
+          onClick={() => onFiltersChange({ candidate_outcome: null })}
+          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold ${
+            !filters.candidate_outcome ? "bg-stone-900 text-white" : "text-stone-500 hover:bg-stone-100"
+          }`}
+        >
+          All ({facets.statuses.pending ?? 0})
+        </button>
+        {CANDIDATE_OUTCOME_ORDER.map((outcome) => (
+          <button
+            key={outcome}
+            type="button"
+            onClick={() => onFiltersChange({ candidate_outcome: outcome, status: "pending" })}
+            className={`h-7 px-2.5 rounded-md text-[11px] font-semibold ${
+              filters.candidate_outcome === outcome
+                ? "bg-stone-900 text-white"
+                : "text-stone-500 hover:bg-stone-100"
+            }`}
+          >
+            {CANDIDATE_OUTCOME_LABELS[outcome]} ({facets.candidate_outcomes?.[outcome] ?? 0})
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-stone-200 bg-white overflow-hidden">
         {lastAction && (
           <div className="px-4 py-2 border-b border-stone-100 bg-blue-50 text-xs text-blue-900 flex items-center justify-between gap-3">
             <span>
@@ -913,34 +931,6 @@ export function MonitoringBoard({
                 </>
               )}
           </div>
-        ) : viewMode === "grid" ? (
-          <div className="p-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {displayFindings.map((f) => {
-              const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
-              return (
-                <GridFindingCard
-                  key={f.result_id}
-                  f={f}
-                  ipId={f.ip_id ?? ipId}
-                  showIp={ipAware}
-                  active={effectiveActiveId === f.result_id}
-                  selected={selected.has(f.result_id)}
-                  isDismissed={rowDismissed}
-                  isDismissing={dismissing.has(f.result_id) && !f.dismissed_at}
-                  onSelect={() => toggleSelect(f.result_id)}
-                  onActivate={() => setActiveId(f.result_id)}
-                  onOpen={() => {
-                    setActiveId(f.result_id);
-                    setViewMode("table");
-                  }}
-                  onDismiss={(reason) => handleDismiss(f, reason)}
-                  onActionComplete={() => advanceAfterAction(f.result_id)}
-                  onTakedownSent={() => rememberTakedownAction(f)}
-                  onUpdated={onRefresh}
-                />
-              );
-            })}
-          </div>
         ) : (
           /* Columnar findings table. Sortable headers drive the server sort;
              clicking a row still expands the inline comparison panel (only one
@@ -949,8 +939,8 @@ export function MonitoringBoard({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-stone-200 bg-stone-50/60 text-[10px] uppercase tracking-wide text-stone-400">
-                  <th className="w-11 pl-3 pr-1 py-2 align-middle">
-                    <label className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer">
+                  <th className="w-9 pl-2 pr-1 py-1.5 align-middle">
+                    <label className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer">
                       <input
                         type="checkbox"
                         aria-label="Select all loaded findings"
@@ -963,12 +953,12 @@ export function MonitoringBoard({
                       />
                     </label>
                   </th>
-                  <SortHeader label="Rate" col="rate" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="w-14" />
-                  <th className="py-2 px-2 font-semibold">Image</th>
-                  <th className="py-2 px-2 font-semibold">Description</th>
+                  <SortHeader label="Rate" col="rate" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="w-12" />
+                  <th className="py-1.5 px-2 font-semibold w-8"><span className="sr-only">Image</span></th>
+                  <th className="py-1.5 px-2 font-semibold">Listing</th>
                   <SortHeader label="Seller" col="seller" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="hidden md:table-cell" />
                   <SortHeader label="Platform" col="platform" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} className="hidden lg:table-cell" />
-                  <th className="hidden sm:table-cell py-2 px-2 font-semibold">Status</th>
+                  <th className="hidden sm:table-cell py-1.5 px-2 font-semibold">Status</th>
                   <SortHeader label="Price" col="price" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} align="right" className="hidden md:table-cell" />
                   <SortHeader label="Days" col="days" sort={filters.sort} onSort={(s) => onFiltersChange({ sort: s })} align="right" />
                 </tr>
@@ -977,21 +967,26 @@ export function MonitoringBoard({
                 {displayFindings.map((f) => {
                   const expanded = f.result_id === effectiveActiveId;
                   const rowDismissed = !!f.dismissed_at || dismissing.has(f.result_id);
+                  const rowActionable =
+                    !rowDismissed &&
+                    (f.review_status ?? "pending") === "pending" &&
+                    f.ready_for_review &&
+                    hasReviewAnalysis(f);
                   return (
                     <Fragment key={f.result_id}>
                       <tr
                         onClick={() =>
                           setActiveId((prev) => (prev === f.result_id ? null : f.result_id))
                         }
-                        className={`cursor-pointer transition-colors ${
-                          expanded ? "bg-stone-50" : "hover:bg-stone-50"
+                        className={`group relative cursor-pointer transition-colors ${
+                          expanded ? "bg-stone-50" : "hover:bg-stone-50 focus-within:bg-stone-50"
                         } ${rowDismissed ? "opacity-50" : ""}`}
                       >
                         <td
-                          className="w-11 pl-3 pr-1 align-middle"
+                          className="w-9 pl-2 pr-1 align-middle"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <label className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer">
+                          <label className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer">
                             <input
                               type="checkbox"
                               aria-label="Select finding"
@@ -1001,7 +996,15 @@ export function MonitoringBoard({
                             />
                           </label>
                         </td>
-                        <FindingRow f={f} expanded={expanded} showIp={ipAware} />
+                        <FindingRow
+                          f={f}
+                          expanded={expanded}
+                          showIp={ipAware}
+                          actionable={rowActionable}
+                          quickBusy={shortcutBusy || dismissing.has(f.result_id)}
+                          onQuickSend={() => handleQuickSend(f)}
+                          onQuickDismiss={() => handleDismiss(f, "false_positive")}
+                        />
                       </tr>
                       {expanded && (
                         <tr>
@@ -1223,6 +1226,8 @@ function StatusTabs({
   onSelect: (s: string | null) => void;
 }) {
   const total = counts.pending + counts.takedown_sent + counts.enforced;
+  // Compact pill tabs (Decision 6) — live in the dense toolbar, not as folder
+  // tabs glued to the table. Active = filled stone-900; counts ride a small pill.
   const tab = (key: string | null, label: string, n: number) => {
     const isActive = active === key;
     return (
@@ -1231,16 +1236,16 @@ function StatusTabs({
         type="button"
         onClick={() => onSelect(key)}
         aria-pressed={isActive}
-        className={`relative -mb-px rounded-t-lg border border-stone-200 text-[13px] font-semibold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 focus-visible:ring-inset ${
+        className={`h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
           isActive
-            ? "z-10 bg-white text-stone-900 border-b-white px-4 py-2.5"
-            : "bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-800 px-4 py-2"
+            ? "bg-stone-900 text-white"
+            : "text-stone-500 hover:bg-stone-100 hover:text-stone-800"
         }`}
       >
         {label}
         <span
-          className={`ml-1.5 text-[11px] font-bold tabular-nums ${
-            isActive ? "text-stone-500" : "text-stone-400"
+          className={`text-[9px] font-bold tabular-nums px-1 rounded-full ${
+            isActive ? "bg-white/20 text-white" : "bg-stone-200 text-stone-600"
           }`}
         >
           {n}
@@ -1249,7 +1254,7 @@ function StatusTabs({
     );
   };
   return (
-    <div className="flex items-end gap-1.5 px-3 pt-2 border-b border-stone-200 bg-stone-50">
+    <div className="flex items-center gap-0.5 flex-wrap">
       {tab(null, "All", total)}
       {STATUS_FILTERS.map((s) => tab(s.key, s.label, counts[s.key] ?? 0))}
     </div>
@@ -1278,7 +1283,7 @@ function SortHeader({
   const isAsc = sort === asc;
   const next = sort === desc ? asc : desc;
   return (
-    <th className={`py-2 px-2 font-semibold ${className}`}>
+    <th className={`py-1.5 px-2 font-semibold ${className}`}>
       <button
         type="button"
         onClick={() => onSort(next)}
@@ -1698,218 +1703,29 @@ function findingChips(f: IpReviewFinding, showIp?: boolean) {
   ].filter(Boolean) as string[];
 }
 
-function GridFindingCard({
-  f,
-  ipId,
-  showIp,
-  active,
-  selected,
-  isDismissed,
-  isDismissing,
-  onSelect,
-  onActivate,
-  onOpen,
-  onDismiss,
-  onActionComplete,
-  onTakedownSent,
-  onUpdated,
-}: {
-  f: IpReviewFinding;
-  ipId?: string;
-  showIp?: boolean;
-  active: boolean;
-  selected: boolean;
-  isDismissed: boolean;
-  isDismissing: boolean;
-  onSelect: () => void;
-  onActivate: () => void;
-  onOpen: () => void;
-  onDismiss: (reason: MonitoringReviewOutcome) => void;
-  onActionComplete: () => void;
-  onTakedownSent: () => void;
-  onUpdated: () => void;
-}) {
-  const sb = findingStatusBadge(f);
-  const suggestion = suggestionMeta(f.suggested_review_outcome);
-  const chips = findingChips(f, showIp);
-  const detailCount = [
-    f.listing_title,
-    f.description_summary,
-    f.description_full,
-    f.match_explanation,
-    f.infringement_reasoning,
-    f.seller_name,
-    f.price,
-  ].filter(Boolean).length;
-  return (
-    <div
-      className={`rounded-lg border bg-white overflow-hidden flex flex-col transition-colors ${
-        active ? "border-blue-500 ring-2 ring-blue-100" : "border-stone-200"
-      } ${isDismissed ? "opacity-60" : ""}`}
-    >
-      <div className="relative p-3 pb-0">
-        <ListingCarousel f={f} compact />
-        <label className="absolute left-5 top-5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
-          <input
-            type="checkbox"
-            aria-label="Select finding"
-            checked={selected}
-            onChange={onSelect}
-            className="h-4 w-4"
-          />
-        </label>
-        <span className="absolute right-5 top-5 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-stone-800 shadow-sm">
-          {f.enforcement_priority.toFixed(2)}
-        </span>
-        {active && (
-          <span className="absolute left-16 top-5 rounded-md bg-blue-600 px-2 py-1 text-[10px] font-bold uppercase text-white shadow-sm">
-            Active
-          </span>
-        )}
-      </div>
-      <div className="p-3 space-y-2 flex flex-col grow">
-        <div className="flex items-center gap-1 flex-wrap min-h-6">
-          {suggestion && (
-            <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${suggestion.cls}`}
-              title={suggestionTitle(f, suggestion.shortcut)}
-            >
-              {suggestion.label}
-            </span>
-          )}
-          {f.manual_candidate_outcome && (
-            <span
-              className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700"
-              title="Manually moved during grouped triage"
-            >
-              Moved
-            </span>
-          )}
-          {chips.slice(0, 5).map((chip) => (
-            <span
-              key={chip}
-              className="max-w-[9rem] truncate px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px] font-semibold"
-              title={chip}
-            >
-              {chip}
-            </span>
-          ))}
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${sb.cls}`}>
-            {sb.label}
-          </span>
-        </div>
-        <div className="text-[11px] text-stone-500 truncate">
-          {f.seller_name || "Unknown seller"} · found {formatAgo(f.found_at) ?? "—"}
-        </div>
-        <details className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">
-          <summary className="cursor-pointer select-none font-semibold text-stone-700">
-            Details{detailCount > 0 ? ` (${detailCount})` : ""}
-          </summary>
-          <div className="mt-2 space-y-2">
-            {f.listing_title && (
-              <p>
-                <span className="font-semibold text-stone-500">Title: </span>
-                <span className="text-stone-800">{f.listing_title}</span>
-              </p>
-            )}
-            {f.description_summary && (
-              <p>
-                <span className="font-semibold text-stone-500">Summary: </span>
-                {f.description_summary}
-              </p>
-            )}
-            {f.description_full && f.description_full !== f.description_summary && (
-              <p className="whitespace-pre-wrap">
-                <span className="font-semibold text-stone-500">Description: </span>
-                {f.description_full}
-              </p>
-            )}
-            {(f.match_explanation || f.infringement_reasoning || f.vlm_reasoning) && (
-              <p>
-                <span className="font-semibold text-stone-500">Why flagged: </span>
-                {f.match_explanation || f.infringement_reasoning || f.vlm_reasoning}
-              </p>
-            )}
-            {(f.seller_name || f.seller_url || f.price || f.location) && (
-              <p className="text-stone-500">
-                {[f.seller_name, f.price, f.location].filter(Boolean).join(" · ")}
-                {f.seller_url && (
-                  <>
-                    {" · "}
-                    <a href={f.seller_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
-                      seller
-                    </a>
-                  </>
-                )}
-              </p>
-            )}
-            <a href={f.page_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
-              Open listing
-            </a>
-            {detailCount === 0 && (
-              <p className="italic text-stone-400">Listing details still being analysed.</p>
-            )}
-          </div>
-        </details>
-        <div className="grow" />
-        {active ? (
-          <FindingActions
-            f={f}
-            ipId={ipId}
-            canLicense={!!ipId && !!(f.seller_name || f.seller_url)}
-            isDismissed={isDismissed}
-            isDismissing={isDismissing}
-            onDismiss={onDismiss}
-            onActionComplete={onActionComplete}
-            onTakedownSent={onTakedownSent}
-            onUpdated={onUpdated}
-            compact
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={onActivate}
-            className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-[12px] font-semibold text-stone-700 hover:bg-stone-50"
-          >
-            Review this card
-          </button>
-        )}
-        <div className="flex items-center justify-between gap-2">
-          {active ? (
-            <span className="text-[11px] font-semibold text-blue-700">
-              Shortcuts apply to this card
-            </span>
-          ) : (
-            <span className="text-[11px] font-semibold text-stone-400">
-              Activate to use shortcuts
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onOpen}
-            className="text-[11px] font-semibold text-stone-400 hover:text-blue-700"
-          >
-            Open full review
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Table cells (columns 2-9) for one finding. The enclosing <tr> owns the
- *  click-to-expand + selection styling. Columns:
- *  rate · image · description · seller · platform · status · price · days.
- *  Seller/platform/status/price progressively hide on narrower viewports;
- *  seller·platform then fold into the description cell's secondary line. */
+/** Table cells (columns 2-9) for one finding — a single dense line (Decisions
+ *  2/4). The enclosing <tr> owns the click-to-expand + selection styling.
+ *  Columns: rate · thumb · listing(title+suggestion+chips) · seller · platform ·
+ *  status · price · days. Seller/platform/status/price progressively hide on
+ *  narrower viewports. On hover/focus the row reveals compact Send/Dismiss
+ *  quick actions overlaid at its right edge (Decision 7); the full action set
+ *  stays in the expanded FindingComparison panel. */
 function FindingRow({
   f,
   expanded,
   showIp,
+  actionable = false,
+  quickBusy = false,
+  onQuickSend,
+  onQuickDismiss,
 }: {
   f: IpReviewFinding;
   expanded: boolean;
   showIp?: boolean;
+  actionable?: boolean;
+  quickBusy?: boolean;
+  onQuickSend?: () => void;
+  onQuickDismiss?: () => void;
 }) {
   const priorityBg =
     f.enforcement_priority >= 0.75
@@ -1936,16 +1752,16 @@ function FindingRow({
   return (
     <>
       {/* Rate — caret + colored priority pill. */}
-      <td className="py-2 px-2 align-middle whitespace-nowrap">
+      <td className="py-1 px-2 align-middle whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5">
           <span
-            className={`text-stone-400 text-xs transition-transform ${expanded ? "rotate-90" : ""}`}
+            className={`text-stone-400 text-[10px] transition-transform ${expanded ? "rotate-90" : ""}`}
             aria-hidden
           >
             ▸
           </span>
           <span
-            className={`text-[11px] font-bold tabular-nums rounded px-1.5 py-0.5 ${priorityBg}`}
+            className={`text-[10px] font-bold tabular-nums rounded px-1 py-0.5 ${priorityBg}`}
             title="Enforcement priority"
           >
             {f.enforcement_priority.toFixed(2)}
@@ -1953,74 +1769,66 @@ function FindingRow({
         </span>
       </td>
 
-      {/* Image. */}
-      <td className="py-2 px-2 align-middle">
+      {/* Thumbnail — 24px inline (Decision 2); full image lives in the panel. */}
+      <td className="py-1 px-2 align-middle">
         {thumb ? (
           <img
             src={thumb}
             alt=""
-            className="w-14 h-14 rounded-md object-cover border border-stone-200"
+            className="w-6 h-6 rounded object-cover border border-stone-200"
           />
         ) : (
-          <div className="w-14 h-14 rounded-md bg-stone-100" />
+          <div className="w-6 h-6 rounded bg-stone-100 border border-stone-200" />
         )}
       </td>
 
-      {/* Description — title + IP chip; folds seller·platform in on small screens. */}
-      <td className="py-2 px-2 align-middle max-w-0 w-full">
-        <div className="min-w-0">
-          <span className="block text-[13px] font-semibold text-stone-900 truncate">
+      {/* Listing — title + suggestion badge + chips on ONE non-wrapping line
+          (Decision 4); the title truncates first, chips stay pinned. */}
+      <td className="py-1 px-2 align-middle max-w-0 w-full">
+        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+          <span className="font-semibold text-[13px] text-stone-900 truncate min-w-0">
             {title}
           </span>
-        </div>
-        {chips.length > 0 && (
-          <div className="mt-1 flex items-center gap-1 flex-wrap">
-            {suggestion && (
-              <span
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${suggestion.cls}`}
-                title={suggestionTitle(f, suggestion.shortcut)}
-              >
-                {suggestion.label}
-              </span>
-            )}
-            {f.manual_candidate_outcome && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700"
-                title="Manually moved during grouped triage"
-              >
-                Moved
-              </span>
-            )}
-            {chips.slice(0, 5).map((chip) => (
-              <span
-                key={chip}
-                className="max-w-[10rem] truncate px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[10px] font-semibold"
-                title={chip}
-              >
-                {chip}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="md:hidden text-[11px] text-stone-500 truncate">
-          <span className="font-medium">{sellerLine}</span>
-          <span className="mx-1.5 text-stone-300">·</span>
-          <span>{f.domain}</span>
+          {suggestion && (
+            <span
+              className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-bold uppercase leading-none ${suggestion.cls}`}
+              title={suggestionTitle(f, suggestion.shortcut)}
+            >
+              {suggestion.label}
+            </span>
+          )}
+          {f.manual_candidate_outcome && (
+            <span
+              className="shrink-0 px-1 py-0.5 rounded text-[9px] font-bold uppercase leading-none bg-amber-100 text-amber-700"
+              title="Manually moved during grouped triage"
+            >
+              Moved
+            </span>
+          )}
+          {chips.slice(0, 3).map((chip) => (
+            <span
+              key={chip}
+              className="shrink-0 px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 text-[9px] font-semibold leading-none"
+              title={chip}
+            >
+              {chip}
+            </span>
+          ))}
         </div>
       </td>
 
       {/* Seller. */}
-      <td className="hidden md:table-cell py-2 px-2 align-middle max-w-[10rem] truncate text-[12px] text-stone-600">
+      <td className="hidden md:table-cell py-1 px-2 align-middle max-w-[10rem] truncate text-[12px] text-stone-600">
         {sellerLine}
       </td>
 
       {/* Platform. */}
-      <td className="hidden lg:table-cell py-2 px-2 align-middle whitespace-nowrap text-[12px] text-stone-600">
+      <td className="hidden lg:table-cell py-1 px-2 align-middle whitespace-nowrap text-[12px] text-stone-600">
         {f.domain}
       </td>
 
       {/* Status. */}
-      <td className="hidden sm:table-cell py-2 px-2 align-middle">
+      <td className="hidden sm:table-cell py-1 px-2 align-middle">
         <span
           className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${sb.cls}`}
         >
@@ -2030,7 +1838,7 @@ function FindingRow({
 
       {/* Price — listing price; tooltip carries the estimated unlicensed market. */}
       <td
-        className="hidden md:table-cell py-2 px-2 align-middle text-right whitespace-nowrap text-[12px] font-semibold tabular-nums text-stone-800"
+        className="hidden md:table-cell py-1 px-2 align-middle text-right whitespace-nowrap text-[12px] font-semibold tabular-nums text-stone-800"
         title={
           [
             f.price ? `Listed ${f.price}` : null,
@@ -2045,12 +1853,44 @@ function FindingRow({
         {priceText ?? <span className="text-stone-300">—</span>}
       </td>
 
-      {/* Days — found relative; tooltip carries last-checked. */}
+      {/* Days — found relative; tooltip carries last-checked. Also hosts the
+          hover/focus quick-action overlay, positioned against the <tr>. */}
       <td
-        className="py-2 px-2 align-middle text-right whitespace-nowrap text-[11px] text-stone-500 tabular-nums"
+        className="relative py-1 px-2 align-middle text-right whitespace-nowrap text-[11px] text-stone-500 tabular-nums"
         title={updatedAgo ? `Updated ${updatedAgo}` : undefined}
       >
         {foundAgo}
+        {actionable && (
+          <span
+            className="absolute right-2 top-1/2 -translate-y-1/2 hidden items-center gap-1 pl-8 bg-gradient-to-l from-stone-50 via-stone-50 to-transparent group-hover:flex group-focus-within:flex"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              disabled={quickBusy}
+              title="Send takedown (shortcut 2)"
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickSend?.();
+              }}
+              className="h-[22px] px-2 rounded text-[10px] font-semibold leading-none bg-stone-900 text-white hover:bg-stone-700 disabled:opacity-50"
+            >
+              Send
+            </button>
+            <button
+              type="button"
+              disabled={quickBusy}
+              title="Dismiss as false positive (shortcut 0)"
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickDismiss?.();
+              }}
+              className="h-[22px] px-2 rounded text-[10px] font-semibold leading-none border border-stone-300 bg-white text-stone-600 hover:bg-stone-100 disabled:opacity-50"
+            >
+              Dismiss
+            </button>
+          </span>
+        )}
       </td>
     </>
   );
