@@ -24,4 +24,3 @@ dist-ssr
 *.sw?
 .claude/worktrees/
 .claude/worktrees/
-.env
