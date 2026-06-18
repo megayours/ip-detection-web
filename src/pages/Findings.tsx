@@ -60,6 +60,7 @@ function parseFilters(params: URLSearchParams): InboxFilters {
       dismissalReason === "do_not_pursue" ||
       dismissalReason === "second_hand" ||
       dismissalReason === "licensed" ||
+      dismissalReason === "allowed_product" ||
       dismissalReason === "dead" ||
       dismissalReason === "manual_cleared"
         ? dismissalReason

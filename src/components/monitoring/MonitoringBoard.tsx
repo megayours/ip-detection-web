@@ -1,8 +1,9 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, type MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
 import TakedownPanel, { ComposeModal, ConfirmSendModal } from "../TakedownPanel";
 import CaseComments from "../CaseComments";
 import {
   addIpLicense,
+  allowIpFindingProductImage,
   dismissIpFinding,
   markIpFindingEnforced,
   markTakedownSentWithoutEmail,
@@ -46,6 +47,7 @@ const DISMISSAL_REASON_LABELS: Record<MonitoringDismissalReasonFilter, string> =
   do_not_pursue: "Don't pursue",
   second_hand: "Second hand",
   licensed: "Licensed",
+  allowed_product: "Allowed product",
   dead: "Dead link",
   manual_cleared: "Manual clear",
 };
@@ -1201,6 +1203,8 @@ function dismissalBadge(reason: string | null) {
       return { label: "second hand", cls: "bg-purple-100 text-purple-700" };
     case "licensed":
       return { label: "licensed", cls: "bg-emerald-100 text-emerald-700" };
+    case "allowed_product":
+      return { label: "allowed product", cls: "bg-teal-100 text-teal-700" };
     default:
       return reason?.startsWith("dead_link")
         ? { label: "dead link", cls: "bg-orange-100 text-orange-700" }
@@ -1436,7 +1440,17 @@ function BboxOverlay({
  *  best-matched image is the default hero, marked MATCHED, and each thumb
  *  shows its similarity %. Falls back to discovery `image_url` only when the
  *  gallery is empty. The page screenshot is rendered separately below. */
-function ListingCarousel({ f, compact = false }: { f: IpReviewFinding; compact?: boolean }) {
+function ListingCarousel({
+  f,
+  ipId,
+  compact = false,
+  onUpdated,
+}: {
+  f: IpReviewFinding;
+  ipId?: string;
+  compact?: boolean;
+  onUpdated?: () => void;
+}) {
   const scored = useMemo(() => f.gallery_scores ?? [], [f.gallery_scores]);
   const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
   // Per-URL bbox in gallery-image pixel coords from the worker's keypoint
@@ -1465,6 +1479,7 @@ function ListingCarousel({ f, compact = false }: { f: IpReviewFinding; compact?:
   }, [f.screenshot_url, scored, f.image_urls, f.image_url]);
 
   const [idx, setIdx] = useState(0);
+  const [allowing, setAllowing] = useState(false);
   // Natural dimensions of the active hero image — needed so the SVG bbox
   // overlay (in pixel coords) lines up under the same `object-contain`
   // letterboxing as the <img>. Keyed by URL so switching slides invalidates a
@@ -1488,6 +1503,22 @@ function ListingCarousel({ f, compact = false }: { f: IpReviewFinding; compact?:
   const bestUrl = scored[0]?.url;
   // Only honor the measurement when it belongs to the current slide.
   const activeNatural = natural?.url === active ? natural : null;
+  const canAllowImage = !!ipId && !!active && active !== f.screenshot_url && !f.dismissed_at;
+
+  async function allowActiveImage(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!ipId || !active || allowing) return;
+    setAllowing(true);
+    try {
+      await allowIpFindingProductImage(ipId, f.result_id, { image_url: active });
+      onUpdated?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to allow product image");
+    } finally {
+      setAllowing(false);
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -1538,6 +1569,21 @@ function ListingCarousel({ f, compact = false }: { f: IpReviewFinding; compact?:
           <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-900/70 text-white">
             {idx + 1} / {urls.length}
           </span>
+        )}
+        {canAllowImage && (
+          <button
+            type="button"
+            onClick={allowActiveImage}
+            disabled={allowing}
+            title="Allow this product image — future similar images for this IP will be ignored"
+            className={`absolute bottom-2 left-2 rounded-md font-semibold shadow-sm disabled:opacity-60 ${
+              compact
+                ? "px-1.5 py-1 text-[10px] bg-white/95 text-teal-700"
+                : "px-2.5 py-1.5 text-xs bg-white/95 text-teal-700 hover:bg-teal-50"
+            }`}
+          >
+            {allowing ? "Allowing…" : compact ? "Allow" : "Allow image"}
+          </button>
         )}
       </a>
 
@@ -1748,7 +1794,7 @@ function GridFindingCard({
       } ${isDismissed ? "opacity-60" : ""}`}
     >
       <div className="relative p-3 pb-0">
-        <ListingCarousel f={f} compact />
+        <ListingCarousel f={f} ipId={ipId} compact onUpdated={onUpdated} />
         <label className="absolute left-5 top-5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
           <input
             type="checkbox"
@@ -2158,7 +2204,7 @@ function FindingComparison({
             when captured; product photos follow (best-matched marked).
             min-w-0 so the thumb strip scrolls instead of widening the track. */}
         <div className="lg:sticky lg:top-4 min-w-0">
-          <ListingCarousel f={f} />
+          <ListingCarousel f={f} ipId={ipId} onUpdated={onUpdated} />
         </div>
 
         {/* RIGHT — enrichment data. */}

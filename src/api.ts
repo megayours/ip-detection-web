@@ -1379,6 +1379,7 @@ export type MonitoringReviewOutcome =
   | "second_hand"
   | "manual_cleared"
   | "licensed"
+  | "allowed_product"
   | "resale";
 
 export function dismissIpFinding(
@@ -1388,6 +1389,22 @@ export function dismissIpFinding(
 ) {
   return request<{ ok: boolean }>(
     `/api/ip/${ipId}/monitoring/findings/${resultId}/dismiss`,
+    { method: "POST", body: JSON.stringify(opts) },
+  );
+}
+
+export function allowIpFindingProductImage(
+  ipId: string,
+  resultId: string,
+  opts: { image_url?: string | null; reason_notes?: string | null } = {},
+) {
+  return request<{
+    ok: boolean;
+    allowed_product_image: unknown | null;
+    dismissed: number;
+    job_id: string | null;
+  }>(
+    `/api/ip/${ipId}/monitoring/findings/${resultId}/allow-product-image`,
     { method: "POST", body: JSON.stringify(opts) },
   );
 }
@@ -1472,6 +1489,7 @@ export type MonitoringDismissalReasonFilter =
   | "do_not_pursue"
   | "second_hand"
   | "licensed"
+  | "allowed_product"
   | "dead"
   | "manual_cleared";
 export type MonitoringCandidateOutcome =
