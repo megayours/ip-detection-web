@@ -1400,9 +1400,8 @@ export function allowIpFindingProductImage(
 ) {
   return request<{
     ok: boolean;
-    allowed_product_image: unknown | null;
-    dismissed: number;
-    job_id: string | null;
+    queued: boolean;
+    job_id: string;
   }>(
     `/api/ip/${ipId}/monitoring/findings/${resultId}/allow-product-image`,
     { method: "POST", body: JSON.stringify(opts) },

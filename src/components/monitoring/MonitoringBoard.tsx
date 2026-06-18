@@ -45,7 +45,7 @@ const FILTER_SELECT =
 const DISMISSAL_REASON_LABELS: Record<MonitoringDismissalReasonFilter, string> = {
   false_positive: "False positive",
   do_not_pursue: "Don't pursue",
-  second_hand: "Second hand",
+  second_hand: "Resale / second hand",
   licensed: "Licensed",
   allowed_product: "Allowed product",
   dead: "Dead link",
@@ -53,8 +53,8 @@ const DISMISSAL_REASON_LABELS: Record<MonitoringDismissalReasonFilter, string> =
 };
 
 const CANDIDATE_OUTCOME_LABELS: Record<MonitoringCandidateOutcome, string> = {
-  second_hand: "Second hand",
-  takedown: "Likely counterfeit",
+  second_hand: "Resale / second hand",
+  takedown: "Review for takedown",
   do_not_pursue: "Don't pursue",
   false_positive: "False positive",
   none: "Unsorted",
@@ -147,7 +147,7 @@ const BATCH_META: Record<
   send: { label: "Send takedowns", verb: "Sent", gerund: "Send takedowns for" },
   false_positive: { label: "False positive", verb: "Cleared", gerund: "Mark false positive for" },
   do_not_pursue: { label: "Don't pursue", verb: "Cleared", gerund: "Don't pursue" },
-  second_hand: { label: "Second hand", verb: "Marked second hand", gerund: "Mark second hand for" },
+  second_hand: { label: "Resale / second hand", verb: "Marked resale", gerund: "Mark resale / second hand for" },
   enforce: { label: "Mark enforced", verb: "Marked enforced", gerund: "Mark enforced" },
 };
 
@@ -861,7 +861,7 @@ export function MonitoringBoard({
                     onClick={() => setConfirmAction("second_hand")}
                     className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-stone-300 text-stone-700 bg-white hover:bg-stone-50"
                   >
-                    <ButtonWithShortcut label="Second hand" shortcut="3" />
+                    <ButtonWithShortcut label="Resale" shortcut="3" />
                   </button>
                   <select
                     value=""
@@ -1200,7 +1200,7 @@ function dismissalBadge(reason: string | null) {
       return { label: "don't pursue", cls: "bg-sky-100 text-sky-700" };
     case "second_hand":
     case "resale":
-      return { label: "second hand", cls: "bg-purple-100 text-purple-700" };
+      return { label: "resale", cls: "bg-purple-100 text-purple-700" };
     case "licensed":
       return { label: "licensed", cls: "bg-emerald-100 text-emerald-700" };
     case "allowed_product":
@@ -1444,12 +1444,10 @@ function ListingCarousel({
   f,
   ipId,
   compact = false,
-  onUpdated,
 }: {
   f: IpReviewFinding;
   ipId?: string;
   compact?: boolean;
-  onUpdated?: () => void;
 }) {
   const scored = useMemo(() => f.gallery_scores ?? [], [f.gallery_scores]);
   const scoredByUrl = new Map(scored.map((s) => [s.url, s.similarity]));
@@ -1479,7 +1477,8 @@ function ListingCarousel({
   }, [f.screenshot_url, scored, f.image_urls, f.image_url]);
 
   const [idx, setIdx] = useState(0);
-  const [allowing, setAllowing] = useState(false);
+  const [allowingUrl, setAllowingUrl] = useState<string | null>(null);
+  const [allowedUrls, setAllowedUrls] = useState<Set<string>>(new Set());
   // Natural dimensions of the active hero image — needed so the SVG bbox
   // overlay (in pixel coords) lines up under the same `object-contain`
   // letterboxing as the <img>. Keyed by URL so switching slides invalidates a
@@ -1504,19 +1503,20 @@ function ListingCarousel({
   // Only honor the measurement when it belongs to the current slide.
   const activeNatural = natural?.url === active ? natural : null;
   const canAllowImage = !!ipId && !!active && active !== f.screenshot_url && !f.dismissed_at;
+  const activeAllowed = active ? allowedUrls.has(active) : false;
 
-  async function allowActiveImage(e: MouseEvent) {
+  async function allowImageUrl(e: MouseEvent, imageUrl: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (!ipId || !active || allowing) return;
-    setAllowing(true);
+    if (!ipId || !imageUrl || allowingUrl) return;
+    setAllowingUrl(imageUrl);
     try {
-      await allowIpFindingProductImage(ipId, f.result_id, { image_url: active });
-      onUpdated?.();
+      await allowIpFindingProductImage(ipId, f.result_id, { image_url: imageUrl });
+      setAllowedUrls((prev) => new Set(prev).add(imageUrl));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to allow product image");
     } finally {
-      setAllowing(false);
+      setAllowingUrl(null);
     }
   }
 
@@ -1573,8 +1573,8 @@ function ListingCarousel({
         {canAllowImage && (
           <button
             type="button"
-            onClick={allowActiveImage}
-            disabled={allowing}
+            onClick={(e) => allowImageUrl(e, active)}
+            disabled={!!allowingUrl || activeAllowed}
             title="Allow this product image — future similar images for this IP will be ignored"
             className={`absolute bottom-2 left-2 rounded-md font-semibold shadow-sm disabled:opacity-60 ${
               compact
@@ -1582,10 +1582,15 @@ function ListingCarousel({
                 : "px-2.5 py-1.5 text-xs bg-white/95 text-teal-700 hover:bg-teal-50"
             }`}
           >
-            {allowing ? "Allowing…" : compact ? "Allow" : "Allow image"}
+            {allowingUrl === active ? "Queuing…" : activeAllowed ? "Ignored going forward" : compact ? "Allow" : "Allow this image"}
           </button>
         )}
       </a>
+      {allowedUrls.size > 0 && (
+        <div className="rounded-md border border-teal-200 bg-teal-50 px-2.5 py-2 text-xs font-medium text-teal-800">
+          Similar products will be ignored going forward.
+        </div>
+      )}
 
       {/* Thumb strip — horizontal scroll on overflow, matched thumb framed emerald. */}
       {urls.length > 1 && (
@@ -1615,6 +1620,19 @@ function ListingCarousel({
                 {sim != null && (
                   <span className="absolute bottom-0 right-0 px-1 py-px bg-stone-900/80 text-white text-[9px] font-bold leading-tight">
                     {Math.round(sim * 100)}
+                  </span>
+                )}
+                {ipId && u !== f.screenshot_url && !f.dismissed_at && (
+                  <span
+                    onClick={(e) => allowImageUrl(e, u)}
+                    className={`absolute top-0 left-0 px-1 py-px text-[9px] font-bold leading-tight rounded-br ${
+                      allowedUrls.has(u)
+                        ? "bg-teal-600 text-white"
+                        : "bg-white/90 text-teal-700 hover:bg-teal-50"
+                    }`}
+                    title="Allow this individual product image"
+                  >
+                    {allowingUrl === u ? "..." : allowedUrls.has(u) ? "OK" : "Allow"}
                   </span>
                 )}
               </button>
@@ -1704,7 +1722,7 @@ function suggestionMeta(outcome: IpReviewFinding["suggested_review_outcome"]) {
     case "takedown":
       return { label: "Takedown", shortcut: "2", cls: "bg-blue-700 text-white" };
     case "second_hand":
-      return { label: "Second hand", shortcut: "3", cls: "bg-purple-700 text-white" };
+      return { label: "Resale", shortcut: "3", cls: "bg-purple-700 text-white" };
     default:
       return null;
   }
@@ -1794,7 +1812,7 @@ function GridFindingCard({
       } ${isDismissed ? "opacity-60" : ""}`}
     >
       <div className="relative p-3 pb-0">
-        <ListingCarousel f={f} ipId={ipId} compact onUpdated={onUpdated} />
+        <ListingCarousel f={f} ipId={ipId} compact />
         <label className="absolute left-5 top-5 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-stone-200 shadow-sm cursor-pointer">
           <input
             type="checkbox"
@@ -2204,7 +2222,7 @@ function FindingComparison({
             when captured; product photos follow (best-matched marked).
             min-w-0 so the thumb strip scrolls instead of widening the track. */}
         <div className="lg:sticky lg:top-4 min-w-0">
-          <ListingCarousel f={f} ipId={ipId} onUpdated={onUpdated} />
+          <ListingCarousel f={f} ipId={ipId} />
         </div>
 
         {/* RIGHT — enrichment data. */}
@@ -2592,9 +2610,9 @@ function FindingActions({
   );
   const secondHandBtn = outcomeButton(
     "second-hand",
-    "Second hand",
+    "Resale",
     "second_hand",
-    "Shortcut 3: used or resale item",
+    "Shortcut 3: resale or second-hand item",
     "3",
   );
 
@@ -2687,7 +2705,11 @@ function FindingActions({
         {falsePositiveBtn}
       </>
     );
-    utilityButtons = licenseBtn;
+    utilityButtons = (
+      <div className="flex flex-wrap items-center gap-3">
+        {licenseBtn}
+      </div>
+    );
   } else if (state === "takedown_sent") {
     buttons = (
       <>
